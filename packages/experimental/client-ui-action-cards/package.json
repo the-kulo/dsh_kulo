@@ -59,8 +59,7 @@
     "react": "^18.2.0",
     "@deepseek-ai/dsh-action-cards": "workspace:*",
     "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-client-test-runtime": "workspace:*"
+    "@deepseek-ai/dsh-util-values": "workspace:*"
   },
   "files": [
     "locale/*.json",

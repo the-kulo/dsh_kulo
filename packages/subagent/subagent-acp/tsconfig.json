@@ -31,9 +31,6 @@
     },
     {
       "path": "../../util/timeout"
-    },
-    {
-      "path": "../../test-support/loader-smoke"
     }
   ]
 }

@@ -1,6 +1,0 @@
-- region "Quick answers":
-  - heading "Quick answers" [level=2]
-  - list:
-    - listitem:
-      - paragraph: Quick question
-      - paragraph: Quick answer

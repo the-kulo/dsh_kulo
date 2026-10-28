@@ -1,0 +1,201 @@
+# DeepSeek Harness
+
+> 用于构建 Agent Harness 的插件化 SDK
+
+页面 URL 去掉末尾斜杠再加 `.md` 即为该页原始 Markdown(根路径用 `/index.md`);下方列表是各页精确地址。Drop any trailing slash and append `.md` to a page URL for its raw Markdown (the site root is `/index.md`); the list below carries the exact addresses.
+
+## 简体中文
+
+- [使用 Web UI](/guide/quickstart.md): 入门
+- [配置模型](/guide/providers.md): 入门
+- [网络代理](/guide/network-proxy.md): 入门
+- [公开部署](/guide/public-deployments.md): 入门
+- [Python](/guide/python-sdk.md): SDK
+- [GitHub 评审会话](/guide/github-review.md): 自动化
+- [会话内提醒](/guide/schedule.md): 自动化
+- [记忆 MCP](/guide/mcp-memory.md): 集成
+- [插件索引](/guide/plugin-market.md): 集成
+- [第一个 Harness 插件](/develop/basic/index.md): 基础
+- [开发一个 Tool](/develop/basic/tool.md): 基础
+- [插件配置](/develop/basic/config.md): 基础
+- [打包与安装插件](/develop/basic/publish.md): 基础
+- [插件与生命周期](/develop/framework/index.md): 框架能力
+- [服务与依赖](/develop/framework/service.md): 框架能力
+- [事件系统](/develop/framework/events.md): 框架能力
+- [能力的三层拆分](/develop/practice/index.md): 实战
+- [LLM 适配器](/develop/practice/llm-adapter.md): 实战
+- [持久化 Harness 插件](/develop/practice/dynamic-cordis.md): 实战
+- [总览](/develop/cordis-tutorial/index.md): Cordis 框架教程
+- [1. 第一个插件](/develop/cordis-tutorial/01-first-plugin.md): Cordis 框架教程
+- [2. 生命周期与副作用](/develop/cordis-tutorial/02-lifecycle-and-effects.md): Cordis 框架教程
+- [3. 服务](/develop/cordis-tutorial/03-services.md): Cordis 框架教程
+- [4. 事件](/develop/cordis-tutorial/04-events.md): Cordis 框架教程
+- [5. 配置](/develop/cordis-tutorial/05-config.md): Cordis 框架教程
+- [6. 组合与热重载](/develop/cordis-tutorial/06-composition-and-hmr.md): Cordis 框架教程
+- [7. 进入 Harness](/develop/cordis-tutorial/07-into-the-harness.md): Cordis 框架教程
+- [架构](/reference/index.md): 概念
+- [Cordis 入门](/reference/cordis-primer.md): 概念
+- [能力服务](/reference/capability-seams.md): 概念
+- [Agent 生命周期](/reference/agent-lifecycle.md): 概念
+- [Tool 执行](/reference/tool-execution-pipeline.md): 概念
+- [API Gateway](/reference/api-gateway.md): 概念
+- [插件配置](/reference/config-catalog.md): 生成参考
+- [Tool Schema](/reference/tool-catalog.md): 生成参考
+- [持久化事件](/reference/persistence-catalog.md): 生成参考
+- [实验性持久化记录](/reference/experimental-persistence-catalog.md): 生成参考
+- [Context](/reference/cordis-api/context.md): Cordis API
+- [Events](/reference/cordis-api/events.md): Cordis API
+- [Fiber](/reference/cordis-api/fiber.md): Cordis API
+- [Plugin Registry](/reference/cordis-api/registry.md): Cordis API
+- [Service](/reference/cordis-api/service.md): Cordis API
+- [继承接口面](/reference/cordis-api/inherited.md): Cordis API
+- [新增 Package](/reference/cookbook/adding-a-package.md): 开发手册
+- [新增 Tool](/reference/cookbook/adding-a-tool.md): 开发手册
+- [新增 LLM Adapter](/reference/cookbook/adding-an-llm-adapter.md): 开发手册
+- [新增设置页](/reference/cookbook/adding-a-settings-card.md): 开发手册
+- [扩展模式](/reference/cookbook/extension-cookbook.md): 开发手册
+- [子系统](/reference/subsystems/index.md): 总览
+- [核心](/reference/subsystems/core.md): 内核与作用域
+- [作用域](/reference/subsystems/scope.md): 内核与作用域
+- [会话](/reference/subsystems/session.md): 会话与持久化
+- [会话查询](/reference/subsystems/session-query.md): 会话与持久化
+- [会话引用](/reference/subsystems/session-reference.md): 会话与持久化
+- [会话标题](/reference/subsystems/session-title.md): 会话与持久化
+- [会话投影](/reference/subsystems/session-projection.md): 会话与持久化
+- [会话持久化](/reference/subsystems/persistence.md): 会话与持久化
+- [Spill 存储](/reference/subsystems/spill.md): 会话与持久化
+- [遥测](/reference/subsystems/session-telemetry.md): 会话与持久化
+- [LLM 流式响应](/reference/subsystems/llm-streaming.md): 模型与上下文
+- [Token 计量](/reference/subsystems/token-meter.md): 模型与上下文
+- [系统提示词](/reference/subsystems/system-prompt.md): 模型与上下文
+- [上下文压缩](/reference/subsystems/compaction.md): 模型与上下文
+- [工具](/reference/subsystems/tools.md): 执行与工具
+- [Bash 执行](/reference/subsystems/shell.md): 执行与工具
+- [子进程](/reference/subsystems/subprocess.md): 执行与工具
+- [PTY 会话](/reference/subsystems/terminal.md): 执行与工具
+- [后台任务](/reference/subsystems/jobs.md): 执行与工具
+- [文件系统](/reference/subsystems/filesystem.md): 执行与工具
+- [LSP 导航](/reference/subsystems/lsp.md): 执行与工具
+- [PTC 运行时](/reference/subsystems/ptc-runtime.md): 执行与工具
+- [Web 访问](/reference/subsystems/web.md): 执行与工具
+- [技能](/reference/subsystems/skills.md): 执行与工具
+- [工作流](/reference/subsystems/workflow.md): 执行与工具
+- [子智能体](/reference/subsystems/subagent.md): 执行与工具
+- [审批](/reference/subsystems/approval.md): 策略与交互
+- [权限预设](/reference/subsystems/permission-presets.md): 策略与交互
+- [沙箱](/reference/subsystems/sandbox.md): 策略与交互
+- [计划模式](/reference/subsystems/plan.md): 策略与交互
+- [用户交互](/reference/subsystems/user-questions.md): 策略与交互
+- [命令](/reference/subsystems/commands.md): 策略与交互
+- [目标](/reference/subsystems/goal.md): 策略与交互
+- [定时提醒](/reference/subsystems/schedule.md): 策略与交互
+- [HTTP 服务器](/reference/subsystems/web-server.md): 平台与接入
+- [Web Client 架构](/reference/subsystems/web-client.md): 平台与接入
+- [客户端模块](/reference/subsystems/client-modules.md): 平台与接入
+- [客户端 Slots](/reference/subsystems/slots.md): 平台与接入
+- [客户端资源](/reference/subsystems/client-resources.md): 平台与接入
+- [右侧 Sidebar](/reference/subsystems/sidebar-right.md): 平台与接入
+- [Conversation 组装](/reference/subsystems/conversation.md): 平台与接入
+- [Typert](/reference/subsystems/typert.md): 平台与接入
+- [存储](/reference/subsystems/storage.md): 平台与接入
+- [工作区](/reference/subsystems/workspace.md): 平台与接入
+- [用户设置](/reference/subsystems/settings.md): 平台与接入
+- [用户凭据](/reference/subsystems/credentials.md): 平台与接入
+
+## English
+
+- [Use the Web UI](/en/guide/quickstart.md): Guide
+- [Configure models](/en/guide/providers.md): Guide
+- [Network proxy](/en/guide/network-proxy.md): Guide
+- [Public deployments](/en/guide/public-deployments.md): Guide
+- [Python](/en/guide/python-sdk.md): SDK
+- [GitHub review sessions](/en/guide/github-review.md): Automation
+- [Session reminders](/en/guide/schedule.md): Automation
+- [Memory MCP](/en/guide/mcp-memory.md): Integrations
+- [Plugin indexes](/en/guide/plugin-market.md): Integrations
+- [Your first Harness plugin](/en/develop/basic/index.md): Basics
+- [Build a tool](/en/develop/basic/tool.md): Basics
+- [Plugin configuration](/en/develop/basic/config.md): Basics
+- [Package and install](/en/develop/basic/publish.md): Basics
+- [Plugin lifecycle](/en/develop/framework/index.md): Framework
+- [Services and dependencies](/en/develop/framework/service.md): Framework
+- [Event system](/en/develop/framework/events.md): Framework
+- [Capability layering](/en/develop/practice/index.md): Practice
+- [LLM adapter](/en/develop/practice/llm-adapter.md): Practice
+- [Persistent Harness plugins](/en/develop/practice/dynamic-cordis.md): Practice
+- [Overview](/en/develop/cordis-tutorial/index.md): Cordis framework tutorial
+- [1. Your first plugin](/en/develop/cordis-tutorial/01-first-plugin.md): Cordis framework tutorial
+- [2. Lifecycle and effects](/en/develop/cordis-tutorial/02-lifecycle-and-effects.md): Cordis framework tutorial
+- [3. Services](/en/develop/cordis-tutorial/03-services.md): Cordis framework tutorial
+- [4. Events](/en/develop/cordis-tutorial/04-events.md): Cordis framework tutorial
+- [5. Configuration](/en/develop/cordis-tutorial/05-config.md): Cordis framework tutorial
+- [6. Composition and HMR](/en/develop/cordis-tutorial/06-composition-and-hmr.md): Cordis framework tutorial
+- [7. Into the harness](/en/develop/cordis-tutorial/07-into-the-harness.md): Cordis framework tutorial
+- [Architecture](/en/reference/index.md): Concepts
+- [Cordis primer](/en/reference/cordis-primer.md): Concepts
+- [Capability services](/en/reference/capability-seams.md): Concepts
+- [Agent lifecycle](/en/reference/agent-lifecycle.md): Concepts
+- [Tool execution](/en/reference/tool-execution-pipeline.md): Concepts
+- [API Gateway](/en/reference/api-gateway.md): Concepts
+- [Plugin configuration](/en/reference/config-catalog.md): Generated reference
+- [Tool schemas](/en/reference/tool-catalog.md): Generated reference
+- [Persistence events](/en/reference/persistence-catalog.md): Generated reference
+- [Experimental persistence](/en/reference/experimental-persistence-catalog.md): Generated reference
+- [Context](/en/reference/cordis-api/context.md): Cordis Core API
+- [Events](/en/reference/cordis-api/events.md): Cordis Core API
+- [Fiber](/en/reference/cordis-api/fiber.md): Cordis Core API
+- [Plugin Registry](/en/reference/cordis-api/registry.md): Cordis Core API
+- [Service](/en/reference/cordis-api/service.md): Cordis Core API
+- [Inherited surface](/en/reference/cordis-api/inherited.md): Cordis Core API
+- [Adding a package](/en/reference/cookbook/adding-a-package.md): Cookbook
+- [Adding a tool](/en/reference/cookbook/adding-a-tool.md): Cookbook
+- [Adding an LLM adapter](/en/reference/cookbook/adding-an-llm-adapter.md): Cookbook
+- [Adding a settings page](/en/reference/cookbook/adding-a-settings-card.md): Cookbook
+- [Extension patterns](/en/reference/cookbook/extension-cookbook.md): Cookbook
+- [Subsystems](/en/reference/subsystems/index.md): Overview
+- [Core](/en/reference/subsystems/core.md): Core and scopes
+- [Scopes](/en/reference/subsystems/scope.md): Core and scopes
+- [Sessions](/en/reference/subsystems/session.md): Sessions and persistence
+- [Session query](/en/reference/subsystems/session-query.md): Sessions and persistence
+- [Session references](/en/reference/subsystems/session-reference.md): Sessions and persistence
+- [Session titles](/en/reference/subsystems/session-title.md): Sessions and persistence
+- [Session projections](/en/reference/subsystems/session-projection.md): Sessions and persistence
+- [Session persistence](/en/reference/subsystems/persistence.md): Sessions and persistence
+- [Spill storage](/en/reference/subsystems/spill.md): Sessions and persistence
+- [SessionTelemetryBackend](/en/reference/subsystems/session-telemetry.md): Sessions and persistence
+- [LLM streaming](/en/reference/subsystems/llm-streaming.md): Model and context
+- [Token metering](/en/reference/subsystems/token-meter.md): Model and context
+- [System prompts](/en/reference/subsystems/system-prompt.md): Model and context
+- [Compaction](/en/reference/subsystems/compaction.md): Model and context
+- [Tools](/en/reference/subsystems/tools.md): Execution and tools
+- [Bash execution](/en/reference/subsystems/shell.md): Execution and tools
+- [Subprocesses](/en/reference/subsystems/subprocess.md): Execution and tools
+- [PTY sessions](/en/reference/subsystems/terminal.md): Execution and tools
+- [Background jobs](/en/reference/subsystems/jobs.md): Execution and tools
+- [Filesystem](/en/reference/subsystems/filesystem.md): Execution and tools
+- [LSP navigation](/en/reference/subsystems/lsp.md): Execution and tools
+- [PTC runtime](/en/reference/subsystems/ptc-runtime.md): Execution and tools
+- [Web access](/en/reference/subsystems/web.md): Execution and tools
+- [Skills](/en/reference/subsystems/skills.md): Execution and tools
+- [Workflows](/en/reference/subsystems/workflow.md): Execution and tools
+- [Subagents](/en/reference/subsystems/subagent.md): Execution and tools
+- [Approvals](/en/reference/subsystems/approval.md): Policy and interaction
+- [Permission presets](/en/reference/subsystems/permission-presets.md): Policy and interaction
+- [Sandboxing](/en/reference/subsystems/sandbox.md): Policy and interaction
+- [Plan mode](/en/reference/subsystems/plan.md): Policy and interaction
+- [User interaction](/en/reference/subsystems/user-questions.md): Policy and interaction
+- [Human commands](/en/reference/subsystems/commands.md): Policy and interaction
+- [Goals](/en/reference/subsystems/goal.md): Policy and interaction
+- [Scheduled reminders](/en/reference/subsystems/schedule.md): Policy and interaction
+- [HTTP server](/en/reference/subsystems/web-server.md): Platform and access
+- [Web Client architecture](/en/reference/subsystems/web-client.md): Platform and access
+- [Client modules](/en/reference/subsystems/client-modules.md): Platform and access
+- [Client slots](/en/reference/subsystems/slots.md): Platform and access
+- [Client resources](/en/reference/subsystems/client-resources.md): Platform and access
+- [Right Sidebar](/en/reference/subsystems/sidebar-right.md): Platform and access
+- [Conversation assembly](/en/reference/subsystems/conversation.md): Platform and access
+- [Typert](/en/reference/subsystems/typert.md): Platform and access
+- [Storage](/en/reference/subsystems/storage.md): Platform and access
+- [Workspaces](/en/reference/subsystems/workspace.md): Platform and access
+- [User settings](/en/reference/subsystems/settings.md): Platform and access
+- [User credentials](/en/reference/subsystems/credentials.md): Platform and access

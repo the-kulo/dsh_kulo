@@ -22,9 +22,6 @@
       "path": "../../boot/plugin-manager"
     },
     {
-      "path": "../../test-support/client-runtime"
-    },
-    {
       "path": "../locale/tsconfig.client.json"
     },
     {

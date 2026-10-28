@@ -36,9 +36,6 @@
       "path": "../subagent"
     },
     {
-      "path": "../../test-support/loader-smoke"
-    },
-    {
       "path": "../../subprocess/subprocess"
     }
   ]

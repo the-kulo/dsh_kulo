@@ -52,7 +52,6 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [translation.md](translation.md) | experimental anonymous text translation and explicit provider requests |
 | [agent-team.md](agent-team.md) | Agent Teams: implicit Lead identity, named continuable teammates, direct peer inbox delivery, and shared task DAG |
 | [discussion-room.md](discussion-room.md) | Experimental multi-model discussion creation, durable room progress, contributions, and failures |
-| [daily-report.md](daily-report.md) | Experimental daily work-report generation, stored attempts, evidence sources, and scheduling |
 | [token-usage.md](token-usage.md) | Cross-Session provider token totals, Shanghai-day aggregation, and actual provider/model routes |
 | [claude-code-mods.md](claude-code-mods.md) | Claude Code mods through the experimental bridge: every event, `$` member, chain rule, drawing feature, and example mod that differs from Claude Code |
 | [web.md](web.md) | the web access seam: `WebSearchRequest`/`Result`, `WebFetchRequest`/`Result`, `WebFetchBody`, provider availability, `WebError` |

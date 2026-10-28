@@ -108,14 +108,6 @@ const GROUP_ORDER = [
 
 const SERVICE_ROLES: ServiceRole[] = [
   {
-    key: 'dailyReports',
-    pkg: 'daily-report',
-    title: 'Scheduled and manual work reports',
-    mode: 'service',
-    consumers: ['experimental-client-ui-daily-report'],
-    note: 'Collects Session evidence for the configured workday window, persists every generation attempt, and keeps the daily Schedule active independently of the optional Web page.',
-  },
-  {
     key: 'discussionRooms',
     pkg: 'discussion-room',
     title: 'Durable multi-model discussions',

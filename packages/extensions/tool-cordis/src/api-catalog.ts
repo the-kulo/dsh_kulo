@@ -1016,26 +1016,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
-    key: 'dailyReports',
-    summary: 'Host service owning report generation, durable history, and the 18:00 Schedule binding.',
-    description: 'Host service owning report generation, durable history, and the 18:00 Schedule binding.',
-    methods: [
-      {
-        signature: '@Remote(\'list\') async list(): Promise<DailyReport[]>',
-        description: 'Read durable generation attempts without activating source Sessions.',
-        parameters: [],
-        returns: 'Generation attempts sorted newest first by generation time and identifier.',
-      },
-      {
-        signature: '@Remote(\'generate\') generate(request: DailyReportGenerateRequest): Promise<DailyReport>',
-        description: 'Queue one manual report and resolve only after its durable attempt commits.',
-        parameters: [{ name: 'request', description: 'Manual generation input with an optional local report date.' }],
-        returns: 'The persisted generation attempt, including empty and failed reports.',
-        throws: ['{Error} If the service is unavailable, the requested date is invalid, or the attempt cannot be persisted.'],
-      },
-    ],
-  },
-  {
     key: 'deepseekAccount',
     summary: 'Account operations; only Host consumers can obtain a request credential.',
     description: 'Account operations; only Host consumers can obtain a request credential.',
@@ -5698,18 +5678,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DailyInput',
     declaration: 'export interface DailyInput {\n    readonly time: string;\n    readonly time_zone: string;\n}',
-  },
-  {
-    name: 'DailyReport',
-    declaration: 'export interface DailyReport {\n    readonly id: string;\n    readonly date: string;\n    readonly generatedAt: string;\n    readonly trigger: \'manual\' | \'schedule\';\n    readonly status: \'completed\' | \'empty\' | \'failed\';\n    readonly completed: readonly string[];\n    readonly inProgress: readonly string[];\n    readonly blocked: readonly string[];\n    readonly followUp: readonly string[];\n    readonly sources: readonly DailyReportSource[];\n    readonly error?: string | undefined;\n}',
-  },
-  {
-    name: 'DailyReportGenerateRequest',
-    declaration: 'export interface DailyReportGenerateRequest {\n    readonly date?: string;\n}',
-  },
-  {
-    name: 'DailyReportSource',
-    declaration: 'export interface DailyReportSource {\n    readonly sessionId: SessionId;\n    readonly title: string;\n}',
   },
   {
     name: 'DailyScheduleRecord',

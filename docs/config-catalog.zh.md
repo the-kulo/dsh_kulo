@@ -1068,33 +1068,6 @@ export type Config = CuaConfig
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-cua-macos -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-daily-report -->
-<a id="deepseek-aidsh-experimental-daily-report"></a>
-
-## `@deepseek-ai/dsh-experimental-daily-report`
-
-- `inject`: `agents` · `sessions` · `sessionQuery` · `schedule` · `storageDomain` · `sessionPersistence`
-- `source`: [`packages/experimental/daily-report/src/index.ts:35`](../packages/experimental/daily-report/src/index.ts)
-
-```ts config-catalog
-/** Daily-report deployment configuration. */
-export interface Config {
-  /** Model provider identifier for the dedicated report Agent. */
-  readonly provider: string
-  /** Model identifier for the dedicated report Agent. */
-  readonly model: string
-  /** IANA time zone for report dates, activity windows, and scheduling; defaults to Asia/Shanghai. */
-  readonly timeZone?: string
-  /** Inclusive local HH:mm start of the activity window; defaults to 08:30. */
-  readonly activeStart?: string
-  /** Exclusive local HH:mm end of the activity window and daily generation time; defaults to 18:00. */
-  readonly scheduleTime?: string
-  /** Maximum UTF-8 bytes retained per source Session transcript; defaults to 24,576 and must be at least 1,024. */
-  readonly maxSessionBytes?: number
-}
-```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-daily-report -->
-
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-discussion-room -->
 <a id="deepseek-aidsh-experimental-discussion-room"></a>
 
@@ -4831,7 +4804,6 @@ export interface Config {
 | `@deepseek-ai/dsh-experimental-auto-review` | `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` | [`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-client-ui-agent-team` | — | [`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods` | — | [`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-client-ui-daily-report` | — | [`packages/experimental/client-ui-daily-report/src/index.ts`](../packages/experimental/client-ui-daily-report/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-client-ui-discussion-room` | — | [`packages/experimental/client-ui-discussion-room/src/index.ts`](../packages/experimental/client-ui-discussion-room/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-client-ui-voice-input` | — | [`packages/experimental/client-ui-voice-input/src/index.ts`](../packages/experimental/client-ui-voice-input/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` | `computerUse` · `tools` · `systemPrompt` | [`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts) |
@@ -4926,7 +4898,6 @@ export interface Config {
 | `@deepseek-ai/dsh-experimental-badge-skill-bundle` | — | [`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-browser-use-runtime` | — | [`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-cot-translation-bundle` | — | [`packages/experimental/cot-translation-bundle/src/index.ts`](../packages/experimental/cot-translation-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-daily-report-profile` | — | [`packages/experimental/daily-report-profile/src/index.ts`](../packages/experimental/daily-report-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-discussion-room-profile` | — | [`packages/experimental/discussion-room-profile/src/index.ts`](../packages/experimental/discussion-room-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-inspector-profile` | — | [`packages/experimental/inspector-profile/src/index.ts`](../packages/experimental/inspector-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-liveshare-protocol` | — | [`packages/experimental/liveshare-protocol/src/index.ts`](../packages/experimental/liveshare-protocol/src/index.ts) |

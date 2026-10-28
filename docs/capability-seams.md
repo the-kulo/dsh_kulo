@@ -7,9 +7,6 @@ A service can be a core spine service, a swappable capability seam, a bundle/com
 
 ```mermaid
 flowchart LR
-  pkg_daily_report["daily-report"]
-  svc_dailyReports["ctx.dailyReports<br/>Scheduled and manual work reports"]
-  pkg_experimental_client_ui_daily_report["experimental-client-ui-daily-report"]
   pkg_discussion_room["discussion-room"]
   svc_discussionRooms["ctx.discussionRooms<br/>Durable multi-model discussions"]
   pkg_experimental_client_ui_discussion_room["experimental-client-ui-discussion-room"]
@@ -355,7 +352,6 @@ flowchart LR
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
   pkg_cua --> svc_cuaAccess
-  pkg_daily_report --> svc_dailyReports
   pkg_deepseek_account --> svc_deepseekAccount
   pkg_deepseek_account_platform --> svc_deepseekAccount
   pkg_deepseek_llm_api_extensions --> svc_deepseekLlmApiExtensions
@@ -512,7 +508,6 @@ flowchart LR
   svc_credentials --> pkg_llm_deepseek
   svc_credentials --> pkg_llm_pi_ai
   svc_cuaAccess --> pkg_cua
-  svc_dailyReports --> pkg_experimental_client_ui_daily_report
   svc_deepseekAccount --> pkg_api_account_controller
   svc_deepseekAccount --> pkg_llm_deepseek
   svc_deepseekLlmApiExtensions --> pkg_llm_deepseek
@@ -646,7 +641,6 @@ flowchart LR
 
 | ctx key | Role | Owner | Implementations | Direct consumers | Companion plugins | Note |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ctx.dailyReports` | `service` | `daily-report` | - | [`experimental-client-ui-daily-report`](../packages/experimental/client-ui-daily-report) | - | Collects Session evidence for the configured workday window, persists every generation attempt, and keeps the daily Schedule active independently of the optional Web page. |
 | `ctx.discussionRooms` | `service` | `discussion-room` | - | [`experimental-client-ui-discussion-room`](../packages/experimental/client-ui-discussion-room) | - | Runs bounded participant and moderator calls, records durable room state, and serves history to the conversation view. |
 | `ctx.usageDashboard` | `service` | `ui-settings-usage` | - | [`client-ui-settings-usage`](../packages/client/ui-settings-usage) | - | Folds provider-reported usage into per-Session checkpoints and serves Shanghai-date and provider/model aggregates to Settings. |
 | `ctx.actionCards` | `service` | [`action-cards`](../packages/experimental/action-cards) | - | [`creation-recommendations`](../packages/experimental/creation-recommendations), [`client-ui-action-cards`](../packages/experimental/client-ui-action-cards) | - | Owns the card tool, card state, user actions and status notices; card kinds register their actions and handlers. |

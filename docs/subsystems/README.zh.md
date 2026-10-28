@@ -52,7 +52,6 @@
 | [translation.md](translation.zh.md) | 实验性免登录文本翻译与显式 Provider 请求 |
 | [agent-team.md](agent-team.zh.md) | Agent Teams：隐式 Lead 身份、具名 continuable teammate、直接 peer inbox 投递 与共享任务 DAG |
 | [discussion-room.md](discussion-room.zh.md) | 实验性多模型讨论创建、持久房间进度、贡献与失败 |
-| [daily-report.md](daily-report.zh.md) | 实验性工作日报生成、持久化尝试、证据来源与定时调度 |
 | [token-usage.md](token-usage.zh.md) | 跨会话提供商 Token 汇总、上海时区日期聚合与实际提供商/模型路由 |
 | [claude-code-mods.md](claude-code-mods.zh.md) | 经实验性桥接运行的 Claude Code 模组：与 Claude Code 不同的每个事件、`$` 成员、链规则、绘制特性与示例模组 |
 | [web.md](web.zh.md) | Web 访问 seam：`WebSearchRequest`/`Result`、`WebFetchRequest`/`Result`、`WebFetchBody`、提供方可用性、`WebError` |

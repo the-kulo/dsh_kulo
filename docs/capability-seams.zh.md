@@ -9,9 +9,6 @@
 
 ```mermaid
 flowchart LR
-  pkg_daily_report["daily-report"]
-  svc_dailyReports["ctx.dailyReports<br/>Scheduled and manual work reports"]
-  pkg_experimental_client_ui_daily_report["experimental-client-ui-daily-report"]
   pkg_discussion_room["discussion-room"]
   svc_discussionRooms["ctx.discussionRooms<br/>Durable multi-model discussions"]
   pkg_experimental_client_ui_discussion_room["experimental-client-ui-discussion-room"]
@@ -357,7 +354,6 @@ flowchart LR
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
   pkg_cua --> svc_cuaAccess
-  pkg_daily_report --> svc_dailyReports
   pkg_deepseek_account --> svc_deepseekAccount
   pkg_deepseek_account_platform --> svc_deepseekAccount
   pkg_deepseek_llm_api_extensions --> svc_deepseekLlmApiExtensions
@@ -514,7 +510,6 @@ flowchart LR
   svc_credentials --> pkg_llm_deepseek
   svc_credentials --> pkg_llm_pi_ai
   svc_cuaAccess --> pkg_cua
-  svc_dailyReports --> pkg_experimental_client_ui_daily_report
   svc_deepseekAccount --> pkg_api_account_controller
   svc_deepseekAccount --> pkg_llm_deepseek
   svc_deepseekLlmApiExtensions --> pkg_llm_deepseek
@@ -648,7 +643,6 @@ flowchart LR
 
 | ctx 键 | 角色 | 所属包 | 实现 | 直接消费方 | 配套插件 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ctx.dailyReports` | `service` | `daily-report` | - | [`experimental-client-ui-daily-report`](../packages/experimental/client-ui-daily-report) | - | 收集配置工作时段内的会话证据，持久化每次生成尝试，并在可选 Web 页面禁用时仍保持每日定时任务。 |
 | `ctx.discussionRooms` | `service` | `discussion-room` | - | [`experimental-client-ui-discussion-room`](../packages/experimental/client-ui-discussion-room) | - | 运行有界的参与者与主持人调用，记录持久房间状态，并向会话视图提供历史。 |
 | `ctx.usageDashboard` | `service` | `ui-settings-usage` | - | [`client-ui-settings-usage`](../packages/client/ui-settings-usage) | - | 将提供商报告的用量折叠为每会话检查点，并向设置页提供上海时区日期与提供商/模型聚合。 |
 | `ctx.actionCards` | `service` | [`action-cards`](../packages/experimental/action-cards) | - | [`creation-recommendations`](../packages/experimental/creation-recommendations), [`client-ui-action-cards`](../packages/experimental/client-ui-action-cards) | - | 负责卡片工具、卡片状态、用户操作和状态通知；各卡片种类注册自己的动作和处理器。 |

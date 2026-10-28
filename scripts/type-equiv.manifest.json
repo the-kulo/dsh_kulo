@@ -2621,16 +2621,6 @@
       "doc": "docs/subsystems/token-usage.md",
       "symbol": "UsageSummary",
       "source": "packages/client/ui-settings-usage/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/daily-report.md",
-      "symbol": "DailyReportGenerateRequest",
-      "source": "packages/experimental/daily-report/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/daily-report.md",
-      "symbol": "DailyReport",
-      "source": "packages/experimental/daily-report/src/types.ts"
     }
   ]
 }

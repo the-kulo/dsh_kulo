@@ -11,7 +11,8 @@ const entry = (path: string) => ({
   clean: false,
 })
 
-/** Build the single runtime entry from the tsc-emitted output. */
+/** Build the runtime entries from the tsc-emitted output. */
 export default defineConfig([
   entry('lib/types/index.js'),
+  entry('lib/types/settings.js'),
 ])

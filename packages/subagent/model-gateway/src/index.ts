@@ -30,6 +30,22 @@ export {
   ReleaseTaskSpecSchema,
   RoutingPolicySchema,
 } from './types.ts'
+export {
+  ModelGatewayConfig,
+  ModelGatewayRouteEntrySchema,
+  ModelGatewayExpertQuotaSchema,
+  ModelGatewayTokenBudgetSchema,
+  DEFAULT_ROUTING,
+  DEFAULT_EXPERT_QUOTA,
+  DEFAULT_TOKEN_BUDGET,
+} from './settings.ts'
+export type {
+  ModelGatewayRouteEntry,
+  ModelGatewayExpertQuota,
+  ModelGatewayTokenBudget,
+  ModelGatewaySettings,
+  ModelGatewayConfigShape,
+} from './settings.ts'
 export type {
   Zone,
   ModelTier,

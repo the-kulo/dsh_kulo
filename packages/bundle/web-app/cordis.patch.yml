@@ -58,6 +58,11 @@
     - id: subagent-model-selection-settings
       name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
 
+    # Host-owned model gateway routing, expert quota, and token budget
+    # exposed to the settings panel through configForms.
+    - id: model-gateway-settings
+      name: '@deepseek-ai/dsh-model-gateway/settings'
+
     - id: message-feedback
       name: '@deepseek-ai/dsh-message-feedback'
       config:
@@ -452,6 +457,9 @@
 
     - id: ui-settings-subagent
       name: '@deepseek-ai/dsh-client-ui-settings-subagent'
+
+    - id: ui-settings-model-gateway
+      name: '@deepseek-ai/dsh-client-ui-settings-model-gateway'
 
     - id: ui-settings-web-search
       name: '@deepseek-ai/dsh-client-ui-settings-web-search'

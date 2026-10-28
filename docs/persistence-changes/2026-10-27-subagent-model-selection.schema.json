@@ -1,0 +1,30 @@
+{
+  "formatVersion": 2,
+  "roots": [
+    {"key":"event:subagent/model-auto-selection","kind":"event","event":"subagent/model-auto-selection","surface":false,"digest":"6bb7d1a9c6d09d92df7d738b03f50f4c32e96b10b0dad6f833fe00253ecd5a32"},
+    {"key":"event:subagent/model-selection-policy","kind":"event","event":"subagent/model-selection-policy","surface":false,"digest":"39c61be10c8ce4ab086c8bc987e912ff3fa3988dda572c848e282f65ed0e3739"}
+  ],
+  "types": [],
+  "nodes": {
+    "0657d3ca5ac4e7bf": {"kind":"primitive","type":"number"},
+    "07e1a58c58b593f5": {"kind":"object","properties":[{"name":"model","type":"4cd48f3e5108bd6e","optional":false},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false}],"indices":[]},
+    "0a8a062bc9c3c0d9": {"kind":"literal","value":"subagent/model-selection-policy"},
+    "39c61be10c8ce4ab": {"kind":"object","properties":[{"name":"data","type":"a8e535dbe741f9c9","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"0a8a062bc9c3c0d9","optional":false}],"indices":[]},
+    "3c2535ca0a2062f1": {"kind":"literal","value":"reasoning"},
+    "4cd48f3e5108bd6e": {"kind":"primitive","type":"string"},
+    "5f7058fbdbc2b100": {"kind":"literal","value":"sensitive"},
+    "6bb7d1a9c6d09d92": {"kind":"object","properties":[{"name":"data","type":"c5b3a5211dd3ef71","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"f7e09f316c2ef430","optional":false}],"indices":[]},
+    "7a1db74b7ce40cde": {"kind":"literal","value":"simple"},
+    "7aae1ecfcf6937da": {"kind":"union","types":["3c2535ca0a2062f1","5f7058fbdbc2b100","7a1db74b7ce40cde","d3002d14cc1c75e1"]},
+    "93c33d9687613293": {"kind":"array","element":"4cd48f3e5108bd6e"},
+    "a8e535dbe741f9c9": {"kind":"object","properties":[{"name":"allowedModels","type":"ba77b58995e36f14","optional":false},{"name":"autoSelect","type":"aa93010d0e521ad7","optional":true},{"name":"modelCapabilities","type":"b3374a8c1fc70aa4","optional":true}],"indices":[]},
+    "aa93010d0e521ad7": {"kind":"primitive","type":"boolean"},
+    "b3374a8c1fc70aa4": {"kind":"array","element":"ec93eb5f208f5cda"},
+    "ba77b58995e36f14": {"kind":"array","element":"07e1a58c58b593f5"},
+    "c5b3a5211dd3ef71": {"kind":"object","properties":[{"name":"selectedModel","type":"4cd48f3e5108bd6e","optional":false},{"name":"selectedProvider","type":"4cd48f3e5108bd6e","optional":false},{"name":"taskCategory","type":"7aae1ecfcf6937da","optional":false}],"indices":[]},
+    "d3002d14cc1c75e1": {"kind":"literal","value":"code"},
+    "dacf3d5f3e4ff619": {"kind":"literal","value":true},
+    "ec93eb5f208f5cda": {"kind":"object","properties":[{"name":"autoSelectable","type":"aa93010d0e521ad7","optional":false},{"name":"model","type":"4cd48f3e5108bd6e","optional":false},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false},{"name":"tags","type":"93c33d9687613293","optional":false}],"indices":[]},
+    "f7e09f316c2ef430": {"kind":"literal","value":"subagent/model-auto-selection"}
+  }
+}

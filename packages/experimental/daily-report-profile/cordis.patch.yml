@@ -1,0 +1,16 @@
+# Experimental daily work report layer. Apply after dsh-base with Schedule and session-query.
+
+- insert:
+    - id: daily-report
+      name: '@deepseek-ai/dsh-experimental-daily-report'
+      config:
+        provider: lakala
+        model: LKL-GLM-5.2-FP8
+        timeZone: Asia/Shanghai
+        activeStart: '08:30'
+        scheduleTime: '18:00'
+        maxSessionBytes: 24576
+
+    - id: ui-daily-report
+      name: '@deepseek-ai/dsh-experimental-client-ui-daily-report'
+      disabled: true

@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/experimental/daily-report/README.md
+/:
+  en: 5db33a345421c9e7
+  zh: 81102267ffb24f99
+/deepseek-ai-dsh-experimental-daily-report:
+  en: 26020533fb3ffb48
+  zh: 66805a00d94335cb
+/deepseek-ai-dsh-experimental-daily-report/summary:
+  en: d51c3e7c4864ab52
+  zh: dd15046bc630ffa4
+/deepseek-ai-dsh-experimental-daily-report/table-of-contents:
+  en: 915fd82850e37f7d
+  zh: 167bf0f72df3ac9a
+/deepseek-ai-dsh-experimental-daily-report/use-this-package:
+  en: fae32c922c7d3eed
+  zh: 4a88d020171b2191
+/deepseek-ai-dsh-experimental-daily-report/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-experimental-daily-report/model-experience/report-prompts:
+  en: 33c0bfc8108ef72b
+  zh: e6b76b7a6410ae76
+/deepseek-ai-dsh-experimental-daily-report/model-experience/report-prompts/what-the-model-sees:
+  en: 84470585eaef0872
+  zh: aa8c0f8d8fd9b98d
+/deepseek-ai-dsh-experimental-daily-report/model-experience/report-prompts/token-effect:
+  en: e55525ce06245875
+  zh: 2c2d471b366e43fd
+/deepseek-ai-dsh-experimental-daily-report/model-experience/report-prompts/kv-cache-effect:
+  en: 6feb94e44105f7aa
+  zh: ad3c3de070bf1525
+/deepseek-ai-dsh-experimental-daily-report/known-limitations-and-deferred-work:
+  en: 49b1233f73f5edce
+  zh: 1fcbb317d809f551
+/deepseek-ai-dsh-experimental-daily-report/known-limitations-and-deferred-work/dev-note:
+  en: 4cc0d1236596bc81
+  zh: 1d73784384c04c01

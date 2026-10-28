@@ -1,0 +1,23 @@
+# Agent preset quick-qa (轻问答): one `@deepseek-ai/dsh-agent-preset` declaration
+# inserted after the web patch, beside the other shipped presets.
+#
+# The composition is deliberately empty beside the persona: no tools, no
+# agent-instructions, no skill catalog, and no runtime context, so a Session
+# running this preset sends only the persona plus the Session's own message
+# history. The persona declares its own copy rather than naming itself: a
+# named declaration is never translated, while an unnamed one resolves through
+# the preset display dictionaries (dsh-agent-preset-registry/display.ts).
+- insert:
+    - id: preset-quick-qa
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: quick-qa
+        order: 4
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a helpful assistant. Answer questions directly and concisely.
+              complete: true
+              includeRuntimeContext: false
+              includeRequiredRuntimeContext: false

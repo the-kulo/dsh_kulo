@@ -1,0 +1,17 @@
+# Experimental multi-model discussion layer. Apply after dsh-base.
+
+- insert:
+    - id: agent-team
+      name: '@deepseek-ai/dsh-experimental-agent-team'
+
+    - id: discussion-room
+      name: '@deepseek-ai/dsh-experimental-discussion-room'
+      config:
+        provider: spawn
+        maxParticipants: 6
+        maxRoundLimit: 5
+        maxTokenLimit: 32768
+        maxPromptBytes: 131072
+
+    - id: ui-discussion-room
+      name: '@deepseek-ai/dsh-experimental-client-ui-discussion-room'

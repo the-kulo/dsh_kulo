@@ -1,0 +1,86 @@
+/* The footer seat and the browsing stack above it share the sidebar region
+   height by equal flex grows from a zero basis: each gets half, and whichever
+   overflows scrolls inside its own seat instead of pushing the other out. The
+   root's 96px min-height keeps the history usable in a very short sidebar;
+   below that, this seat keeps its floor and the browsing stack takes the
+   rest. */
+.root {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 96px;
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
+}
+
+.title {
+  flex: none;
+  margin: 0;
+  padding: 10px 12px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.history {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px 12px;
+}
+
+.emptyTitle,
+.question {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.emptyBody,
+.answer {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.exchanges {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exchanges li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.error {
+  flex: none;
+  margin: 0;
+  padding: 8px 8px 10px;
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary);
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
+  overflow-wrap: anywhere;
+}

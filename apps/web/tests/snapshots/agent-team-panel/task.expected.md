@@ -1,0 +1,8 @@
+- heading "Members" [level=3]
+- article: lead Inactive
+- heading "Shared tasks1" [level=3]
+- article:
+  - strong: Agent task
+  - text: In progress
+  - paragraph: Created by the Team Lead
+  - text: "task-1Owner: leadWrite scopes: src/web"

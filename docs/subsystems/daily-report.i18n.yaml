@@ -1,0 +1,13 @@
+# Bilingual-pair consistency record for daily-report.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/subsystems/daily-report.md
+/daily-work-reports:
+  en: a8bf4836c42cb6a1
+  zh: be6e25b910d6dd77
+/daily-work-reports/generation:
+  en: 6a4888ac80baf14e
+  zh: e4ecfe7f0c8c68e7
+/daily-work-reports/stored-report:
+  en: 02e8f5e1ce2a3f28
+  zh: fe66ee4baf1e68b8

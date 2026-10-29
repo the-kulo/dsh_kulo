@@ -1,7 +1,7 @@
-/* One zone of the sidebar's three-zone accordion. Expanded zones share the
-   region height by equal flex grows from a zero basis, so each open body owns
-   an equal slice and scrolls inside it instead of pushing its neighbors out.
-   A collapsed zone keeps only its fixed header. */
+/* One sidebar zone under the Workspace browser (quick-qa or secure). Expanded
+   zones share the zones seat height by equal flex grows from a zero basis, so
+   each open body owns an equal slice and scrolls inside it instead of pushing
+   its neighbors out. A collapsed zone keeps only its fixed header. */
 
 .root {
   flex: 1 1 0;

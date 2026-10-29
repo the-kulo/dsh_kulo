@@ -1086,9 +1086,8 @@ export function WorkspaceBrowser({
   const saveSessionOrder = (accountKey: string, order: readonly string[]): void => {
     actions.setSessionOrder(accountKey, order, activeSessionOrders)
   }
-  // The three-zone accordion below the browsing region mounts the quick-qa
-  // and secure history panels. The workspace zone keeps the existing session
-  // tree inside the accordion so all three zones share the region height.
+  // The two sidebar zones below the Workspace browser (quick-qa and secure)
+  // fold independently; the Workspace browser is not itself a folding zone.
   const setZoneExpanded = actions.setZoneExpanded
   const zoneExpanded = (zoneKey: string): boolean => zoneExpansion?.[zoneKey] !== false
   // The query outlives the tree and the input (both wide-only) so collapsing
@@ -1509,23 +1508,13 @@ export function WorkspaceBrowser({
         </div>
       </div>
 
-      {/* The three-zone accordion (workspace / quick-qa / secure) shares the
-          region height; each zone owns one AccordionSection (title, collapse
-          chevron, New conversation button) around its own panel, so the three
-          zones fold independently. The zone panels are the ordered entries of
-          the `sidebar.workspaces.footer` list slot, addressed by entry id. */}
+      {/* The two sidebar zones under the Workspace browser: quick-qa and
+          secure, each its own AccordionSection (title, collapse chevron, New
+          conversation button) around its panel, so the two zones fold
+          independently. The zone panels are the ordered entries of the
+          `sidebar.workspaces.footer` list slot, addressed by entry id. */}
       {wide && (
         <div className={css.zones}>
-          <AccordionSection
-            sectionKey="workspace"
-            title={t('zone.workspace')}
-            expanded={zoneExpanded('workspace')}
-            onExpandedChange={(expanded) => { setZoneExpanded('workspace', expanded) }}
-            newLabel={t('zone.workspace.new')}
-            onNew={() => { startSession(undefined, { clearPreviousDraft: false }) }}
-          >
-            <div className={css.zoneContent} />
-          </AccordionSection>
           <AccordionSection
             sectionKey="quick-qa"
             title={t('zone.quickQa')}

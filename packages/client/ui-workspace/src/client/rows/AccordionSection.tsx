@@ -1,9 +1,9 @@
 /**
- * One zone of the sidebar's three-zone accordion (workspace / quick-qa /
- * secure). The header carries the zone title, a collapse chevron, and a New
- * conversation button; the body fills the zone's share of the shared sidebar
- * height and scrolls independently while expanded. Expansion persists in the
- * browser's viewing store, so a reload restores the layout.
+ * One sidebar zone under the Workspace browser (quick-qa or secure). The
+ * header carries the zone title, a collapse chevron, and a New conversation
+ * button; the body fills the zone's share of the sidebar height and scrolls
+ * independently while expanded. Expansion persists in the browser's viewing
+ * store, so a reload restores the layout.
  */
 import { memo, type ReactNode } from 'react'
 import clsx from 'clsx'

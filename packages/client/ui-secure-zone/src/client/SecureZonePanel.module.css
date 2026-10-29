@@ -7,7 +7,7 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 96px;
+  min-height: 0;
 }
 
 .history {

@@ -14,6 +14,25 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 
+/**
+ * Agent presets whose Sessions belong to dedicated sidebar zones (quick-qa,
+ * secure) instead of the Workspace browser. A Session carrying one of these
+ * presets is created with `quick: true` and never joins a Workspace, so it is
+ * read only by its zone panel and filtered out of every Workspace browser view.
+ */
+const ZONE_EXCLUSIVE_PRESETS: ReadonlySet<string> = new Set(['quick-qa', 'secure'])
+
+/**
+ * Whether a Session's recorded preset places it in a dedicated sidebar zone
+ * instead of the Workspace browser.
+ * @param session - Session summary carrying the `agentPreset` projection value.
+ * @returns true when the Session belongs to a zone-exclusive preset.
+ */
+function isZoneExclusive(session: SessionSummary): boolean {
+  const preset = session.projectionValues?.agentPreset
+  return typeof preset === 'string' && ZONE_EXCLUSIVE_PRESETS.has(preset)
+}
+
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
 
@@ -233,6 +252,7 @@ function sessionVisible(
   archivedFilter: ArchivedFilter,
 ): boolean {
   if (session.origin === 'subagent') return false
+  if (isZoneExclusive(session)) return false
   if (session.blank && session.id !== current) return false
   switch (archivedFilter) {
     case 'default':

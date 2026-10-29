@@ -9,6 +9,12 @@
     "src/client/index.ts",
     "src/client/locales.ts",
     "src/client/UsageSection.tsx",
+    "src/client/UsageCalendar.tsx",
+    "src/client/UsageSummaryCard.tsx",
+    "src/client/UsageTimeRange.tsx",
+    "src/client/UsageTrendChart.tsx",
+    "src/client/UsageDetailTabs.tsx",
+    "src/client/usageAggregate.ts",
     "src/css-modules.d.ts",
     "src/types.ts",
     "src/usage.ts"

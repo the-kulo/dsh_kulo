@@ -5,6 +5,14 @@ export type UsageLocaleKey =
   | 'loadFailed' | 'retry' | 'emptyTitle' | 'emptyDescription' | 'incomplete'
   | 'kimi' | 'lakala' | 'other' | 'requests' | 'totalTokens' | 'tokens' | 'input' | 'cached' | 'output' | 'model'
   | 'weekday' | 'legendLess' | 'legendMore' | 'dayTotal'
+  | 'rangeToday' | 'range7d' | 'range30d' | 'rangeAll' | 'rangeCustom'
+  | 'customFrom' | 'customTo'
+  | 'metricRequests' | 'metricConsumed' | 'metricCacheHit' | 'consumedHint'
+  | 'moreMetrics' | 'lessMetrics'
+  | 'overview' | 'trend' | 'trendTokens' | 'trendRequests'
+  | 'details' | 'tabDaily' | 'tabProvider' | 'tabModel'
+  | 'provider' | 'cacheHit' | 'cacheHitDash'
+  | 'activity' | 'noData'
 
 /** English strings for every usage dashboard locale key. */
 export const en: Record<UsageLocaleKey, string> = {
@@ -32,6 +40,32 @@ export const en: Record<UsageLocaleKey, string> = {
   legendLess: 'Less',
   legendMore: 'More',
   dayTotal: '{total} tokens · {requests} requests',
+  rangeToday: 'Today',
+  range7d: 'Last 7 days',
+  range30d: 'Last 30 days',
+  rangeAll: 'All',
+  rangeCustom: 'Custom',
+  customFrom: 'Start date',
+  customTo: 'End date',
+  metricRequests: 'Total requests',
+  metricConsumed: 'Consumed tokens',
+  metricCacheHit: 'Cache hit rate',
+  consumedHint: 'Input + cached + output',
+  moreMetrics: 'More metrics',
+  lessMetrics: 'Show less',
+  overview: 'Overview',
+  trend: 'Trend',
+  trendTokens: 'Tokens',
+  trendRequests: 'Requests',
+  details: 'Details',
+  tabDaily: 'Request details',
+  tabProvider: 'Provider breakdown',
+  tabModel: 'Model breakdown',
+  provider: 'Provider',
+  cacheHit: 'Cache hit rate',
+  cacheHitDash: '—',
+  activity: 'Activity',
+  noData: 'No data',
 }
 
 /** Simplified Chinese strings for every usage dashboard locale key. */
@@ -60,6 +94,32 @@ export const zh: Record<UsageLocaleKey, string> = {
   legendLess: '少',
   legendMore: '多',
   dayTotal: '{total} Token · {requests} 次请求',
+  rangeToday: '当天',
+  range7d: '近7天',
+  range30d: '近30天',
+  rangeAll: '全部',
+  rangeCustom: '自定义',
+  customFrom: '开始日期',
+  customTo: '结束日期',
+  metricRequests: '总请求数',
+  metricConsumed: '真实消耗',
+  metricCacheHit: '缓存命中率',
+  consumedHint: '输入 + 缓存 + 输出',
+  moreMetrics: '更多指标',
+  lessMetrics: '收起',
+  overview: '概览',
+  trend: '趋势',
+  trendTokens: 'Tokens',
+  trendRequests: '请求',
+  details: '详细数据',
+  tabDaily: '请求明细',
+  tabProvider: '供应商聚合',
+  tabModel: '模型聚合',
+  provider: '供应商',
+  cacheHit: '缓存命中率',
+  cacheHitDash: '—',
+  activity: '活跃度',
+  noData: '暂无数据',
 }
 
 /** Japanese dashboard strings, with untranslated labels inherited from English. */
@@ -72,6 +132,14 @@ export const ja = { ...en,
   other: 'その他のプロバイダー', requests: '{count} リクエスト', totalTokens: '合計トークン', tokens: 'トークン',
   input: '入力', cached: 'キャッシュ', output: '出力', model: 'モデル / ルート',
   weekday: '月', legendLess: '少', legendMore: '多', dayTotal: '{total} トークン · {requests} リクエスト',
+  rangeToday: '今日', range7d: '過去7日', range30d: '過去30日', rangeAll: 'すべて', rangeCustom: 'カスタム',
+  customFrom: '開始日', customTo: '終了日',
+  metricRequests: '合計リクエスト', metricConsumed: '消費トークン', metricCacheHit: 'キャッシュヒット率',
+  consumedHint: '入力 + キャッシュ + 出力', moreMetrics: '詳細を表示', lessMetrics: '折りたたむ',
+  overview: '概要', trend: '推移', trendTokens: 'トークン', trendRequests: 'リクエスト',
+  details: '詳細', tabDaily: 'リクエスト詳細', tabProvider: 'プロバイダー別', tabModel: 'モデル別',
+  provider: 'プロバイダー', cacheHit: 'キャッシュヒット率', cacheHitDash: '—',
+  activity: 'アクティビティ', noData: 'データなし',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -84,6 +152,14 @@ export const es = { ...en,
   other: 'Otros proveedores', requests: '{count} solicitudes', totalTokens: 'Tokens totales', tokens: 'Tokens',
   input: 'Entrada', cached: 'Caché', output: 'Salida', model: 'Modelo / ruta',
   weekday: 'L', legendLess: 'Menos', legendMore: 'Más', dayTotal: '{total} tokens · {requests} solicitudes',
+  rangeToday: 'Hoy', range7d: 'Últimos 7 días', range30d: 'Últimos 30 días', rangeAll: 'Todo', rangeCustom: 'Personalizado',
+  customFrom: 'Fecha de inicio', customTo: 'Fecha de fin',
+  metricRequests: 'Solicitudes totales', metricConsumed: 'Tokens consumidos', metricCacheHit: 'Tasa de caché',
+  consumedHint: 'Entrada + caché + salida', moreMetrics: 'Más métricas', lessMetrics: 'Mostrar menos',
+  overview: 'Resumen', trend: 'Tendencia', trendTokens: 'Tokens', trendRequests: 'Solicitudes',
+  details: 'Detalles', tabDaily: 'Detalles de solicitudes', tabProvider: 'Por proveedor', tabModel: 'Por modelo',
+  provider: 'Proveedor', cacheHit: 'Tasa de caché', cacheHitDash: '—',
+  activity: 'Actividad', noData: 'Sin datos',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -96,6 +172,14 @@ export const fr = { ...en,
   other: 'Autres fournisseurs', requests: '{count} requêtes', totalTokens: 'Tokens au total', tokens: 'Tokens',
   input: 'Entrée', cached: 'Cache', output: 'Sortie', model: 'Modèle / route',
   weekday: 'L', legendLess: 'Moins', legendMore: 'Plus', dayTotal: '{total} tokens · {requests} requêtes',
+  rangeToday: 'Aujourd’hui', range7d: '7 derniers jours', range30d: '30 derniers jours', rangeAll: 'Tout', rangeCustom: 'Personnalisé',
+  customFrom: 'Date de début', customTo: 'Date de fin',
+  metricRequests: 'Requêtes totales', metricConsumed: 'Tokens consommés', metricCacheHit: 'Taux de cache',
+  consumedHint: 'Entrée + cache + sortie', moreMetrics: 'Plus de métriques', lessMetrics: 'Réduire',
+  overview: 'Aperçu', trend: 'Tendance', trendTokens: 'Tokens', trendRequests: 'Requêtes',
+  details: 'Détails', tabDaily: 'Détails des requêtes', tabProvider: 'Par fournisseur', tabModel: 'Par modèle',
+  provider: 'Fournisseur', cacheHit: 'Taux de cache', cacheHitDash: '—',
+  activity: 'Activité', noData: 'Aucune donnée',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -108,6 +192,14 @@ export const de = { ...en,
   other: 'Andere Anbieter', requests: '{count} Anfragen', totalTokens: 'Tokens gesamt', tokens: 'Tokens',
   input: 'Eingabe', cached: 'Cache', output: 'Ausgabe', model: 'Modell / Route',
   weekday: 'M', legendLess: 'Weniger', legendMore: 'Mehr', dayTotal: '{total} Tokens · {requests} Anfragen',
+  rangeToday: 'Heute', range7d: 'Letzte 7 Tage', range30d: 'Letzte 30 Tage', rangeAll: 'Alle', rangeCustom: 'Benutzerdefiniert',
+  customFrom: 'Startdatum', customTo: 'Enddatum',
+  metricRequests: 'Anfragen gesamt', metricConsumed: 'Verbrauchte Tokens', metricCacheHit: 'Cache-Trefferquote',
+  consumedHint: 'Eingabe + Cache + Ausgabe', moreMetrics: 'Mehr Metriken', lessMetrics: 'Weniger anzeigen',
+  overview: 'Übersicht', trend: 'Trend', trendTokens: 'Tokens', trendRequests: 'Anfragen',
+  details: 'Details', tabDaily: 'Anfragendetails', tabProvider: 'Nach Anbieter', tabModel: 'Nach Modell',
+  provider: 'Anbieter', cacheHit: 'Cache-Trefferquote', cacheHitDash: '—',
+  activity: 'Aktivität', noData: 'Keine Daten',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -120,16 +212,32 @@ export const ru = { ...en,
   other: 'Другие провайдеры', requests: 'Запросов: {count}', totalTokens: 'Всего токенов', tokens: 'Токены',
   input: 'Ввод', cached: 'Кэш', output: 'Вывод', model: 'Модель / маршрут',
   weekday: 'П', legendLess: 'Меньше', legendMore: 'Больше', dayTotal: '{total} токенов · запросов: {requests}',
+  rangeToday: 'Сегодня', range7d: 'Последние 7 дней', range30d: 'Последние 30 дней', rangeAll: 'Все', rangeCustom: 'Свои',
+  customFrom: 'Дата начала', customTo: 'Дата окончания',
+  metricRequests: 'Всего запросов', metricConsumed: 'Потреблено токенов', metricCacheHit: 'Доля попаданий в кэш',
+  consumedHint: 'Ввод + кэш + вывод', moreMetrics: 'Больше метрик', lessMetrics: 'Свернуть',
+  overview: 'Обзор', trend: 'Тренд', trendTokens: 'Токены', trendRequests: 'Запросы',
+  details: 'Подробности', tabDaily: 'Детали запросов', tabProvider: 'По провайдерам', tabModel: 'По моделям',
+  provider: 'Провайдер', cacheHit: 'Доля попаданий в кэш', cacheHitDash: '—',
+  activity: 'Активность', noData: 'Нет данных',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
 export const pt = { ...en,
   locale: 'pt-BR', title: 'Uso de tokens',
-  date: 'Data de uso', allHistory: 'Todo el historial', today: 'Hoy',
+  date: 'Data de uso', allHistory: 'Todo o historial', today: 'Hoje',
   loadFailed: 'Não foi possível carregar o uso de tokens.', retry: 'Tentar novamente', emptyTitle: 'Ainda não há uso de tokens',
   emptyDescription: 'O uso aparecerá quando um modelo relatar tokens neste período.', incomplete: 'Uso sem rota identificável foi omitido.',
   kimi: 'Kimi', lakala: 'Lakala',
   other: 'Outros provedores', requests: '{count} solicitações', totalTokens: 'Total de tokens', tokens: 'Tokens',
   input: 'Entrada', cached: 'Cache', output: 'Saída', model: 'Modelo / rota',
   weekday: 'S', legendLess: 'Menos', legendMore: 'Mais', dayTotal: '{total} tokens · {requests} solicitações',
+  rangeToday: 'Hoje', range7d: 'Últimos 7 dias', range30d: 'Últimos 30 dias', rangeAll: 'Tudo', rangeCustom: 'Personalizado',
+  customFrom: 'Data de início', customTo: 'Data de fim',
+  metricRequests: 'Solicitações totais', metricConsumed: 'Tokens consumidos', metricCacheHit: 'Taxa de cache',
+  consumedHint: 'Entrada + cache + saída', moreMetrics: 'Mais métricas', lessMetrics: 'Mostrar menos',
+  overview: 'Visão geral', trend: 'Tendência', trendTokens: 'Tokens', trendRequests: 'Solicitações',
+  details: 'Detalhes', tabDaily: 'Detalhes de solicitações', tabProvider: 'Por provedor', tabModel: 'Por modelo',
+  provider: 'Provedor', cacheHit: 'Taxa de cache', cacheHitDash: '—',
+  activity: 'Atividade', noData: 'Sem dados',
 } satisfies Record<UsageLocaleKey, string>

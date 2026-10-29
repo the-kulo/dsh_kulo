@@ -1510,7 +1510,10 @@ export function WorkspaceBrowser({
       </div>
 
       {/* The three-zone accordion (workspace / quick-qa / secure) shares the
-          region height; each open zone's body scrolls inside its own share. */}
+          region height; each zone owns one AccordionSection (title, collapse
+          chevron, New conversation button) around its own panel, so the three
+          zones fold independently. The zone panels are the ordered entries of
+          the `sidebar.workspaces.footer` list slot, addressed by entry id. */}
       {wide && (
         <div className={css.zones}>
           <AccordionSection
@@ -1521,8 +1524,30 @@ export function WorkspaceBrowser({
             newLabel={t('zone.workspace.new')}
             onNew={() => { startSession(undefined, { clearPreviousDraft: false }) }}
           >
+            <div className={css.zoneContent} />
+          </AccordionSection>
+          <AccordionSection
+            sectionKey="quick-qa"
+            title={t('zone.quickQa')}
+            expanded={zoneExpanded('quick-qa')}
+            onExpandedChange={(expanded) => { setZoneExpanded('quick-qa', expanded) }}
+            newLabel={t('zone.quickQa.new')}
+            onNew={() => { startSession(undefined, { agentPreset: 'quick-qa' }) }}
+          >
             <div className={css.zoneContent}>
-              {renderSlot('sidebar.workspaces.footer', {})}
+              {renderSlot('sidebar.workspaces.footer', {}, { only: 'quick-qa' })}
+            </div>
+          </AccordionSection>
+          <AccordionSection
+            sectionKey="secure"
+            title={t('zone.secure')}
+            expanded={zoneExpanded('secure')}
+            onExpandedChange={(expanded) => { setZoneExpanded('secure', expanded) }}
+            newLabel={t('zone.secure.new')}
+            onNew={() => { startSession(undefined, { agentPreset: 'secure' }) }}
+          >
+            <div className={css.zoneContent}>
+              {renderSlot('sidebar.workspaces.footer', {}, { only: 'secure-zone' })}
             </div>
           </AccordionSection>
         </div>

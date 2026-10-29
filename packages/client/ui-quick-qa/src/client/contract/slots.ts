@@ -18,11 +18,11 @@ export type { QuickQaExchangeView }
  * Injected business face of the Quick answers history.
  *
  * `startQuickSession` carries the quick-qa zone semantics on the only channel
- * the Session-creation chain supports: `agentPreset: 'quick-qa'` names the
- * shipped tool-free preset, and the Session's Workspace-free placement (Host
- * default directory, no Workspace membership) keeps it outside the workspace
- * zone. The preset id maps 1:1 to the model gateway's `quick-qa` zone, whose
- * routing limits the Session to flash-class pool models.
+ * the Session-creation chain supports: creating the Session with the Host's
+ * `quick` placement (default directory, no Workspace membership) keeps it
+ * outside every Workspace, and `agentPreset: 'quick-qa'` names the shipped
+ * tool-free preset. The preset id maps 1:1 to the model gateway's `quick-qa`
+ * zone, whose routing limits the Session to flash-class pool models.
  */
 export interface QuickQaInjected {
   readonly hooks: {

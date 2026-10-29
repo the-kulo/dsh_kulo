@@ -2,6 +2,8 @@
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -35,8 +37,25 @@ export class QuickQaController {
   constructor(
     private readonly ctx: ClientContext,
     private readonly sessions: ISessions,
+    private readonly workspace: UiWorkspace,
     private readonly view: QuickQaView,
   ) {}
+
+  /**
+   * Create one independent quick-answer Session and show it as the current
+   * Main Session.
+   *
+   * `quick: true` asks the Host for its default directory without joining or
+   * reusing any Workspace-listed Session, so the new conversation never
+   * inherits a Workspace (that is the zone's whole placement contract). The
+   * preset id still maps to the gateway's quick-qa zone for model routing.
+   * The Session is opened through the Workspace navigation service, which
+   * retains it and switches the main view and its input area to it.
+   */
+  async createSession(): Promise<void> {
+    const sessionId = await this.sessions.create({ quick: true, agentPreset: QUICK_QA_PRESET_ID })
+    this.workspace.openSession(sessionId)
+  }
 
   /** Follow quick-answer history without creating an Agent. */
   async start(): Promise<void> {

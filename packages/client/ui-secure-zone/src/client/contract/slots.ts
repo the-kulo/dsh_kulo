@@ -18,12 +18,12 @@ export type { SecureZoneExchangeView }
  * Injected business face of the Secure zone history.
  *
  * `startSecureSession` carries the secure-zone semantics on the only channel
- * the Session-creation chain supports: `agentPreset: 'secure'` names the
- * shipped secure preset, and the Session's Workspace-free placement (Host
- * default directory, no Workspace membership) keeps it outside the workspace
- * zone. The preset id maps 1:1 to the model gateway's `secure` zone, whose
- * routing forces the local self-deployed model `LKL-GLM-5.2-FP8` and forbids
- * external models and external tools.
+ * the Session-creation chain supports: creating the Session with the Host's
+ * `quick` placement (default directory, no Workspace membership) keeps it
+ * outside every Workspace, and `agentPreset: 'secure'` names the shipped
+ * local-only preset. The preset id maps 1:1 to the model gateway's `secure`
+ * zone, whose routing forces the local self-deployed model `LKL-GLM-5.2-FP8`
+ * and forbids external models and external tools.
  */
 export interface SecureZoneInjected {
   readonly hooks: {

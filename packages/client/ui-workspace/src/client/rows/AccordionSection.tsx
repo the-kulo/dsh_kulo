@@ -31,7 +31,9 @@ export interface AccordionSectionProps {
 
 /**
  * Render one accordion zone: collapsible header plus an independently
- * scrolling body.
+ * scrolling body. The whole header row is the toggle (Enter/Space toggle),
+ * matching how the sibling Workspace browser reads as one row; the New
+ * conversation button stops propagation so creating does not fold the zone.
  * @param props - zone identity, title, expansion state, and the new-conversation action.
  * @returns the zone element tree.
  */
@@ -44,29 +46,37 @@ export const AccordionSection = memo(function AccordionSection({
   onNew,
   children,
 }: AccordionSectionProps) {
+  const toggle = (): void => { onExpandedChange(!expanded) }
   return (
     <section className={clsx(css.root, expanded && css.expanded)} data-zone={sectionKey}>
-      <div className={css.header}>
-        <button
-          type="button"
-          className={css.headerMain}
-          aria-expanded={expanded}
-          aria-controls={`sidebar-zone-${sectionKey}`}
-          onClick={() => { onExpandedChange(!expanded) }}
-        >
-          {expanded
-            ? <IconChevronDownOutlineRegular size={12} className={css.chevron} />
-            : <IconChevronRightOutlineRegular size={12} className={css.chevron} />}
-          <span className={css.title}>{title}</span>
-        </button>
+      <div
+        className={css.header}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-controls={`sidebar-zone-${sectionKey}`}
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          toggle()
+        }}
+      >
+        {expanded
+          ? <IconChevronDownOutlineRegular size={16} className={css.chevron} />
+          : <IconChevronRightOutlineRegular size={16} className={css.chevron} />}
+        <span className={css.title}>{title}</span>
         <Tooltip label={newLabel} side="bottom" delayMs={500}>
           <button
             type="button"
             className={css.newButton}
             aria-label={newLabel}
-            onClick={onNew}
+            onClick={(event) => {
+              event.stopPropagation()
+              onNew()
+            }}
           >
-            <IconNewChatOutlineRegular size={14} />
+            <IconNewChatOutlineRegular size={16} />
           </button>
         </Tooltip>
       </div>

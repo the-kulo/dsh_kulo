@@ -15,12 +15,7 @@ export const QuickQaPanel = memo(function QuickQaPanel({
   return (
     <section className={css.root} aria-label={t('section.title')}>
       <div className={css.history} aria-live="polite">
-        {exchanges.length === 0 ? (
-          <div className={css.empty}>
-            <p className={css.emptyTitle}>{t('empty.title')}</p>
-            <p className={css.emptyBody}>{t('empty.body')}</p>
-          </div>
-        ) : (
+        {exchanges.length === 0 ? null : (
           <ol className={css.exchanges}>
             {exchanges.map(item => (
               <li key={item.key}>

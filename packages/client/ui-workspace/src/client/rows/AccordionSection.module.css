@@ -1,7 +1,9 @@
 /* One sidebar zone under the Workspace browser (quick-qa or secure). Expanded
    zones share the zones seat height by equal flex grows from a zero basis, so
    each open body owns an equal slice and scrolls inside it instead of pushing
-   its neighbors out. A collapsed zone keeps only its fixed header. */
+   its neighbors out. A collapsed zone keeps only its fixed header. The header
+   matches the Workspace browser's section header: same height, typography,
+   and hover surface, so the three areas read as siblings. */
 
 .root {
   flex: 1 1 0;
@@ -14,53 +16,40 @@
   flex: none;
 }
 
-.root + .root {
-  border-top: 0.5px solid var(--dsw-alias-border-l3);
-}
-
 .header {
   flex: none;
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 32px;
-  padding: 0 4px 0 8px;
+  height: 36px;
+  padding: 0 4px;
   box-sizing: border-box;
+  border-radius: var(--dsw-radius-md);
+  color: var(--dsw-alias-label-tertiary);
+  transition: background-color 120ms var(--ds-ease-in-out);
 }
 
-.headerMain {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 22px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.headerMain:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-  outline-offset: -2px;
-  border-radius: var(--dsw-radius-sm);
+@media (hover: hover) {
+  .header:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .chevron {
   flex: none;
+  color: inherit;
 }
 
 .title {
+  flex: 1;
   min-width: 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .newButton {
@@ -68,14 +57,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: var(--dsw-radius-sm);
   padding: 0;
   background: transparent;
   cursor: pointer;
-  color: var(--dsw-alias-label-secondary);
+  color: inherit;
 }
 
 .newButton:focus-visible {
@@ -85,7 +74,6 @@
 
 @media (hover: hover) {
   .newButton:hover {
-    background: var(--dsw-alias-interactive-bg-hover);
     color: var(--dsw-alias-label-primary);
   }
 }

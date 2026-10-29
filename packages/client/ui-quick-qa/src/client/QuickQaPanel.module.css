@@ -17,14 +17,6 @@
   overscroll-behavior: contain;
 }
 
-.empty {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px 12px;
-}
-
-.emptyTitle,
 .question {
   margin: 0;
   font-size: 13px;
@@ -35,7 +27,6 @@
   white-space: pre-wrap;
 }
 
-.emptyBody,
 .answer {
   margin: 0;
   font-size: 12px;

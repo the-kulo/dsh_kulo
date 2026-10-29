@@ -1,9 +1,3 @@
-/* The footer seat and the browsing stack above it share the sidebar region
-   height by equal flex grows from a zero basis: each gets half, and whichever
-   overflows scrolls inside its own seat instead of pushing the other out. The
-   root's 96px min-height keeps the history usable in a very short sidebar;
-   below that, this seat keeps its floor and the browsing stack takes the
-   rest. */
 .root {
   flex: 1 1 0;
   display: flex;
@@ -12,16 +6,6 @@
   width: 100%;
   min-width: 0;
   min-height: 96px;
-  border-top: 0.5px solid var(--dsw-alias-border-l3);
-}
-
-.title {
-  flex: none;
-  margin: 0;
-  padding: 10px 12px 4px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary);
 }
 
 .history {

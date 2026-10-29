@@ -37,6 +37,7 @@ import {
   pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
 } from '../tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
+import { AccordionSection } from './AccordionSection.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import css from './WorkspaceBrowser.module.css'
@@ -967,6 +968,7 @@ export function WorkspaceBrowser({
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
   const groupBy = useStore(s => s.groupBy)
   const orderBy = useStore(s => s.orderBy)
+  const zoneExpansion = useStore(s => s.zoneExpansion)
   // Persisted view blobs written before the archived filter existed rehydrate
   // without the field; they read as the default hide-archived view.
   const archivedFilter = useStore(s => s.archivedFilter ?? 'default')
@@ -1084,6 +1086,11 @@ export function WorkspaceBrowser({
   const saveSessionOrder = (accountKey: string, order: readonly string[]): void => {
     actions.setSessionOrder(accountKey, order, activeSessionOrders)
   }
+  // The three-zone accordion below the browsing region mounts the quick-qa
+  // and secure history panels. The workspace zone keeps the existing session
+  // tree inside the accordion so all three zones share the region height.
+  const setZoneExpanded = actions.setZoneExpanded
+  const zoneExpanded = (zoneKey: string): boolean => zoneExpansion?.[zoneKey] !== false
   // The query outlives the tree and the input (both wide-only) so collapsing
   // does not silently drop an in-progress filter.
   const [query, setQuery] = useState('')
@@ -1502,7 +1509,24 @@ export function WorkspaceBrowser({
         </div>
       </div>
 
-      {wide && renderSlot('sidebar.workspaces.footer', {})}
+      {/* The three-zone accordion (workspace / quick-qa / secure) shares the
+          region height; each open zone's body scrolls inside its own share. */}
+      {wide && (
+        <div className={css.zones}>
+          <AccordionSection
+            sectionKey="workspace"
+            title={t('zone.workspace')}
+            expanded={zoneExpanded('workspace')}
+            onExpandedChange={(expanded) => { setZoneExpanded('workspace', expanded) }}
+            newLabel={t('zone.workspace.new')}
+            onNew={() => { startSession(undefined, { clearPreviousDraft: false }) }}
+          >
+            <div className={css.zoneContent}>
+              {renderSlot('sidebar.workspaces.footer', {})}
+            </div>
+          </AccordionSection>
+        </div>
+      )}
 
       <Modal
         open={renameTarget !== null}

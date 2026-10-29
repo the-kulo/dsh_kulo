@@ -4810,10 +4810,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   },
   {
     key: 'sidebar.workspaces.footer',
-    kind: 'single',
+    kind: 'list',
     scope: 'root',
-    summary: 'Independent region below the Workspace and Session browser.',
-    doc: 'Independent region below the Workspace and Session browser.',
+    summary: 'Sidebar zone-accordion region below the Workspace and Session browser.',
+    doc: 'Sidebar zone-accordion region below the Workspace and Session browser. Declared kind list so the quick-qa and secure-zone panels are two ordered entries of one zone list; the id orders the zones (quick-qa below secure). Each entry renders only its scrollable history: the accordion header (zone title, collapse chevron, New conversation button) is the declaring browser entry.',
     registerOptions: [],
     ownerProps: [],
     ownerPropsReferences: [],
@@ -4834,6 +4834,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'sidebar.workspaces\' (client-ui-workspace), so it exists while that entry is mounted',
     occupants: [
       'client-ui-quick-qa QuickQaPanel',
+      'client-ui-secure-zone SecureZonePanel',
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.workspaces.footer\', () => ctx.slots.register(\n      { name: \'sidebar.workspaces.footer\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',

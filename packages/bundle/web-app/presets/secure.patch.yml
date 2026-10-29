@@ -1,0 +1,25 @@
+# Agent preset secure (安全区): one `@deepseek-ai/dsh-agent-preset` declaration
+# inserted after the web patch, beside the other shipped presets.
+#
+# The preset carries the model-gateway secure-zone semantics on the only
+# channel the Session-creation chain supports: a quick-answer placement
+# (no Workspace membership) plus the `secure` preset identity. The preset id
+# maps 1:1 to the gateway `secure` zone, whose routing forces the local
+# self-deployed model `LKL-GLM-5.2-FP8` (packages/subagent/model-gateway/src/routing.ts).
+# Like quick-qa, the composition is deliberately empty beside the persona: no
+# tools, no agent-instructions, and no runtime context, so no data leaves the
+# deployment and no external tool can send it anywhere.
+- insert:
+    - id: preset-secure
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: secure
+        order: 5
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a secure assistant running in the secure zone. Answer questions directly and concisely. Never send data to external services. Never use tools or external resources that transmit information outside this deployment. Treat everything in this conversation as confidential.
+              complete: true
+              includeRuntimeContext: false
+              includeRequiredRuntimeContext: false

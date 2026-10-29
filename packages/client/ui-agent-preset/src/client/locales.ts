@@ -23,6 +23,8 @@ export type AgentPresetSettingsKey =
   | 'presetCordisDescription'
   | 'presetQuickQaName'
   | 'presetQuickQaDescription'
+  | 'presetSecureName'
+  | 'presetSecureDescription'
   | 'inUse'
   | 'noDescription'
   | 'brokenBadge'
@@ -64,6 +66,9 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetQuickQaName: 'Quick answers',
   presetQuickQaDescription:
     'Answer everyday questions without tools or project context. Replies stay fast and small.',
+  presetSecureName: 'Secure zone',
+  presetSecureDescription:
+    'Confidential conversations answered only by the self-deployed local model. No external tools and no data leaves this deployment.',
 
   inUse: 'New task default',
 
@@ -107,6 +112,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetCordisDescription: '用对话定制 DSH：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
   presetQuickQaName: '轻问答',
   presetQuickQaDescription: '不需要工具或项目上下文，直接回答日常问题，回复更快、更省。',
+  presetSecureName: '安全区',
+  presetSecureDescription: '涉密对话只由自部署本地模型回答，不提供外部工具，数据不会离开本部署。',
 
   inUse: '新任务默认',
 
@@ -154,6 +161,8 @@ export const ja = {
   'presetCordisDescription': '会話を通じて DSH をカスタマイズします。機能や UI を追加するプラグインをエージェントに書かせたり、ツールとプロンプトを組み合わせて独自のモードを作成したりできます。',
   'presetQuickQaName': 'クイック回答',
   'presetQuickQaDescription': 'ツールやプロジェクトのコンテキストなしで、日常的な質問に直接答えます。応答が速く、消費トークンも少なくなります。',
+  'presetSecureName': 'セキュアゾーン',
+  'presetSecureDescription': '機密の会話は自己デプロイのローカルモデルのみが回答します。外部ツールはなく、データはこのデプロイメントの外へ出ません。',
   'inUse': '新しいタスクの既定',
   'noDescription': '説明はありません。',
   'brokenBadge': '読み込みに失敗',
@@ -196,6 +205,9 @@ export const es = {
   presetQuickQaName: 'Respuestas rápidas',
   presetQuickQaDescription:
     'Responde preguntas cotidianas sin herramientas ni contexto del proyecto. Las respuestas son más rápidas y consumen menos.',
+  presetSecureName: 'Zona segura',
+  presetSecureDescription:
+    'Las conversaciones confidenciales solo las responde el modelo local autodesplegado. Sin herramientas externas y los datos no salen de esta implementación.',
 
   inUse: 'Nueva tarea predeterminada',
 
@@ -244,6 +256,9 @@ export const fr = {
   presetQuickQaName: 'Réponses rapides',
   presetQuickQaDescription:
     'Répondez aux questions courantes sans outils ni contexte de projet. Les réponses sont plus rapides et consomment moins de jetons.',
+  presetSecureName: 'Zone sécurisée',
+  presetSecureDescription:
+    'Les conversations confidentielles sont traitées uniquement par le modèle local auto-hébergé. Aucun outil externe et aucune donnée ne quitte ce déploiement.',
 
   inUse: 'Nouvelle tâche par défaut',
 
@@ -292,6 +307,9 @@ export const de = {
   presetQuickQaName: 'Schnelle Antworten',
   presetQuickQaDescription:
     'Beantwortet alltägliche Fragen ohne Tools oder Projektkontext. Antworten bleiben schnell und sparsam.',
+  presetSecureName: 'Sicherheitszone',
+  presetSecureDescription:
+    'Vertrauliche Unterhaltungen beantwortet ausschließlich das selbst gehostete lokale Modell. Keine externen Tools und keine Daten verlassen diese Bereitstellung.',
 
   inUse: 'Neuer Aufgabenstandard',
 
@@ -340,6 +358,9 @@ export const ru = {
   presetQuickQaName: 'Быстрые ответы',
   presetQuickQaDescription:
     'Отвечает на повседневные вопросы без инструментов и контекста проекта. Ответы быстрее и экономичнее.',
+  presetSecureName: 'Защищённая зона',
+  presetSecureDescription:
+    'Конфиденциальные беседы обрабатывает только локальная модель собственного развёртывания. Внешних инструментов нет, и данные не покидают это развёртывание.',
 
   inUse: 'Новая задача по умолчанию',
 
@@ -388,6 +409,9 @@ export const pt = {
   presetQuickQaName: 'Respostas rápidas',
   presetQuickQaDescription:
     'Responde a perguntas do dia a dia sem ferramentas ou contexto do projeto. As respostas são mais rápidas e gastam menos.',
+  presetSecureName: 'Zona segura',
+  presetSecureDescription:
+    'Conversas confidenciais são respondidas apenas pelo modelo local auto-hospedado. Sem ferramentas externas e os dados não saem desta implantação.',
 
   inUse: 'Novo padrão de tarefa',
 

@@ -125,8 +125,15 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
-    /** Independent region below the Workspace and Session browser. */
-    'sidebar.workspaces.footer': { kind: 'single'; scope: 'root'; owner: Record<never, never> }
+    /**
+     * Sidebar zone-accordion region below the Workspace and Session browser.
+     * Declared `kind: 'list'` so the quick-qa and secure-zone panels are two
+     * ordered entries of one zone list; the `id` orders the zones
+     * (quick-qa below secure). Each entry renders only its scrollable
+     * history: the accordion header (zone title, collapse chevron, New
+     * conversation button) is the declaring browser's.
+     */
+    'sidebar.workspaces.footer': { kind: 'list'; scope: 'root'; owner: Record<never, never> }
     /**
      * Leading decoration of one Session row, in the 16px cell before the title
      * that the row's own state dot otherwise occupies. A higher-priority state

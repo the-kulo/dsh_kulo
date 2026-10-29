@@ -28,6 +28,8 @@ type WorkspaceViewState = {
   sessionOrderByAccount: Record<string, string[]>
   /** Archived-row visibility; omitted in pre-filter v5 snapshots and read as 'default'. */
   archivedFilter?: ArchivedFilter
+  /** Sidebar zone-accordion expansion; omitted in pre-zone v6 snapshots and read as expanded. */
+  zoneExpansion?: Record<string, boolean>
 }
 
 type SessionOrderSource = {
@@ -66,6 +68,7 @@ type WorkspaceViewActions = {
     source: SessionOrderSource,
   ) => void
   setArchivedFilter: (draft: WorkspaceViewState, filter: ArchivedFilter) => void
+  setZoneExpanded: (draft: WorkspaceViewState, zoneKey: string, expanded: boolean) => void
 }
 
 /** Copy read-only projections into the persisted mutable store representation. */
@@ -125,6 +128,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         }))
       },
       setArchivedFilter: (d, filter: ArchivedFilter) => { d.archivedFilter = filter },
+      setZoneExpanded: (d, zoneKey: string, expanded: boolean) => { d.zoneExpansion = { ...d.zoneExpansion, [zoneKey]: expanded } },
     },
   })
 }

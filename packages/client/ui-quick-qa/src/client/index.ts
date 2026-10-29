@@ -25,9 +25,19 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
 
 const NS = 'quickqa'
 
-export const inject = ['slots', 'sessions', 'locale']
+export const inject = ['slots', 'sessions', 'locale', 'uiWorkspace']
 
-/** Mount the read-only Quick answers history below the Workspace browser. */
+/**
+ * Mount the read-only Quick answers history as the sidebar's quick-qa zone.
+ *
+ * The registration no longer carries a title: the zone accordion's header
+ * (rendered by ui-workspace, which declares the `sidebar.workspaces.footer`
+ * hole) owns the zone title, collapse chevron, and New conversation button;
+ * this panel renders only the scrollable history. Its New conversation
+ * action creates a quick-answer Session through `ctx.uiWorkspace`: the
+ * quick-qa zone semantics ride on the `quick` placement plus the `quick-qa`
+ * preset id (see contract/slots.ts).
+ */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-quick-qa: dictionaries')
   const viewStore = createQuickQaStore()
@@ -37,14 +47,23 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => () => { controller.dispose() }, 'ui-quick-qa: controller')
   void controller.start().catch((error: unknown) => { ctx.logger.warn(String(error)) })
 
+  const uiWorkspace = ctx.get('uiWorkspace')
+  if (uiWorkspace === undefined) throw new Error('dsh-client-ui-quick-qa requires the uiWorkspace service')
   ctx.slots.inject('sidebar.workspaces.footer', () => ctx.slots.register(
     {
       name: 'sidebar.workspaces.footer',
+      id: 'quick-qa',
       locale: NS,
       store: view,
       inject: (): QuickQaInjected => ({
         hooks: {
           exchanges: controller.exchanges,
+        },
+        // The quick-qa zone's New conversation: a quick-answer Session (no
+        // Workspace membership) under the shipped quick-qa preset. The preset
+        // id maps to the gateway's quick-qa zone for model routing.
+        startQuickSession: () => {
+          uiWorkspace.startSession(undefined, { agentPreset: 'quick-qa' })
         },
       }),
     },

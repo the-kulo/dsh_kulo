@@ -14,6 +14,7 @@ export type BuiltInPresetCopyKey =
   | 'presetMinimalName' | 'presetMinimalDescription'
   | 'presetCordisName' | 'presetCordisDescription'
   | 'presetQuickQaName' | 'presetQuickQaDescription'
+  | 'presetSecureName' | 'presetSecureDescription'
 
 /** Preset roster fields needed to resolve display copy. */
 export interface PresetDisplaySource {
@@ -44,6 +45,7 @@ const BUILT_IN_PRESET_KEYS: Readonly<Partial<Record<string, PresetLocaleKeys>>> 
   minimal: { name: 'presetMinimalName', description: 'presetMinimalDescription' },
   cordis: { name: 'presetCordisName', description: 'presetCordisDescription' },
   'quick-qa': { name: 'presetQuickQaName', description: 'presetQuickQaDescription' },
+  secure: { name: 'presetSecureName', description: 'presetSecureDescription' },
 }
 
 /**

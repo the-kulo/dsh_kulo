@@ -317,6 +317,23 @@
   }
 }
 
+/* Zone-accordion seat under the browsing region: open zones split this
+   height by equal flex grows, each body scrolling its own share. */
+.zones {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.zoneContent {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* List seat: always mounted so the shell foot never moves. The equal split
    hands this seat its share, so it scrolls its overflow itself while the
    first-boundary drop marker keeps its header-gap coordinate outside the

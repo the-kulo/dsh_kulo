@@ -1,0 +1,100 @@
+/* One zone of the sidebar's three-zone accordion. Expanded zones share the
+   region height by equal flex grows from a zero basis, so each open body owns
+   an equal slice and scrolls inside it instead of pushing its neighbors out.
+   A collapsed zone keeps only its fixed header. */
+
+.root {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.root:not(.expanded) {
+  flex: none;
+}
+
+.root + .root {
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
+}
+
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  box-sizing: border-box;
+}
+
+.headerMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.headerMain:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+  border-radius: var(--dsw-radius-sm);
+}
+
+.chevron {
+  flex: none;
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.newButton:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .newButton:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.body {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

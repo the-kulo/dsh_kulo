@@ -23,6 +23,7 @@
   gap: 4px;
   height: 36px;
   padding: 0 4px;
+  margin-bottom: 4px;
   box-sizing: border-box;
   border-radius: var(--dsw-radius-md);
   color: var(--dsw-alias-label-tertiary);

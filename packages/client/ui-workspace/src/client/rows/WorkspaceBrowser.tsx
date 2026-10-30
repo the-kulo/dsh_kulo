@@ -1287,13 +1287,16 @@ export function WorkspaceBrowser({
 
   return (
     <div className={clsx(css.root, !wide && css.rail)}>
-      <div className={css.browsing}>
+      <div className={css.zones}>
+        <AccordionSection
+          sectionKey="workspace"
+          title={groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
+          expanded={zoneExpanded('workspace')}
+          onExpandedChange={(expanded) => { setZoneExpanded('workspace', expanded) }}
+          newLabel={t('zone.workspace.new')}
+          onNew={() => { startSession(undefined, { clearPreviousDraft: false }) }}
+        >
         <div className={css.sectionHeader}>
-          {wide && (
-            <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
-              {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
-            </span>
-          )}
           {wide && (
             <div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
               <div
@@ -1506,15 +1509,11 @@ export function WorkspaceBrowser({
                 />
               ))}
         </div>
-      </div>
+        </AccordionSection>
 
-      {/* The two sidebar zones under the Workspace browser: quick-qa and
-          secure, each its own AccordionSection (title, collapse chevron, New
-          conversation button) around its panel, so the two zones fold
-          independently. The zone panels are the ordered entries of the
-          `sidebar.workspaces.footer` list slot, addressed by entry id. */}
+      {/* The three sibling sidebar zones: workspace, quick-qa and secure. */}
       {wide && (
-        <div className={css.zones}>
+        <>
           <AccordionSection
             sectionKey="quick-qa"
             title={t('zone.quickQa')}
@@ -1539,8 +1538,9 @@ export function WorkspaceBrowser({
               {renderSlot('sidebar.workspaces.footer', {}, { only: 'secure-zone' })}
             </div>
           </AccordionSection>
-        </div>
+        </>
       )}
+      </div>
 
       <Modal
         open={renameTarget !== null}

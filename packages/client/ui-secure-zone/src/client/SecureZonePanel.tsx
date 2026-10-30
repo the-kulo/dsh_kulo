@@ -11,11 +11,14 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { IconCloseFillRegular, IconSearchOutlineRegular, relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconCloseFillRegular, IconSearchOutlineRegular, Modal, relativeTime,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SecureZonePanelProps } from './contract/slots.ts'
 import type { SecureZoneSessionItem } from './contract/slots.ts'
+import { SecureZoneSessionMenu } from './session-actions/SecureZoneSessionMenuItem.tsx'
 import css from './SecureZonePanel.module.css'
 
 /** Pause between the latest keystroke and a Host content-search request. */
@@ -47,11 +50,23 @@ function timeLabel(updatedAt: number, now: number, t: SecureZonePanelProps['t'])
 
 /** One 32px session row: title, trailing relative time, selected marker. */
 function SessionRow({
-  item, now, onOpen, t,
+  item,
+  now,
+  onOpen,
+  onRenameRequest,
+  onDeleteRequest,
+  actions,
+  t,
 }: {
   item: SecureZoneSessionItem
   now: number
   onOpen: (id: SessionId) => void
+  onRenameRequest: (sessionId: SessionId, currentTitle: string) => void
+  onDeleteRequest: (sessionId: SessionId, displayTitle: string) => void
+  actions: Pick<
+    SecureZonePanelProps,
+    'renameSession' | 'deleteSession' | 'archiveSession' | 'unarchiveSession' | 'pinSession' | 'unpinSession'
+  >
   t: SecureZonePanelProps['t']
 }) {
   const title = displayTitle(item, t)
@@ -71,6 +86,19 @@ function SessionRow({
     >
       <span className={css.title}>{title}</span>
       {!item.blank && <span className={css.time}>{timeLabel(item.updatedAt, now, t)}</span>}
+      {!item.blank && (
+        <SecureZoneSessionMenu
+          item={item}
+          displayTitle={title}
+          archiveSession={actions.archiveSession}
+          unarchiveSession={actions.unarchiveSession}
+          pinSession={actions.pinSession}
+          unpinSession={actions.unpinSession}
+          onRenameRequest={onRenameRequest}
+          onDeleteRequest={onDeleteRequest}
+          t={t}
+        />
+      )}
     </div>
   )
 }
@@ -129,6 +157,12 @@ export const SecureZonePanel = memo(function SecureZonePanel({
   openSession,
   searchSessions,
   searchResultLimit,
+  renameSession,
+  deleteSession,
+  archiveSession,
+  unarchiveSession,
+  pinSession,
+  unpinSession,
   t,
 }: SecureZonePanelProps) {
   const failures = useStore(state => state.failures)
@@ -147,6 +181,14 @@ export const SecureZonePanel = memo(function SecureZonePanel({
   })
   const searchRoot = useRef<HTMLDivElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{ sessionId: SessionId; currentTitle: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ sessionId: SessionId; displayTitle: string } | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [renaming, setRenaming] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const composingRef = useRef(false)
 
   useEffect(() => {
     if (normalizedQuery === '') {
@@ -208,18 +250,105 @@ export const SecureZonePanel = memo(function SecureZonePanel({
   const hasMore = normalizedQuery !== '' && currentRemote.status === 'ready' && currentRemote.hasMore
   const now = Date.now()
 
+  const actionSet = useMemo(() => ({
+    renameSession,
+    deleteSession,
+    archiveSession,
+    unarchiveSession,
+    pinSession,
+    unpinSession,
+  }), [archiveSession, deleteSession, pinSession, renameSession, unarchiveSession, unpinSession])
+
+  const onRenameRequest = (sessionId: SessionId, currentTitle: string): void => {
+    setRenameTarget({ sessionId, currentTitle })
+    setRenameDraft(currentTitle)
+    setRenameError(null)
+  }
+
+  const onDeleteRequest = (sessionId: SessionId, displayTitle: string): void => {
+    setDeleteTarget({ sessionId, displayTitle })
+    setDeleteError(null)
+  }
+
+  const renameTrimmed = renameDraft.trim()
+  const renameBlocked = renaming || renameTrimmed === '' || renameTarget === null
+  const closeRename = (): void => {
+    if (renaming) return
+    setRenameTarget(null)
+    setRenameError(null)
+  }
+  const confirmRename = (): void => {
+    if (renameBlocked || renameTarget === null) return
+    setRenaming(true)
+    setRenameError(null)
+    renameSession(renameTarget.sessionId, renameTrimmed).then(() => {
+      setRenaming(false)
+      setRenameTarget(null)
+    }).catch((reason: unknown) => {
+      setRenaming(false)
+      setRenameError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
+  const closeDelete = (): void => {
+    if (deleting) return
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }
+  const confirmDelete = (): void => {
+    if (deleting || deleteTarget === null) return
+    setDeleting(true)
+    setDeleteError(null)
+    deleteSession(deleteTarget.sessionId).then(() => {
+      setDeleting(false)
+      setDeleteTarget(null)
+    }).catch((reason: unknown) => {
+      setDeleting(false)
+      setDeleteError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
   const listBody = normalizedQuery === ''
     ? (
       <div className={css.list} role="tree" aria-label={t('section.title')}>
         {items.length === 0 && <div className={css.empty}>{t('empty.none')}</div>}
-        {items.map(item => <SessionRow key={item.id} item={item} now={now} onOpen={openSession} t={t} />)}
+        {items.map(item => (
+          <SessionRow
+            key={item.id}
+            item={item}
+            now={now}
+            onOpen={openSession}
+            onRenameRequest={onRenameRequest}
+            onDeleteRequest={onDeleteRequest}
+            actions={actionSet}
+            t={t}
+          />
+        ))}
       </div>
     )
     : (
       <div className={css.list} role="tree" aria-label={t('search.results.aria')}>
-        {titleMatches.map(item => <SessionRow key={item.id} item={item} now={now} onOpen={openSession} t={t} />)}
+        {titleMatches.map(item => (
+          <SessionRow
+            key={item.id}
+            item={item}
+            now={now}
+            onOpen={openSession}
+            onRenameRequest={onRenameRequest}
+            onDeleteRequest={onDeleteRequest}
+            actions={actionSet}
+            t={t}
+          />
+        ))}
         {contentOnly.map(item => (
-          <SearchResultRow key={item.id} item={item} snippet={contentHits.get(item.id)} now={now} onOpen={openSession} t={t} />
+          <SearchResultRow
+            key={item.id}
+            item={item}
+            snippet={contentHits.get(item.id)}
+            now={now}
+            onOpen={openSession}
+            t={t}
+          />
         ))}
         {searchPending && (
           <div role="status" aria-label={t('search.pending')}>
@@ -300,6 +429,64 @@ export const SecureZonePanel = memo(function SecureZonePanel({
         {listBody}
       </div>
       {failures.length > 0 && <p className={css.error} role="alert">{failures.join(' ')}</p>}
+
+      <Modal
+        open={renameTarget !== null}
+        onClose={closeRename}
+        closeLabel={t('close')}
+        title={t('rename.session.title')}
+        footer={(
+          <>
+            <Button variant="outline" disabled={renaming} onClick={closeRename}>{t('cancel')}</Button>
+            <Button variant="primary" disabled={renameBlocked} onClick={confirmRename}>{t('rename')}</Button>
+          </>
+        )}
+      >
+        <input
+          className={css.renameInput}
+          value={renameDraft}
+          aria-label={t('field.sessionName')}
+          data-modal-autofocus
+          disabled={renaming}
+          onFocus={(event) => { event.target.select() }}
+          onChange={(event) => { setRenameDraft(event.target.value); setRenameError(null) }}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={() => { composingRef.current = false }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !composingRef.current) {
+              event.preventDefault()
+              confirmRename()
+            }
+          }}
+        />
+        {renameError !== null && <div className={css.renameError} role="alert">{renameError}</div>}
+      </Modal>
+
+      <Modal
+        open={deleteTarget !== null}
+        onClose={closeDelete}
+        closeLabel={t('close')}
+        title={t('delete.confirm.title')}
+        {...deleteTarget === null
+          ? {}
+          : { description: t('delete.confirm.desc', { title: deleteTarget.displayTitle }) }}
+        footer={(
+          <>
+            <Button variant="outline" disabled={deleting} onClick={closeDelete}>{t('cancel')}</Button>
+            <Button
+              variant="outline"
+              className={css.deleteAction}
+              disabled={deleting}
+              onClick={confirmDelete}
+            >
+              {t('delete.confirm.action')}
+            </Button>
+          </>
+        )}
+      >
+        {deleting && <div className={css.deleteStatus} role="status">{t('delete.confirm.pending')}</div>}
+        {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+      </Modal>
     </section>
   )
 })

@@ -29,7 +29,7 @@ export type { SecureZoneSessionItem }
  */
 export interface SecureZoneInjected {
   readonly hooks: {
-    /** Standalone secure-zone conversations, newest first. */
+    /** Standalone secure-zone conversations, pinned first then newest first, archived excluded. */
     readonly sessionItems: HostObservable<readonly SecureZoneSessionItem[]>
   }
   /** Create a new secure-zone Session under the secure preset and open it. */
@@ -47,6 +47,18 @@ export interface SecureZoneInjected {
   ) => Promise<{ items: readonly SessionSearchResultItem[]; hasMore: boolean }>
   /** Maximum number of merged rows rendered for one search. */
   searchResultLimit: number
+  /** Rename a secure-zone Session. */
+  renameSession: (sessionId: SessionId, title: string) => Promise<void>
+  /** Permanently delete a secure-zone Session. */
+  deleteSession: (sessionId: SessionId) => Promise<void>
+  /** Archive a secure-zone Session (hidden from the default list). */
+  archiveSession: (sessionId: SessionId) => Promise<void>
+  /** Unarchive a secure-zone Session (restores it to the list). */
+  unarchiveSession: (sessionId: SessionId) => Promise<void>
+  /** Pin a secure-zone Session (sorted before unpinned rows). */
+  pinSession: (sessionId: SessionId) => Promise<void>
+  /** Unpin a secure-zone Session. */
+  unpinSession: (sessionId: SessionId) => Promise<void>
 }
 
 /** Full component props of the history view. */

@@ -1,11 +1,13 @@
 /** Quick answers browser plugin over one durable, tool-free Session history. */
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { createQuickQaStore } from './stores.ts'
 import { QuickQaController } from './controller.ts'
@@ -26,7 +28,7 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
 
 const NS = 'quickqa'
 
-export const inject = ['slots', 'sessions', 'locale', 'uiWorkspace']
+export const inject = ['slots', 'sessions', 'workspaces', 'locale', 'uiWorkspace']
 
 /**
  * Mount the read-only Quick answers history as the sidebar's quick-qa zone.
@@ -48,6 +50,7 @@ export function apply(ctx: ClientContext): void {
   const controller = new QuickQaController(
     ctx,
     ctx.get('sessions') as ISessions,
+    ctx.get('workspaces') as IWorkspaces,
     ctx.get('uiWorkspace') as UiWorkspace,
     viewInstance,
   )
@@ -74,6 +77,12 @@ export function apply(ctx: ClientContext): void {
           })
         },
         openSession: (sessionId) => { controller.openSession(sessionId) },
+        renameSession: (sessionId, title) => controller.renameSession(sessionId, title),
+        deleteSession: (sessionId) => controller.deleteSession(sessionId),
+        archiveSession: (sessionId) => controller.archiveSession(sessionId),
+        unarchiveSession: (sessionId) => controller.unarchiveSession(sessionId),
+        pinSession: (sessionId) => controller.pinSession(sessionId),
+        unpinSession: (sessionId) => controller.unpinSession(sessionId),
       }),
     },
     QuickQaPanel,

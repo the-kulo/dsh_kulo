@@ -1,12 +1,14 @@
 /** Secure zone browser plugin over one durable, tool-free secure-zone Session history. */
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { createSecureZoneStore } from './stores.ts'
 import { SecureZoneController } from './controller.ts'
 import { SecureZonePanel } from './SecureZonePanel.tsx'
@@ -21,12 +23,14 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     /** Secure zone history's durable Session reference. */
     secureZonePanel: unknown
+    /** Secure zone history's rename operation. */
+    secureZoneRename: unknown
   }
 }
 
 const NS = 'securezone'
 
-export const inject = ['slots', 'sessions', 'locale', 'uiWorkspace']
+export const inject = ['slots', 'sessions', 'workspaces', 'locale', 'uiWorkspace']
 
 /**
  * Mount the read-only Secure zone history as the sidebar's secure zone.
@@ -47,6 +51,7 @@ export function apply(ctx: ClientContext): void {
   const controller = new SecureZoneController(
     ctx,
     ctx.get('sessions') as ISessions,
+    ctx.get('workspaces') as IWorkspaces,
     ctx.get('uiWorkspace') as UiWorkspace,
     viewInstance,
   )
@@ -75,6 +80,12 @@ export function apply(ctx: ClientContext): void {
         openSession: (sessionId) => { controller.openSession(sessionId) },
         searchSessions: (query, signal) => controller.searchSessions(query, signal),
         searchResultLimit: (ctx.get('sessions') as ISessions).searchResultLimit,
+        renameSession: (sessionId, title) => controller.renameSession(sessionId, title),
+        deleteSession: (sessionId) => controller.deleteSession(sessionId),
+        archiveSession: (sessionId) => controller.archiveSession(sessionId),
+        unarchiveSession: (sessionId) => controller.unarchiveSession(sessionId),
+        pinSession: (sessionId) => controller.pinSession(sessionId),
+        unpinSession: (sessionId) => controller.unpinSession(sessionId),
       }),
     },
     SecureZonePanel,

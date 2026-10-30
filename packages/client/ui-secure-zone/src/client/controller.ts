@@ -1,11 +1,13 @@
-/** Secure-zone history restore and derived browser observables. */
+/** Secure-zone history restore, session management, and derived browser observables. */
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -31,6 +33,10 @@ export interface SecureZoneSessionItem {
   readonly blank: boolean
   /** The Session the Main view currently retains. */
   readonly current: boolean
+  /** Whether the Session is archived (hidden from the default list). */
+  readonly archived: boolean
+  /** Whether the Session is pinned (sorted before unpinned rows). */
+  readonly pinned: boolean
 }
 
 function isSecureZoneIdentity(id: SessionId): boolean {
@@ -39,15 +45,17 @@ function isSecureZoneIdentity(id: SessionId): boolean {
 
 /** Read-only owner of the secure-zone conversation list. */
 export class SecureZoneController {
-  /** Standalone secure-zone conversations, newest first. */
+  /** Standalone secure-zone conversations, pinned first then newest first, archived excluded. */
   readonly sessionItems = createSnapshotStore<readonly SecureZoneSessionItem[]>([])
 
   private listSubscription: (() => void) | null = null
+  private workspaceSubscription: (() => void) | null = null
   private disposed = false
 
   constructor(
     private readonly ctx: ClientContext,
     private readonly sessions: ISessions,
+    private readonly workspaces: IWorkspaces,
     private readonly workspace: UiWorkspace,
     private readonly view: SecureZoneView,
   ) {}
@@ -87,6 +95,7 @@ export class SecureZoneController {
   /** Follow the secure-zone conversation list without creating an Agent. */
   async start(): Promise<void> {
     this.listSubscription ??= this.sessions.list.subscribe(() => { this.refresh() })
+    this.workspaceSubscription ??= this.workspaces.list.subscribe(() => { this.refresh() })
     await this.sessions.refresh().catch((error: unknown) => { this.fail(error) })
     this.refresh()
   }
@@ -94,6 +103,9 @@ export class SecureZoneController {
   private refresh(): void {
     if (this.disposed) return
     const snapshot = this.sessions.list.getSnapshot()
+    const workspaceSnapshot = this.workspaces.list.getSnapshot()
+    const archivedSet = new Set(workspaceSnapshot.archivedSessionIds)
+    const pinnedSet = new Set(workspaceSnapshot.pinnedSessionIds)
     const current = Object.values(snapshot.byId)
       .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
     const items = [...snapshot.ids].reverse()
@@ -104,16 +116,82 @@ export class SecureZoneController {
         updatedAt: snapshot.byId[id]?.updatedAt ?? 0,
         blank: snapshot.byId[id]?.blank ?? false,
         current: id === current,
+        archived: archivedSet.has(id),
+        pinned: pinnedSet.has(id),
       }))
       .filter(item => !item.blank || item.current)
-    this.sessionItems.set(items)
+    const visible = items
+      .filter(item => !item.archived)
+      .sort((left, right) => {
+        if (left.pinned !== right.pinned) return left.pinned ? -1 : 1
+        return right.updatedAt - left.updatedAt
+      })
+    this.sessionItems.set(visible)
   }
 
-  /** Release the list subscription. */
+  /**
+   * Rename a secure-zone Session and refresh the zone list.
+   * @param sessionId - Session to rename.
+   * @param title - new title.
+   */
+  async renameSession(sessionId: SessionId, title: string): Promise<void> {
+    const result = await this.sessions.using(
+      sessionId,
+      { source: 'secureZoneRename' },
+      reference => reference.binding.session.rename(title),
+    )
+    if (!result.ok) throw new Error(result.error.message)
+  }
+
+  /**
+   * Permanently delete a secure-zone Session and its stored log.
+   * @param sessionId - Session to delete.
+   */
+  async deleteSession(sessionId: SessionId): Promise<void> {
+    await this.sessions.delete(sessionId)
+  }
+
+  /**
+   * Archive a secure-zone Session; the zone list hides it on the next
+   * Workspace-list notification.
+   * @param sessionId - Session to archive.
+   */
+  async archiveSession(sessionId: SessionId): Promise<void> {
+    await this.workspace.archiveSession(sessionId)
+  }
+
+  /**
+   * Unarchive a secure-zone Session; it re-enters the zone list.
+   * @param sessionId - Session to unarchive.
+   */
+  async unarchiveSession(sessionId: SessionId): Promise<void> {
+    await this.workspace.unarchiveSession(sessionId)
+  }
+
+  /**
+   * Pin a secure-zone Session; it leads the zone list on the next
+   * Workspace-list notification.
+   * @param sessionId - Session to pin.
+   */
+  async pinSession(sessionId: SessionId): Promise<void> {
+    await this.workspace.pinSession(sessionId)
+  }
+
+  /**
+   * Unpin a secure-zone Session; its saved position stays as it is.
+   * @param sessionId - Session to unpin.
+   */
+  async unpinSession(sessionId: SessionId): Promise<void> {
+    await this.workspace.unpinSession(sessionId)
+  }
+
+  /** Release the list subscriptions. */
   dispose(): void {
     this.disposed = true
     this.listSubscription?.()
     this.listSubscription = null
+    this.workspaceSubscription?.()
+    this.workspaceSubscription = null
   }
 
   private t(key: SecureZoneKey): string {

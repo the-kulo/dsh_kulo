@@ -27,13 +27,25 @@ export type { QuickQaSessionItem }
  */
 export interface QuickQaInjected {
   readonly hooks: {
-    /** Standalone quick-answer conversations, newest first. */
+    /** Standalone quick-answer conversations, pinned first then newest first, archived excluded. */
     readonly sessionItems: HostObservable<readonly QuickQaSessionItem[]>
   }
   /** Create a new quick-answer Session under the quick-qa preset and open it. */
   startQuickSession: () => void
   /** Open one listed conversation as the current Main Session. */
   openSession: (sessionId: SessionId) => void
+  /** Rename a quick-answer Session. */
+  renameSession: (sessionId: SessionId, title: string) => Promise<void>
+  /** Permanently delete a quick-answer Session. */
+  deleteSession: (sessionId: SessionId) => Promise<void>
+  /** Archive a quick-answer Session (hidden from the default list). */
+  archiveSession: (sessionId: SessionId) => Promise<void>
+  /** Unarchive a quick-answer Session (restores it to the list). */
+  unarchiveSession: (sessionId: SessionId) => Promise<void>
+  /** Pin a quick-answer Session (sorted before unpinned rows). */
+  pinSession: (sessionId: SessionId) => Promise<void>
+  /** Unpin a quick-answer Session. */
+  unpinSession: (sessionId: SessionId) => Promise<void>
 }
 
 /** Full component props of the history view. */

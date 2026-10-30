@@ -19,25 +19,6 @@
   overscroll-behavior: contain;
 }
 
-.question {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 18px;
-  color: var(--dsw-alias-label-primary);
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.answer {
-  margin: 0;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
 .exchanges {
   margin: 0;
   padding: 0;
@@ -47,9 +28,38 @@
 .exchanges li {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   min-width: 0;
-  padding: 8px 12px;
+  padding: 0 4px;
+}
+
+.sessionLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--dsw-alias-label-primary);
+}
+
+.sessionLink:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.sessionTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error {

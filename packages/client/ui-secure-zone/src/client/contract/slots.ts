@@ -1,7 +1,8 @@
 /** Secure-zone slot inputs derived from its store, locale, and injected face. */
 
 import type { HostObservable, InjectFace, PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SecureZoneExchangeView } from '../transcript.ts'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SecureZoneSessionItem } from '../controller.ts'
 import type { createSecureZoneStore } from '../stores.ts'
 import type { SecureZoneKey } from '../locales.ts'
 
@@ -12,7 +13,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-export type { SecureZoneExchangeView }
+export type { SecureZoneSessionItem }
 
 /**
  * Injected business face of the Secure zone history.
@@ -27,11 +28,13 @@ export type { SecureZoneExchangeView }
  */
 export interface SecureZoneInjected {
   readonly hooks: {
-    /** Exchanges folded from the durable Session event window. */
-    readonly exchanges: HostObservable<readonly SecureZoneExchangeView[]>
+    /** Standalone secure-zone conversations, newest first. */
+    readonly sessionItems: HostObservable<readonly SecureZoneSessionItem[]>
   }
   /** Create a new secure-zone Session under the secure preset and open it. */
   startSecureSession: () => void
+  /** Open one listed conversation as the current Main Session. */
+  openSession: (sessionId: SessionId) => void
 }
 
 /** Full component props of the history view. */

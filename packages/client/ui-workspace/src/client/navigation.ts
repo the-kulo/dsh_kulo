@@ -44,6 +44,13 @@ export interface UiWorkspace {
    */
   openSession(target: SessionTarget): void
   /**
+   * Whether a Session is attached to any Workspace, as opposed to a standalone
+   * zone conversation created with quick:true.
+   * @param sessionId - Session identity to test.
+   * @returns true when the Session belongs to a Workspace's session list.
+   */
+  isWorkspaceMember(sessionId: SessionId): boolean
+  /**
    * Connect a Workspace and open its Session unless a later navigation supersedes it.
    * @param workspaceId - target Workspace.
    * @param beforeOpen - optional synchronous preparation for the selected Session,
@@ -294,6 +301,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   openSession(target: SessionTarget): void {
     this.replaceMain(target, this.lifetime.signal, 'reveal')
+  }
+
+  isWorkspaceMember(sessionId: SessionId): boolean {
+    return this.workspaces.list.getSnapshot().items.some(item => item.sessionIds.includes(sessionId))
   }
 
   openWorkspace(

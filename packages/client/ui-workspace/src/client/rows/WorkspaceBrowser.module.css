@@ -92,6 +92,8 @@
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 400;
   line-height: 20px;
   opacity: 1;
   visibility: visible;
@@ -317,13 +319,15 @@
   }
 }
 
-/* Zone-accordion seat under the browsing region: open zones split this
-   height by equal flex grows, each body scrolling its own share. The seat
-   mirrors the browser's own header insets (margin-right -4px on the header
-   row, content nested 4px inside) so the two zone headers align with the
+/* Zone-accordion seat under the browsing region: the Workspace browsing
+   region and this seat split the shell height 1:2, and the two open zones
+   inside split their share equally — so the Workspace, quick-qa, and secure
+   zones each own one third of the height. Each body scrolls its own share.
+   The seat mirrors the browser's own header insets (margin-right -4px on the
+   header row, content nested 4px inside) so the zone headers align with the
    Workspace section header on both edges. */
 .zones {
-  flex: 1 1 0;
+  flex: 2 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;

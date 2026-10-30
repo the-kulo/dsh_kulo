@@ -26,7 +26,7 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
 
 const NS = 'quickqa'
 
-export const inject = ['slots', 'sessions', 'locale']
+export const inject = ['slots', 'sessions', 'locale', 'uiWorkspace']
 
 /**
  * Mount the read-only Quick answers history as the sidebar's quick-qa zone.
@@ -62,7 +62,7 @@ export function apply(ctx: ClientContext): void {
       store: view,
       inject: (): QuickQaInjected => ({
         hooks: {
-          exchanges: controller.exchanges,
+          sessionItems: controller.sessionItems,
         },
         // The quick-qa zone's New conversation: an independent quick-answer
         // Session under the shipped quick-qa preset, opened as the current
@@ -73,6 +73,7 @@ export function apply(ctx: ClientContext): void {
             ctx.logger.warn(String(error))
           })
         },
+        openSession: (sessionId) => { controller.openSession(sessionId) },
       }),
     },
     QuickQaPanel,

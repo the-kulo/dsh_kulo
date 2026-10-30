@@ -1,7 +1,8 @@
 /** Quick answers slot inputs derived from its store, locale, and injected face. */
 
 import type { HostObservable, InjectFace, PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import type { QuickQaExchangeView } from '../transcript.ts'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { QuickQaSessionItem } from '../controller.ts'
 import type { createQuickQaStore } from '../stores.ts'
 import type { QuickQaKey } from '../locales.ts'
 
@@ -12,7 +13,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-export type { QuickQaExchangeView }
+export type { QuickQaSessionItem }
 
 /**
  * Injected business face of the Quick answers history.
@@ -26,11 +27,13 @@ export type { QuickQaExchangeView }
  */
 export interface QuickQaInjected {
   readonly hooks: {
-    /** Exchanges folded from the durable Session event window. */
-    readonly exchanges: HostObservable<readonly QuickQaExchangeView[]>
+    /** Standalone quick-answer conversations, newest first. */
+    readonly sessionItems: HostObservable<readonly QuickQaSessionItem[]>
   }
   /** Create a new quick-answer Session under the quick-qa preset and open it. */
   startQuickSession: () => void
+  /** Open one listed conversation as the current Main Session. */
+  openSession: (sessionId: SessionId) => void
 }
 
 /** Full component props of the history view. */

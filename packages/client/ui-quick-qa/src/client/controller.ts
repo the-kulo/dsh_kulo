@@ -5,34 +5,34 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ISessions, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { quickQaExchanges, type QuickQaExchangeView } from './transcript.ts'
 import type { QuickQaKey } from './locales.ts'
 import type { createQuickQaStore } from './stores.ts'
 
 /** Agent preset whose Sessions the panel reads; composed without tools or runtime context. */
 export const QUICK_QA_PRESET_ID = 'quick-qa'
-const REFERENCE = { source: 'quickQaPanel' } as const
 
 type QuickQaView = ReturnType<ReturnType<typeof createQuickQaStore>['create']>
+
+/** One standalone quick-answer conversation in the zone's history list. */
+export interface QuickQaSessionItem {
+  readonly id: SessionId
+  readonly title: string
+}
 
 function isQuickQaIdentity(id: SessionId): boolean {
   return id.startsWith('quickqa-')
 }
 
-/** Read-only owner of the latest quick-answer Session and the panel's derived sources. */
+/** Read-only owner of the quick-answer zone's conversation list. */
 export class QuickQaController {
-  /** Durable exchanges rendered by the panel. */
-  readonly exchanges = createSnapshotStore<readonly QuickQaExchangeView[]>([])
+  /** Standalone quick-answer conversations, newest first. */
+  readonly sessionItems = createSnapshotStore<readonly QuickQaSessionItem[]>([])
 
-  private reference: SessionReference | null = null
-  private sessionId: SessionId | null = null
-  private sessionOpening: Promise<SessionId | null> | null = null
   private listSubscription: (() => void) | null = null
   private disposed = false
-  private readonly subscriptions: (() => void)[] = []
 
   constructor(
     private readonly ctx: ClientContext,
@@ -43,113 +43,47 @@ export class QuickQaController {
 
   /**
    * Create one independent quick-answer Session and show it as the current
-   * Main Session.
-   *
-   * `quick: true` asks the Host for its default directory without joining or
-   * reusing any Workspace-listed Session, so the new conversation never
-   * inherits a Workspace (that is the zone's whole placement contract). The
-   * preset id still maps to the gateway's quick-qa zone for model routing.
-   * The Session is opened through the Workspace navigation service, which
-   * retains it and switches the main view and its input area to it.
+   * Main Session. `quick: true` keeps it outside every Workspace; the preset
+   * id maps to the gateway's quick-qa zone for model routing.
    */
   async createSession(): Promise<void> {
     const sessionId = await this.sessions.create({ quick: true, agentPreset: QUICK_QA_PRESET_ID })
     this.workspace.openSession(sessionId)
   }
 
-  /** Follow quick-answer history without creating an Agent. */
+  /** Open one listed conversation as the current Main Session. */
+  openSession(sessionId: SessionId): void {
+    this.workspace.openSession(sessionId)
+  }
+
+  /** Follow the quick-answer conversation list without creating an Agent. */
   async start(): Promise<void> {
-    this.listSubscription ??= this.sessions.list.subscribe(() => {
-      void this.restore().catch((error: unknown) => { this.fail(error) })
-    })
-    await this.restore(true)
+    this.listSubscription ??= this.sessions.list.subscribe(() => { this.refresh() })
+    await this.sessions.refresh().catch((error: unknown) => { this.fail(error) })
+    this.refresh()
   }
 
-  private latestQuickQaId(): SessionId | undefined {
+  private refresh(): void {
+    if (this.disposed) return
     const snapshot = this.sessions.list.getSnapshot()
-    return [...snapshot.ids].reverse().find((id) => {
-      if (isQuickQaIdentity(id)) return true
-      return snapshot.byId[id]?.projectionValues?.agentPreset === QUICK_QA_PRESET_ID
-    })
+    const items = [...snapshot.ids].reverse()
+      .filter(id => isQuickQaIdentity(id) || snapshot.byId[id]?.projectionValues?.agentPreset === QUICK_QA_PRESET_ID)
+      .map(id => ({ id, title: snapshot.byId[id]?.title?.trim() ?? '' }))
+    this.sessionItems.set(items)
   }
 
-  /** Attach the latest quick-answer Session; the absence of history is the empty state, not a failure. */
-  private async restore(refresh = false): Promise<SessionId | null> {
-    if (this.disposed) return null
-    this.sessionOpening ??= this.openSession(refresh)
-    let completed = false
-    try {
-      const sessionId = await this.sessionOpening
-      completed = true
-      return sessionId
-    } finally {
-      this.sessionOpening = null
-      if (completed && (this.latestQuickQaId() ?? null) !== this.sessionId) await this.restore()
-    }
-  }
-
-  private async openSession(refresh: boolean): Promise<SessionId | null> {
-    try {
-      if (refresh) await this.sessions.refresh()
-      const sessionId = this.latestQuickQaId()
-      if (sessionId === this.sessionId) return sessionId
-      if (sessionId === undefined) {
-        for (const unsubscribe of this.subscriptions.splice(0)) unsubscribe()
-        this.reference?.release()
-        this.reference = null
-        this.sessionId = null
-        this.exchanges.set([])
-        this.view.actions.setFailures([])
-        return null
-      }
-      const reference = this.sessions.retain(sessionId, REFERENCE)
-      try {
-        await reference.ready
-      } catch (error: unknown) {
-        reference.release()
-        throw error
-      }
-      if (this.disposed) {
-        reference.release()
-        throw new Error('Quick answers was disposed while its Session opened')
-      }
-      for (const unsubscribe of this.subscriptions.splice(0)) unsubscribe()
-      this.reference?.release()
-      this.reference = reference
-      const binding = reference.binding
-      const updateEvents = (): void => {
-        this.exchanges.set(quickQaExchanges(binding.eventSource.getSnapshot().entries))
-      }
-      this.subscriptions.push(binding.eventSource.subscribe(updateEvents))
-      this.sessionId = sessionId
-      this.view.actions.setFailures([])
-      updateEvents()
-      return sessionId
-    } catch (error: unknown) {
-      this.fail(error)
-      throw error
-    }
-  }
-
-  /** Release subscriptions and the retained Session. */
+  /** Release the list subscription. */
   dispose(): void {
     this.disposed = true
     this.listSubscription?.()
     this.listSubscription = null
-    for (const unsubscribe of this.subscriptions.splice(0)) unsubscribe()
-    this.reference?.release()
-    this.reference = null
   }
 
   private t(key: QuickQaKey): string {
     return this.ctx.locale.bind('quickqa')(key)
   }
 
-  private failureLine(error: unknown): string {
-    return error instanceof Error ? error.message : String(error)
-  }
-
   private fail(error: unknown): void {
-    if (!this.disposed) this.view.actions.setFailures([this.t('error.offline'), this.failureLine(error)])
+    if (!this.disposed) this.view.actions.setFailures([this.t('error.offline'), error instanceof Error ? error.message : String(error)])
   }
 }

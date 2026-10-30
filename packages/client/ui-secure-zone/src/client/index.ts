@@ -26,7 +26,7 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
 
 const NS = 'securezone'
 
-export const inject = ['slots', 'sessions', 'locale']
+export const inject = ['slots', 'sessions', 'locale', 'uiWorkspace']
 
 /**
  * Mount the read-only Secure zone history as the sidebar's secure zone.
@@ -61,7 +61,7 @@ export function apply(ctx: ClientContext): void {
       store: view,
       inject: (): SecureZoneInjected => ({
         hooks: {
-          exchanges: controller.exchanges,
+          sessionItems: controller.sessionItems,
         },
         // The secure zone's New conversation: an independent local-only
         // Session under the shipped secure preset, opened as the current
@@ -72,6 +72,7 @@ export function apply(ctx: ClientContext): void {
             ctx.logger.warn(String(error))
           })
         },
+        openSession: (sessionId) => { controller.openSession(sessionId) },
       }),
     },
     SecureZonePanel,

@@ -1,4 +1,4 @@
-/** Scrollable read-only Quick answers history. */
+/** Scrollable read-only Quick answers conversation list. */
 
 import { memo } from 'react'
 import type { QuickQaPanelProps } from './contract/slots.ts'
@@ -6,21 +6,28 @@ import css from './QuickQaPanel.module.css'
 
 export const QuickQaPanel = memo(function QuickQaPanel({
   useStore,
-  useExchanges,
+  useSessionItems,
+  openSession,
   t,
 }: QuickQaPanelProps) {
   const failures = useStore(state => state.failures)
-  const exchanges = useExchanges(value => value)
+  const items = useSessionItems(value => value)
 
   return (
     <section className={css.root} aria-label={t('section.title')}>
       <div className={css.history} aria-live="polite">
-        {exchanges.length === 0 ? null : (
+        {items.length === 0 ? null : (
           <ol className={css.exchanges}>
-            {exchanges.map(item => (
-              <li key={item.key}>
-                <p className={css.question}>{item.question}</p>
-                {item.answer.length > 0 && <p className={css.answer}>{item.answer}</p>}
+            {items.map(item => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={css.sessionLink}
+                  title={item.title}
+                  onClick={() => { openSession(item.id) }}
+                >
+                  <span className={css.sessionTitle}>{item.title}</span>
+                </button>
               </li>
             ))}
           </ol>

@@ -7,6 +7,7 @@ import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SecureZoneKey } from './locales.ts'
 import type { createSecureZoneStore } from './stores.ts'
@@ -20,6 +21,16 @@ type SecureZoneView = ReturnType<ReturnType<typeof createSecureZoneStore>['creat
 export interface SecureZoneSessionItem {
   readonly id: SessionId
   readonly title: string
+  /** Last activity (creation or latest prompt) in epoch ms; drives row order and the row's trailing relative time. */
+  readonly updatedAt: number
+  /**
+   * No first prompt yet: the New Session placeholder row. Only the blank
+   * Session the Main view retains lists — a completed one disappears on open,
+   * like the Workspace browser's own blank rule.
+   */
+  readonly blank: boolean
+  /** The Session the Main view currently retains. */
+  readonly current: boolean
 }
 
 function isSecureZoneIdentity(id: SessionId): boolean {
@@ -57,6 +68,22 @@ export class SecureZoneController {
     this.workspace.openSession(sessionId)
   }
 
+  /**
+   * Search conversation content on the Host, bounded like the Workspace
+   * browser's search; the panel intersects the hits with its own zone list.
+   * @param query - non-blank literal phrase.
+   * @param signal - cancellation for a superseded search.
+   * @returns bounded results, or a business/transport error.
+   */
+  async searchSessions(
+    query: string,
+    signal: AbortSignal,
+  ): Promise<{ items: readonly SessionSearchResultItem[]; hasMore: boolean }> {
+    const result = await this.sessions.search(query, signal)
+    if (!result.ok) throw new Error(result.error.message)
+    return result.value
+  }
+
   /** Follow the secure-zone conversation list without creating an Agent. */
   async start(): Promise<void> {
     this.listSubscription ??= this.sessions.list.subscribe(() => { this.refresh() })
@@ -67,9 +94,18 @@ export class SecureZoneController {
   private refresh(): void {
     if (this.disposed) return
     const snapshot = this.sessions.list.getSnapshot()
+    const current = Object.values(snapshot.byId)
+      .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
     const items = [...snapshot.ids].reverse()
       .filter(id => isSecureZoneIdentity(id) || snapshot.byId[id]?.projectionValues?.agentPreset === SECURE_PRESET_ID)
-      .map(id => ({ id, title: snapshot.byId[id]?.title?.trim() ?? '' }))
+      .map(id => ({
+        id,
+        title: snapshot.byId[id]?.title?.trim() ?? '',
+        updatedAt: snapshot.byId[id]?.updatedAt ?? 0,
+        blank: snapshot.byId[id]?.blank ?? false,
+        current: id === current,
+      }))
+      .filter(item => !item.blank || item.current)
     this.sessionItems.set(items)
   }
 

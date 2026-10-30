@@ -2,6 +2,7 @@
 
 import type { HostObservable, InjectFace, PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SecureZoneSessionItem } from '../controller.ts'
 import type { createSecureZoneStore } from '../stores.ts'
 import type { SecureZoneKey } from '../locales.ts'
@@ -35,6 +36,17 @@ export interface SecureZoneInjected {
   startSecureSession: () => void
   /** Open one listed conversation as the current Main Session. */
   openSession: (sessionId: SessionId) => void
+  /**
+   * Search current visible conversation messages on the Host. The Host fixes
+   * the result bound; `hasMore` means the query needs narrowing. The panel
+   * intersects the hits with its own zone list, so results stay zone-local.
+   */
+  searchSessions: (
+    query: string,
+    signal: AbortSignal,
+  ) => Promise<{ items: readonly SessionSearchResultItem[]; hasMore: boolean }>
+  /** Maximum number of merged rows rendered for one search. */
+  searchResultLimit: number
 }
 
 /** Full component props of the history view. */

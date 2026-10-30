@@ -73,6 +73,8 @@ export function apply(ctx: ClientContext): void {
           })
         },
         openSession: (sessionId) => { controller.openSession(sessionId) },
+        searchSessions: (query, signal) => controller.searchSessions(query, signal),
+        searchResultLimit: (ctx.get('sessions') as ISessions).searchResultLimit,
       }),
     },
     SecureZonePanel,

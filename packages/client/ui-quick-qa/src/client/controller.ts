@@ -20,6 +20,10 @@ type QuickQaView = ReturnType<ReturnType<typeof createQuickQaStore>['create']>
 export interface QuickQaSessionItem {
   readonly id: SessionId
   readonly title: string
+  /** Last update epoch ms from the Session list summary; drives the row's relative time. */
+  readonly updatedAt: number
+  /** A blank Session has no first prompt yet; its row shows the New Session label and no time. */
+  readonly blank: boolean
 }
 
 function isQuickQaIdentity(id: SessionId): boolean {
@@ -68,7 +72,15 @@ export class QuickQaController {
     const snapshot = this.sessions.list.getSnapshot()
     const items = [...snapshot.ids].reverse()
       .filter(id => isQuickQaIdentity(id) || snapshot.byId[id]?.projectionValues?.agentPreset === QUICK_QA_PRESET_ID)
-      .map(id => ({ id, title: snapshot.byId[id]?.title?.trim() ?? '' }))
+      .map((id): QuickQaSessionItem => {
+        const summary = snapshot.byId[id]
+        return {
+          id,
+          title: summary?.title?.trim() ?? '',
+          updatedAt: summary?.updatedAt ?? 0,
+          blank: summary?.blank ?? false,
+        }
+      })
     this.sessionItems.set(items)
   }
 

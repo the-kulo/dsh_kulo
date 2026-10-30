@@ -18,6 +18,9 @@
       "path": "../store"
     },
     {
+      "path": "../ui-primitives"
+    },
+    {
       "path": "../ui-renderer"
     },
     {

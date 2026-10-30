@@ -4,6 +4,11 @@ import z from '@deepseek-ai/schemastery'
 /** Account feature's durable onboarding namespace. */
 export const DESKTOP_ONBOARDING_NAMESPACE = 'ui-settings-account'
 
+/** First delay before retrying a failed bonus acknowledgement. */
+export const BONUS_ACK_RETRY_DELAY_MS = 1_000
+/** Ceiling for the acknowledgement retry backoff. */
+export const BONUS_ACK_RETRY_MAX_DELAY_MS = 60_000
+
 /** Persisted steps; a native top-up page leaves the durable step at credit. */
 export type OnboardingStep = 'welcome' | 'credit' | 'purpose' | 'process' | 'done'
 /** Work scenarios offered by the desktop introduction. */

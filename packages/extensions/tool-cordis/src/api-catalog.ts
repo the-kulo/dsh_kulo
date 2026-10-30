@@ -4576,14 +4576,6 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'change', description: 'domain, table (`\'\'` for global), key (`\'\'` for global), operation discriminant, and on `put` the new snapshot.' }],
   },
   {
-    name: 'feedback/committed',
-    mode: 'parallel',
-    signature: '\'feedback/committed\'(inspection: SessionInspection): void',
-    summary: 'Observe a durable cold feedback mutation without publishing a live Session.',
-    description: 'Observe a durable cold feedback mutation without publishing a live Session. Observers run before write ownership is released and must not await another message-feedback operation for this Session. The payload is borrowed read-only; deep-clone it before transferring ownership (for example, to Session.fromRestore).',
-    parameters: [{ name: 'inspection', description: 'committed canonical prefix, including the feedback as its last event.' }],
-  },
-  {
     name: 'fs/edit-intent',
     mode: 'waterfall',
     signature: '\'fs/edit-intent\'(target: FsTarget, actor: object | undefined, next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>): Promise<{ version: FsVersion } | undefined>',

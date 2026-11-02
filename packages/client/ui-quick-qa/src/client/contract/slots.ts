@@ -2,7 +2,7 @@
 
 import type { HostObservable, InjectFace, PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { QuickQaSessionItem } from '../controller.ts'
+import type { QuickQaListView, QuickQaSessionItem } from '../controller.ts'
 import type { createQuickQaStore } from '../stores.ts'
 import type { QuickQaKey } from '../locales.ts'
 
@@ -27,9 +27,22 @@ export type { QuickQaSessionItem }
  */
 export interface QuickQaInjected {
   readonly hooks: {
-    /** Standalone quick-answer conversations, pinned first then newest first, archived excluded. */
+    /** Standalone quick-answer conversations, pinned first then ordered by the zone's view options. */
     readonly sessionItems: HostObservable<readonly QuickQaSessionItem[]>
+    /**
+     * The zone's list viewing knobs (ordering, archived visibility), the same
+     * persisted source the accordion header's view options write; the panel
+     * reports it back so the controller re-derives its list.
+     */
+    readonly listView: HostObservable<QuickQaListView>
   }
+  /**
+   * The panel's one write back into the controller: apply the current
+   * persisted zone knobs (mirrored from the `listView` hook) so the derived
+   * list re-sorts/re-filters. The controller owns the list derivation; the
+   * store stays presentation state.
+   */
+  controllerSetListView: (view: QuickQaListView) => void
   /** Create a new quick-answer Session under the quick-qa preset and open it. */
   startQuickSession: () => void
   /** Open one listed conversation as the current Main Session. */

@@ -1,18 +1,18 @@
 /**
- * Secure-zone conversation region: an inline expanding search header and the
- * zone's Session list, mirroring the Workspace browser's search control and
- * 32px session rows (title + trailing relative time, Enter/Space opens, a
- * blank row at the top mirrors the Workspace blank Session). The zone knows
- * no Workspaces: rows are title-filtered locally, a non-blank query also
- * searches message content on the Host and intersects the hits with the
- * zone's own ids, and the New conversation button stays in the zone
- * accordion header owned by ui-workspace.
+ * The secure-zone conversation region: the zone's Session list, mirroring the
+ * Workspace browser's 32px session rows (title + trailing relative time,
+ * Enter/Space opens, a blank row at the top mirrors the Workspace blank
+ * Session). The zone knows no Workspaces: rows are title-filtered locally, a
+ * non-blank query also searches message content on the Host and intersects
+ * the hits with the zone's own ids. The search and view-options chrome
+ * stays in the zone accordion header owned by ui-workspace; this panel
+ * reads the query back from the persisted zone view state.
  */
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconCloseFillRegular, IconSearchOutlineRegular, Modal, relativeTime,
+  Button, Modal, relativeTime,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -23,19 +23,6 @@ import css from './SecureZonePanel.module.css'
 
 /** Pause between the latest keystroke and a Host content-search request. */
 const SEARCH_DEBOUNCE_MS = 250
-/** `session.search` wire bound, measured in JavaScript UTF-16 code units. */
-const SEARCH_QUERY_MAX_CODE_UNITS = 500
-
-/** Keep the controlled input and the RPC payload inside the session.search wire contract. */
-function sanitizeSearchQuery(value: string): string {
-  const withoutNul = value.replaceAll('\0', '')
-  if (withoutNul.length <= SEARCH_QUERY_MAX_CODE_UNITS) return withoutNul
-  let end = SEARCH_QUERY_MAX_CODE_UNITS
-  const last = withoutNul.charCodeAt(end - 1)
-  const next = withoutNul.charCodeAt(end)
-  if (last >= 0xD800 && last <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF) end--
-  return withoutNul.slice(0, end)
-}
 
 /** Row display title: the blank row shows the localized New Session label. */
 function displayTitle(item: SecureZoneSessionItem, t: SecureZonePanelProps['t']): string {
@@ -152,8 +139,9 @@ interface RemoteSearchState {
  */
 export const SecureZonePanel = memo(function SecureZonePanel({
   useStore,
-  actions,
   useSessionItems,
+  useListView,
+  controllerSetListView,
   openSession,
   searchSessions,
   searchResultLimit,
@@ -167,11 +155,14 @@ export const SecureZonePanel = memo(function SecureZonePanel({
 }: SecureZonePanelProps) {
   const failures = useStore(state => state.failures)
   const items = useSessionItems(value => value)
-  // The query outlives the search chrome (and a zone collapse) through the
-  // persisted store, like the Workspace browser's own list state.
-  const query = useStore(state => state.query)
-  const setQuery = actions.setQuery
-  const [searchExpanded, setSearchExpanded] = useState(query !== '')
+  const listView = useListView(value => value)
+  // The query lives in the persisted zone view state the accordion header's
+  // search writes; the panel reads it back to filter the list locally and to
+  // drive the Host content search.
+  const query = listView.query
+  // The persisted zone view state flows back into the controller so a header
+  // view-options pick re-derives the published list.
+  useEffect(() => { controllerSetListView(listView) }, [listView, controllerSetListView])
   const normalizedQuery = query.trim()
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
@@ -179,8 +170,6 @@ export const SecureZonePanel = memo(function SecureZonePanel({
     items: [],
     hasMore: false,
   })
-  const searchRoot = useRef<HTMLDivElement | null>(null)
-  const searchInput = useRef<HTMLInputElement | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ sessionId: SessionId; currentTitle: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ sessionId: SessionId; displayTitle: string } | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -211,20 +200,6 @@ export const SecureZonePanel = memo(function SecureZonePanel({
       controller.abort()
     }
   }, [normalizedQuery, searchSessions])
-
-  // Outside-click dismissal collapses the chrome but keeps a non-empty query,
-  // so the filter survives until the user clears it.
-  useEffect(() => {
-    if (!searchExpanded) return
-    const onClick = (event: MouseEvent): void => {
-      if (!(event.target instanceof Node) || searchRoot.current?.contains(event.target) === true) return
-      searchInput.current?.blur()
-      if (normalizedQuery !== '') return
-      setSearchExpanded(false)
-    }
-    document.addEventListener('click', onClick)
-    return () => { document.removeEventListener('click', onClick) }
-  }, [normalizedQuery, searchExpanded])
 
   const zoneIds = useMemo(() => new Set(items.map(item => item.id)), [items])
   const titleMatches = useMemo(() => normalizedQuery === ''
@@ -372,59 +347,6 @@ export const SecureZonePanel = memo(function SecureZonePanel({
 
   return (
     <section className={css.root} aria-label={t('section.title')}>
-      <div className={css.sectionHeader}>
-        <div
-          ref={searchRoot}
-          className={clsx(css.search, searchExpanded && css.searchExpanded)}
-          onClick={() => {
-            setSearchExpanded(true)
-            searchInput.current?.focus()
-          }}
-        >
-          <button
-            type="button"
-            className={css.searchButton}
-            aria-label={t('search.aria')}
-            aria-expanded={searchExpanded}
-            title={t('search')}
-            onClick={() => {
-              setSearchExpanded(true)
-              searchInput.current?.focus()
-            }}
-          >
-            <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
-          </button>
-          <input
-            ref={searchInput}
-            className={css.searchInput}
-            type="text"
-            placeholder={t('search.placeholder')}
-            maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
-            value={query}
-            tabIndex={searchExpanded ? 0 : -1}
-            onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
-            onKeyDown={(e) => {
-              if (e.key !== 'Escape') return
-              setQuery('')
-              setSearchExpanded(false)
-            }}
-          />
-          {searchExpanded && (
-            <button
-              type="button"
-              className={css.clearButton}
-              aria-label={t('search.clear')}
-              onClick={(e) => {
-                e.stopPropagation()
-                setQuery('')
-                setSearchExpanded(false)
-              }}
-            >
-              <IconCloseFillRegular />
-            </button>
-          )}
-        </div>
-      </div>
       <div className={css.history} aria-live="polite">
         {listBody}
       </div>

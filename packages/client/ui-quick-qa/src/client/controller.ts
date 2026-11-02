@@ -15,6 +15,22 @@ import type { createQuickQaStore } from './stores.ts'
 /** Agent preset whose Sessions the panel reads; composed without tools or runtime context. */
 export const QUICK_QA_PRESET_ID = 'quick-qa'
 
+/** Archived-row visibility the panel's view options switch between. */
+export type QuickQaArchivedFilter = 'default' | 'show' | 'only'
+
+/**
+ * The zone's list viewing knobs: the ordering and archived filter the
+ * accordion header's view options persist in the Workspace browser's store.
+ * The controller's {@link QuickQaController.setListView} re-derives the
+ * published list when the owner share reports a change.
+ */
+export interface QuickQaListView {
+  orderBy: 'manual' | 'updated'
+  archivedFilter: QuickQaArchivedFilter
+  /** Title filter draft the zone's header search writes; '' means no filter. */
+  query: string
+}
+
 type QuickQaView = ReturnType<ReturnType<typeof createQuickQaStore>['create']>
 
 /** One standalone quick-answer conversation in the zone's history list. */
@@ -49,6 +65,7 @@ export class QuickQaController {
   private listSubscription: (() => void) | null = null
   private workspaceSubscription: (() => void) | null = null
   private disposed = false
+  private listView: QuickQaListView = { orderBy: 'manual', archivedFilter: 'default', query: '' }
 
   constructor(
     private readonly ctx: ClientContext,
@@ -73,6 +90,19 @@ export class QuickQaController {
     this.workspace.openSession(sessionId)
   }
 
+  /**
+   * Apply the persisted zone list view (ordering + archived filter) the
+   * panel's header view options report. The controller owns the list
+   * derivation and the store stays presentation state, so the knobs live in
+   * the controller and the panel's one write back lands here.
+   * @param view - the zone's current view options from the Workspace browser's store.
+   */
+  setListView(view: QuickQaListView): void {
+    if (view.orderBy === this.listView.orderBy && view.archivedFilter === this.listView.archivedFilter) return
+    this.listView = view
+    this.refresh()
+  }
+
   /** Follow the quick-answer conversation list without creating an Agent. */
   async start(): Promise<void> {
     this.listSubscription ??= this.sessions.list.subscribe(() => { this.refresh() })
@@ -83,6 +113,7 @@ export class QuickQaController {
 
   private refresh(): void {
     if (this.disposed) return
+    const listView = this.listView
     const snapshot = this.sessions.list.getSnapshot()
     const workspaceSnapshot = this.workspaces.list.getSnapshot()
     const archivedSet = new Set(workspaceSnapshot.archivedSessionIds)
@@ -101,10 +132,11 @@ export class QuickQaController {
         }
       })
     const visible = items
-      .filter(item => !item.archived)
+      .filter(item => listView.archivedFilter === 'show' || (listView.archivedFilter === 'only') === item.archived)
       .sort((left, right) => {
         if (left.pinned !== right.pinned) return left.pinned ? -1 : 1
-        return right.updatedAt - left.updatedAt
+        if (listView.orderBy === 'updated') return right.updatedAt - left.updatedAt
+        return 0
       })
     this.sessionItems.set(visible)
   }

@@ -187,12 +187,20 @@ export function apply(ctx: ClientContext): void {
       },
     },
   })
+  // The settings shell's open/onboarding state is shared with the sidebar
+  // account launcher, so the store and service live for the plugin; the slot
+  // and shortcut stay gated by access to the settings description.
+  const shellHandle = createSettingsShellStore()
+  const shellInstance = shellHandle.create()
+  const shellStore: typeof shellHandle = { ...shellHandle, create: () => shellInstance }
+  const disposeSettingsShell = ctx.reflect.provide('settingsShell', {
+    openOnboarding: (id: string) => { shellInstance.actions.openOnboarding(id) },
+  })
+  ctx.effect(() => () => { void disposeSettingsShell() }, 'ui-settings-general: settings shell service')
+
   // The settings shell reads this host's configuration, so it follows access to its description.
   ctx.remoteAccess.whenAccess('settings/describe', () =>
     ctx.slots.inject('sidebar.settings', () => {
-      const shellHandle = createSettingsShellStore()
-      const shellInstance = shellHandle.create()
-      const shellStore: typeof shellHandle = { ...shellHandle, create: () => shellInstance }
       const disposeCommand = ctx.shortcuts.register({
         id: 'settings.open' as ShortcutCommandId, label: () => t('shortcut.open'), aliases: ['settings', 'preferences'],
         defaults: {
@@ -217,7 +225,6 @@ export function apply(ctx: ClientContext): void {
         locale: NS,
         store: shellStore,
         children: {
-          'settings.launcher': { kind: 'single', scope: 'root' },
           'settings.trigger': { kind: 'single', scope: 'root' },
           'settings.header': { kind: 'single', scope: 'root' },
           'settings.action': { kind: 'list', scope: 'root' },

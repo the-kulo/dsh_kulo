@@ -48,11 +48,12 @@ export function apply(ctx: ClientContext): void {
   const viewStore = createSecureZoneStore()
   const viewInstance = viewStore.create()
   const view = { ...viewStore, create: () => viewInstance }
+  const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspace
   const controller = new SecureZoneController(
     ctx,
     ctx.get('sessions') as ISessions,
     ctx.get('workspaces') as IWorkspaces,
-    ctx.get('uiWorkspace') as UiWorkspace,
+    uiWorkspace,
     viewInstance,
   )
   ctx.effect(() => () => { controller.dispose() }, 'ui-secure-zone: controller')
@@ -67,7 +68,12 @@ export function apply(ctx: ClientContext): void {
       inject: (): SecureZoneInjected => ({
         hooks: {
           sessionItems: controller.sessionItems,
+          // The zone's list viewing knobs live in the Workspace browser's
+          // persisted viewing store; the panel reports them back so the
+          // controller re-derives its list.
+          listView: uiWorkspace.zoneListViewSource('secure'),
         },
+        controllerSetListView: (zoneView) => { controller.setListView(zoneView) },
         // The secure zone's New conversation: an independent local-only
         // Session under the shipped secure preset, opened as the current
         // Session. The preset id maps to the gateway's secure zone, whose

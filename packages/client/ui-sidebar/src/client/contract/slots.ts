@@ -1,11 +1,11 @@
 /**
  * Sidebar slot contract: the registrant-side props composition for the
  * layout-owned `sidebar` slot, plus the holes this shell declares. The shell
- * owns column geometry, the brand row, New Session, and global panel rows;
- * everything between the workspace section header and the list bottom is the
- * `sidebar.workspaces` registrant's (ui-workspace), and the foot is the
- * `sidebar.settings` registrant's (ui-settings), followed by optional footer
- * actions in `sidebar.footer.action`.
+ * owns column geometry, the brand row, the account seat, and global panel
+ * rows; everything between the workspace section header and the list bottom
+ * is the `sidebar.workspaces` registrant's (ui-workspace), and the foot is
+ * the `sidebar.settings` registrant's (ui-settings), followed by optional
+ * footer actions in `sidebar.footer.action`.
  */
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
@@ -30,12 +30,16 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'sidebar.brand.name': { kind: 'single'; scope: 'root'; owner: SidebarBrandNameOwnerProps }
     /**
+     * The account launcher at the top row, beside the collapse toggle.
+     * Declared by this package's `sidebar` entry; ui-settings-account
+     * registers the compact account menu there.
+     */
+    'sidebar.account': { kind: 'single'; scope: 'root'; owner: SidebarAccountOwnerProps }
+    /**
      * Global panel icons. Each list id addresses the matching main panel;
      * the sidebar owns the button and resolves its label from list metadata.
      */
     'sidebar.panellist': { kind: 'list'; scope: 'root'; owner: SidebarPanelIconOwnerProps }
-    /** Rows of the panel list's More menu; the sidebar shows More only while this list has registrations. */
-    'sidebar.panellist.actions': { kind: 'list'; scope: 'root'; owner: SidebarPanelActionsOwnerProps }
     /**
      * The workspace/session browsing region: section header, search, the
      * grouped/flat session list, and every workspace dialog. Declared by this
@@ -69,6 +73,12 @@ export interface SidebarBrandNameOwnerProps {
   children?: never
 }
 
+/** Owner share of the top account seat: the column display state the occupant renders against. */
+export interface SidebarAccountOwnerProps {
+  /** Whether the sidebar renders wide content (false = 56px rail). */
+  wide: boolean
+}
+
 /** Icon presentation supplied by the global panel row. */
 export interface SidebarPanelIconOwnerProps {
   /** Requested square edge in pixels. */
@@ -85,37 +95,6 @@ export interface SidebarPanelMetadata {
   order: number
   /** Row title and accessible name: resolved label, or the id when omitted. */
   label: string
-}
-
-/** One customizable panel launcher listed in the More menu. */
-export interface SidebarPanelActionEntry {
-  /** Panel id. */
-  readonly id: string
-  /** Resolved panel label. */
-  readonly label: string
-  /** False while the launcher is unpinned from the sidebar. */
-  readonly pinned: boolean
-  /** Whether this panel is selected, independently of its pin state. */
-  readonly active?: boolean
-}
-
-/** Owner share of the panel list's More menu rows. */
-export interface SidebarPanelActionsOwnerProps {
-  /** Customizable panels in registration order; Plugins is never listed. */
-  readonly entries: readonly SidebarPanelActionEntry[]
-  /**
-   * Open a panel without changing its pin state.
-   * @param id - Listed panel id.
-   */
-  readonly onOpen: (id: string) => void
-  /**
-   * Show (true) or unpin (false) a panel launcher.
-   * @param id - Listed panel id.
-   * @param pinned - Whether the launcher shows in the sidebar.
-   */
-  readonly onPinnedChange: (id: string, pinned: boolean) => void
-  /** Close the More menu. */
-  readonly onDismiss: () => void
 }
 
 /**
@@ -159,22 +138,12 @@ export type SidebarRootInjected = {
   toggleSidebar: () => void
   /** Select the global panel addressed by a sidebar row. */
   selectPanel: (id: MainPanelId) => void
-  /**
-   * Show or unpin one panel launcher; Plugins is ignored.
-   * @param id - Panel id.
-   * @param pinned - Whether the launcher shows in the sidebar.
-   */
-  setPinned: (id: string, pinned: boolean) => void
   /** Record activation of an official navigation control without changing navigation. */
   trackEntryClick: (attributes: ProductEventMap['sidebar_menu_click']) => void
   /** Private reactive sources bound to framework selector hooks. */
   hooks: {
     panels: ObservableSnapshot<readonly SidebarPanelMetadata[]>
     shortcuts: ObservableSnapshot<readonly ShortcutCatalogEntry[]>
-    /** Ids of unpinned panel launchers held in memory until plugin reload. */
-    entryPins: ObservableSnapshot<readonly string[]>
-    /** Whether `sidebar.panellist.actions` has registrations. */
-    entryActions: ObservableSnapshot<boolean>
   }
 }
 
@@ -189,8 +158,8 @@ export type SidebarRootComponentProps =
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'
+    | 'sidebar.account'
     | 'sidebar.panellist'
-    | 'sidebar.panellist.actions'
     | 'sidebar.workspaces'
     | 'sidebar.settings'
     | 'sidebar.footer.action'

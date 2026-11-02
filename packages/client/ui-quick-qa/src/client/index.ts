@@ -47,11 +47,12 @@ export function apply(ctx: ClientContext): void {
   const viewStore = createQuickQaStore()
   const viewInstance = viewStore.create()
   const view = { ...viewStore, create: () => viewInstance }
+  const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspace
   const controller = new QuickQaController(
     ctx,
     ctx.get('sessions') as ISessions,
     ctx.get('workspaces') as IWorkspaces,
-    ctx.get('uiWorkspace') as UiWorkspace,
+    uiWorkspace,
     viewInstance,
   )
   ctx.effect(() => () => { controller.dispose() }, 'ui-quick-qa: controller')
@@ -66,7 +67,12 @@ export function apply(ctx: ClientContext): void {
       inject: (): QuickQaInjected => ({
         hooks: {
           sessionItems: controller.sessionItems,
+          // The zone's list viewing knobs live in the Workspace browser's
+          // persisted viewing store; the panel reports them back so the
+          // controller re-derives its list.
+          listView: uiWorkspace.zoneListViewSource('quick-qa'),
         },
+        controllerSetListView: (zoneView) => { controller.setListView(zoneView) },
         // The quick-qa zone's New conversation: an independent quick-answer
         // Session under the shipped quick-qa preset, opened as the current
         // Session. The preset id maps to the gateway's quick-qa zone for

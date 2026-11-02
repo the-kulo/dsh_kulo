@@ -230,9 +230,11 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The relative time reads one step below the 12px meta line; keep it at the
+   floor of the readable range rather than the previous 10px. */
 .time {
   flex: none;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
 }

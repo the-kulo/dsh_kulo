@@ -62,11 +62,16 @@ export interface AccountSectionInjected {
     theme: HostObservable<ThemeSnapshot>
   }
   /**
-   * Retry a failed avatar and read the profile, balance, bonus wallets and unnotified bonus once. The Settings launcher
-   * calls it on each entry, and a page opener on return from top-up.
+   * Retry a failed avatar and read the profile, balance, bonus wallets and unnotified bonus once. The account section
+   * calls it on mount, and a page opener on return from top-up.
    * @returns after the account queries settle; image loading completes independently.
    */
   refreshAccount: () => Promise<void>
+  /**
+   * Open a settings onboarding step explicitly; the account sign-in dialog
+   * uses it for the "add API key" path.
+   */
+  openOnboarding: (id: string) => void
   /** Open or dismiss the login dialog. */
   showLogin: (visible: boolean) => void
   /** Claim dialog ownership for the onboarding step. */
@@ -88,7 +93,7 @@ export interface AccountSectionInjected {
 export type AccountSectionProps =
   PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 /** @param props - localized actions, account subscription, and the shared Platform page channel. @returns account settings UI. */
-export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed }: AccountSectionProps) {
+export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed, refreshAccount }: AccountSectionProps) {
   const { view: state, details, avatar, failed: streamFailed } = useAccount(value => value)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
   // The shared host owns the native view; this page holds only its own request,
@@ -111,6 +116,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
     releasePage.current?.()
     releasePage.current = undefined
   }, [signedIn])
+  useEffect(() => { void refreshAccount() }, [refreshAccount])
   const showPage = (open: PlatformPages['open'], page: PlatformPage) => {
     releasePage.current?.()
     releasePage.current = open(page, () => { releasePage.current = undefined })

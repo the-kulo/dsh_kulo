@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-api-remote-access/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-deepseek-account/types'
@@ -41,7 +42,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by account settings. */
-export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.session', 'theme', 'configForms', 'remoteAccess']
+export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.session', 'theme', 'configForms', 'remoteAccess', 'settingsShell']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
   const desktop = 'dshDesktop' in globalThis
@@ -197,6 +198,7 @@ export function apply(ctx: Context): void {
     subscribeModelSignInRequired: listener => ctx.remote.$on('deepseek-account/model-sign-in-required', listener),
     ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
     refreshAccount,
+    openOnboarding: (id) => { ctx.settingsShell.openOnboarding(id) },
     showLogin(visible) { publish({ ...snapshot, loginVisible: visible }) },
     setOnboarding(active) { publish({ ...snapshot, onboarding: active }) },
     bonusNoticeShown(orderId) { notices.shown(orderId) },
@@ -298,8 +300,8 @@ export function apply(ctx: Context): void {
       }),
     }, AccountPlatformHost))
   }
-  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-    name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
+  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('sidebar.account', () => ctx.slots.register({
+    name: 'sidebar.account', locale: 'settings.account', inject: () => operations,
   }, AccountMenu)))
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined

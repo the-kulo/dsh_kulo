@@ -124,7 +124,7 @@ export function apply(ctx: Context): void {
   let toastSeq = 0
   const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
   const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
+    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, viewInstance, notify,
   )
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },

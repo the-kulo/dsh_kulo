@@ -3,7 +3,7 @@
 import type { HostObservable, InjectFace, PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SecureZoneSessionItem } from '../controller.ts'
+import type { SecureZoneListView, SecureZoneSessionItem } from '../controller.ts'
 import type { createSecureZoneStore } from '../stores.ts'
 import type { SecureZoneKey } from '../locales.ts'
 
@@ -29,9 +29,22 @@ export type { SecureZoneSessionItem }
  */
 export interface SecureZoneInjected {
   readonly hooks: {
-    /** Standalone secure-zone conversations, pinned first then newest first, archived excluded. */
+    /** Standalone secure-zone conversations, pinned first then ordered by the zone's view options. */
     readonly sessionItems: HostObservable<readonly SecureZoneSessionItem[]>
+    /**
+     * The zone's list viewing knobs (ordering, archived visibility), the same
+     * persisted source the accordion header's view options write; the panel
+     * reports it back so the controller re-derives its list.
+     */
+    readonly listView: HostObservable<SecureZoneListView>
   }
+  /**
+   * The panel's one write back into the controller: apply the current
+   * persisted zone knobs (mirrored from the `listView` hook) so the derived
+   * list re-sorts/re-filters. The controller owns the list derivation; the
+   * store stays presentation state.
+   */
+  controllerSetListView: (view: SecureZoneListView) => void
   /** Create a new secure-zone Session under the secure preset and open it. */
   startSecureSession: () => void
   /** Open one listed conversation as the current Main Session. */

@@ -54,6 +54,9 @@
       "path": "../ui-layout"
     },
     {
+      "path": "../ui-sidebar"
+    },
+    {
       "path": "../../settings/settings"
     },
     {

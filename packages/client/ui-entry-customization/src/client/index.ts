@@ -4,7 +4,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
@@ -51,10 +51,6 @@ export function apply(ctx: Context): void {
       })
     },
   })
-  ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
-    name: 'sidebar.panellist.actions', id: 'entry-customization', locale: 'entryCustomization',
-    inject: () => injected('sidebar'),
-  }, EntryMenuContent))
   ctx.slots.inject('conversation.session.header.views.actions', () => ctx.slots.register({
     name: 'conversation.session.header.views.actions', id: 'entry-customization', locale: 'entryCustomization',
     inject: () => injected('conversation'),

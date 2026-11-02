@@ -1,18 +1,13 @@
 /**
- * The quick-qa zone body: a compact search bar over the zone's conversation
- * list. The rows and the search control mirror the Workspace browser's
- * FlatList/SearchResults presentation (same 32px session cell, trailing
- * relative time, inline expanding search) without the Workspace grouping,
- * folders, or drag affordances — quick-answer Sessions never join a
- * Workspace. Each non-blank row carries a hover "…" menu with pin, rename,
- * archive, and delete actions; the rename and delete dialogs live at the
- * panel root so they outlive the menu unmount.
+ * The quick-qa zone body: the conversation list. The header chrome (search,
+ * view options, New conversation) lives in the accordion header owned by
+ * ui-workspace; this panel renders only the scrollable list, filtered by the
+ * query the header search writes into the persisted zone view state.
  */
 
-import { memo, useRef, useState } from 'react'
-import clsx from 'clsx'
+import { memo, useEffect, useRef, useState } from 'react'
 import {
-  Button, IconCloseFillRegular, IconSearchOutlineRegular, Modal, relativeTime, Tooltip,
+  Button, Modal, relativeTime,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { QuickQaPanelProps, QuickQaSessionItem } from './contract/slots.ts'
@@ -104,6 +99,8 @@ function SessionRow({ item, now, onOpen, onRenameRequest, onDeleteRequest, actio
 export const QuickQaPanel = memo(function QuickQaPanel({
   useStore,
   useSessionItems,
+  useListView,
+  controllerSetListView,
   openSession,
   renameSession,
   deleteSession,
@@ -115,8 +112,13 @@ export const QuickQaPanel = memo(function QuickQaPanel({
 }: QuickQaPanelProps) {
   const failures = useStore(state => state.failures)
   const items = useSessionItems(value => value)
-  const [searchExpanded, setSearchExpanded] = useState(false)
-  const [query, setQuery] = useState('')
+  const listView = useListView(value => value)
+  // The query lives in the persisted zone view state the accordion header's
+  // search writes; the panel reads it back to filter the list locally.
+  const query = listView.query
+  // The persisted zone view state flows back into the controller so a header
+  // view-options pick re-derives the published list.
+  useEffect(() => { controllerSetListView(listView) }, [listView, controllerSetListView])
   const [renameTarget, setRenameTarget] = useState<{ sessionId: SessionId; currentTitle: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ sessionId: SessionId; displayTitle: string } | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -182,51 +184,6 @@ export const QuickQaPanel = memo(function QuickQaPanel({
 
   return (
     <section className={css.root} aria-label={t('section.title')}>
-      <div className={css.header}>
-        <div
-          className={clsx(css.search, searchExpanded && css.searchExpanded)}
-          onClick={() => { setSearchExpanded(true) }}
-        >
-          <Tooltip label={t('search.aria')} side="bottom" delayMs={500} disabled={searchExpanded}>
-            <button
-              type="button"
-              className={css.searchButton}
-              aria-label={t('search.aria')}
-              aria-expanded={searchExpanded}
-              onClick={() => { setSearchExpanded(true) }}
-            >
-              <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
-            </button>
-          </Tooltip>
-          <input
-            className={css.searchInput}
-            type="text"
-            placeholder={t('search.placeholder')}
-            value={query}
-            tabIndex={searchExpanded ? 0 : -1}
-            onChange={(e) => { setQuery(e.target.value) }}
-            onKeyDown={(e) => {
-              if (e.key !== 'Escape') return
-              setQuery('')
-              setSearchExpanded(false)
-            }}
-          />
-          {searchExpanded && (
-            <button
-              type="button"
-              className={css.clearButton}
-              aria-label={t('search.clear')}
-              onClick={(e) => {
-                e.stopPropagation()
-                setQuery('')
-                setSearchExpanded(false)
-              }}
-            >
-              <IconCloseFillRegular />
-            </button>
-          )}
-        </div>
-      </div>
       <div className={css.list} aria-live="polite">
         <div role="tree" aria-label={t('section.title')}>
           {visible.map(item => (

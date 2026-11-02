@@ -1,0 +1,157 @@
+/* Zone-chrome controls shared by the Workspace browser's sibling zones:
+   the expanding search pill, the view-options anchor, and the trailing
+   action button, on the Workspace section header's 28px metrics. */
+
+.iconButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.iconButton:focus-visible,
+.searchButton:focus-visible,
+.clearButton:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+/* View-options dropdown card: labels are short, so a content-sized card reads
+   cramped and its width shifts with the locale — hold a stable floor. */
+.viewOptionsMenu {
+  min-width: 200px;
+}
+
+/* Inline search: a bare icon button that grows into a bordered pill. The
+   pill fills its flex seat, so the owner's layout decides how much room the
+   expanded state takes. */
+.search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  cursor: text;
+  color: var(--dsw-alias-label-secondary);
+  overflow: hidden;
+  transition:
+    width 180ms var(--ds-ease-in-out),
+    padding 180ms var(--ds-ease-in-out),
+    border-color 180ms var(--ds-ease-in-out),
+    background-color 180ms var(--ds-ease-in-out);
+}
+
+.searchExpanded {
+  width: calc(100% + 4px);
+  height: 30px;
+  margin-inline: -2px;
+  padding: 0 4px 0 0;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-caption);
+}
+
+.searchButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+.searchExpanded .searchButton {
+  width: 28px;
+  height: 30px;
+}
+
+@media (hover: hover) {
+  .searchButton:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+
+  .searchExpanded .searchButton:hover {
+    background: transparent;
+  }
+}
+
+.searchInput {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  transition: opacity 120ms var(--ds-ease-in-out);
+}
+
+.searchExpanded .searchInput {
+  margin-left: -2px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.searchInput::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.clearButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+@media (hover: hover) {
+  .clearButton:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search,
+  .searchInput {
+    transition: none;
+  }
+}

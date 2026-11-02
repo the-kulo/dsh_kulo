@@ -119,10 +119,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
     useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts,
   } = props
-  const { open, activeId } = useStore(state => state)
+  const { open, activeId, requestedOnboarding } = useStore(state => state)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'settings.open'))
-  const { close, openSection } = actions
-  const [requestedOnboarding, setRequestedOnboarding] = useState<string | undefined>()
+  const { close, openSection, dismissOnboarding } = actions
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
   const [showRecovery, setShowRecovery] = useState(false)
   const [holdConnecting, setHoldConnecting] = useState(false)
@@ -200,12 +199,12 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   }, [connectionState])
 
   const completeOnboardingStep = useCallback((id: string) => {
-    setRequestedOnboarding(undefined)
+    dismissOnboarding()
     setCompletedOnboarding((previous) => {
       if (previous.has(id)) return previous
       return new Set([...previous, id])
     })
-  }, [])
+  }, [dismissOnboarding])
 
   let connectionIndicator: ConnectionIndicatorState | undefined
   if (connectionState === 'connecting' || holdConnecting) {
@@ -219,11 +218,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   return (
     <>
       <div className={clsx(css.triggerRow, !wide && css.railRow)}>
-        {renderSlot('settings.launcher', {
-          wide, settingsOpen: open, openSettings: actions.open,
-          ...(shortcut?.keys.length ? { settingsShortcut: { keys: shortcut.keys, aria: shortcut.aria } } : {}),
-          openOnboarding: (id) => { close(); setRequestedOnboarding(id) },
-        }, { fallback: <Tooltip disabled={open} label={t('trigger')} shortcutKeys={shortcut?.keys}>
+        <Tooltip disabled={open} label={t('trigger')} shortcutKeys={shortcut?.keys}>
           <button
             type="button"
             className={clsx(css.trigger, !wide && css.rail)}
@@ -235,7 +230,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           >
             {renderSlot('settings.trigger', { wide })}
           </button>
-        </Tooltip> })}
+        </Tooltip>
         <ConnectionIndicator
           state={wide && desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
           disconnectedLabel={t('connection.error')}

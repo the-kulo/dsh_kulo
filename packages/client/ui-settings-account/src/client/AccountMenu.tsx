@@ -1,37 +1,34 @@
 /** Sidebar account launcher and locally authoritative sign-out action. */
 import { useEffect, useRef, useState } from 'react'
 import {
-  Toast, Menu, IconEllipsisOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  Toast, Menu, IconEllipsisOutlineMedium, IconUserOutlineMedium, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: pulls the sidebar's `sidebar.account` slot declaration.
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { AccountSectionInjected } from './AccountSection.tsx'
 import { SignOutDialog } from './SignOutDialog.tsx'
 import { SignInDialog } from './SignInDialog.tsx'
 import { LogoutIcon } from './LogoutIcon.tsx'
-import { AccountAvatar } from './AccountAvatar.tsx'
 import { AccountNoticeStack } from './AccountNotice.tsx'
+import avatarUrl from './assets/the_kulo_avatar.jpg'
 import css from './AccountMenu.module.css'
 
-/** Account launcher composed by the settings shell. */
-export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
+/** Account launcher composed by the sidebar top seat. */
+export type AccountMenuProps = PropsRuntime<'sidebar.account'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 
-/** The signed-in label stays empty while the profile loads.
- * @param props - sidebar geometry, settings navigation and account operations.
+/**
+ * The top account launcher: a compact avatar icon with a tooltip. Its menu
+ * keeps the sign-in/sign-out actions; Settings has its own sidebar button.
+ * @param props - sidebar geometry, account operations and localized copy.
  * @returns account menu launcher.
  */
 export function AccountMenu({
-  subscribeSessionExpired, subscribeModelSignInRequired, wide, settingsShortcut, openSettings, openOnboarding, settingsOpen,
-  useAccount, useTheme, signOut, hasRunningAccountTasks, refreshAccount, bonusNoticeShown, bonusNoticeDismissed,
-  showLogin, start, cancel, avatarFailed, t,
+  wide, subscribeSessionExpired, subscribeModelSignInRequired, openOnboarding,
+  useAccount, useTheme, signOut, hasRunningAccountTasks, bonusNoticeShown, bonusNoticeDismissed,
+  showLogin, start, cancel, t,
 }: AccountMenuProps) {
   const anchor = useRef<HTMLDivElement>(null)
-  // The launcher outlives the panel, so a false-to-true edge is one Settings entry:
-  // re-renders, section switches and tab switches inside one open must not read again.
-  const settingsWasOpen = useRef(false)
-  useEffect(() => {
-    if (settingsOpen && !settingsWasOpen.current) void refreshAccount()
-    settingsWasOpen.current = settingsOpen
-  }, [refreshAccount, settingsOpen])
   const account = useAccount(state => state)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
   const signedIn = account.view?.status === 'credential-stored'
@@ -39,11 +36,7 @@ export function AccountMenu({
   useEffect(() => subscribeModelSignInRequired?.(() => { setSignInNotice(value => value + 1) }), [subscribeModelSignInRequired])
   const [expiryNotice, setExpiryNotice] = useState(false)
   useEffect(() => subscribeSessionExpired?.(() => { setExpiryNotice(true) }), [subscribeSessionExpired])
-  const profile = account.details?.profile
-  const label = profile === undefined ? null : profile.status === 'ready'
-    ? profile.value.name ?? profile.value.contact ?? t('signedIn') : t('signedIn')
   const [open, setOpen] = useState(false)
-  const trigger = useRef<HTMLButtonElement>(null)
   const [busy, setBusy] = useState(false)
   const [signOutImpact, setSignOutImpact] = useState<boolean | 'unknown'>()
   const requestSignOut = async () => {
@@ -61,26 +54,23 @@ export function AccountMenu({
       notices={account.notices}
       anchor={anchor} title={t('bonusNoticeTitle')} closeLabel={t('close')}
       onShown={bonusNoticeShown} onDismiss={bonusNoticeDismissed} />}
-    <Menu open={open} side="top" portal autoFocus className={css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
-      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
-        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
-        {signedIn
-          ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
-            <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
-          </span>
-          : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
-      </button>}
+    <Menu open={open} side="bottom" portal autoFocus className={css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
+      anchor={
+        <Tooltip label={signedIn ? t('username') : t('menu')} delayMs={500}>
+          <button type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
+            aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
+            {signedIn
+              ? <span className={css.avatar}><img className={css.avatarImage} src={avatarUrl} alt="" /></span>
+              : <IconEllipsisOutlineMedium size={14} />}
+          </button>
+        </Tooltip>}
       items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
         ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
           : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
       ]}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
-        if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
-        else if (id === 'signin') beginSignIn()
+        if (id === 'signin') beginSignIn()
         else void requestSignOut()
       }} />
     {account.loginVisible && !account.onboarding && <SignInDialog account={account} colorScheme={colorScheme}

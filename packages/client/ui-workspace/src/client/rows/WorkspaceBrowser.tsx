@@ -17,11 +17,11 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  AnimatedRows, Button, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
-  IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
-  IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
-  IconWorkspaceTreeOutlineRegular, Menu, Modal, Tooltip,
+  AnimatedRows, Button, HoverCardGroup, IconArchiveOutlineRegular,
+  IconCloseFillRegular,
+  IconProjectAddOutlineRegular, IconQueueOutlineRegular, IconSearchOutlineRegular,
+  Modal, Tooltip,
+  ZoneAddWorkspace, ZoneSearch, ZoneViewOptions,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
@@ -138,7 +138,7 @@ function useNativeDragAcceptance(active: boolean): void {
   }, [active])
 }
 
-/** Grouping, ordering, and archived-filter menu; own open state so it resets with the wide chrome. */
+/** Grouping, ordering, and archived-filter menu, on the shared zone view-options control. */
 function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrderPick, onArchivedFilterPick, t }: {
   groupBy: SessionGroupBy
   orderBy: SessionOrderBy
@@ -148,57 +148,112 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
   onArchivedFilterPick: (filter: ArchivedFilter) => void
   t: WorkspaceBrowserProps['t']
 }) {
-  const [open, setOpen] = useState(false)
   return (
-    <Menu
-      open={open}
-      onClose={() => { setOpen(false) }}
-      items={[
-        { type: 'label' as const, id: 'group-by', text: t('groupBy.label') },
-        { id: 'workspace', label: t('groupBy.workspace'), icon: <IconFolderCloseRegular /> },
-        { id: 'workspace-tree', label: t('groupBy.workspaceTree'), icon: <IconWorkspaceTreeOutlineRegular /> },
-        { id: 'flat', label: t('groupBy.flat'), icon: <IconFlatListOutlineRegular /> },
-        { type: 'separator' as const, id: 'order-by-separator' },
-        { type: 'label' as const, id: 'order-by', text: t('orderBy.label') },
-        { id: 'manual', label: t('orderBy.manual'), icon: <IconChevronsUpDownOutlineRegular /> },
-        { id: 'updated', label: t('orderBy.updated'), icon: <IconClockOutlineRegular /> },
-        { type: 'separator' as const, id: 'archived-filter-separator' },
-        { type: 'label' as const, id: 'filter-by', text: t('filterBy.label') },
-        { id: 'hide-archived', label: t('viewOptions.hideArchived'), icon: <IconArchiveOffOutlineRegular /> },
-        { id: 'show-archived', label: t('viewOptions.showArchived'), icon: <IconQueueOutlineRegular /> },
-        { id: 'only-archived', label: t('viewOptions.onlyArchived'), icon: <IconArchiveCheckOutlineRegular /> },
-      ]}
-      selectedIds={[
-        groupBy,
-        orderBy,
-        { default: 'hide-archived', show: 'show-archived', only: 'only-archived' }[archivedFilter],
-      ]}
-      onSelect={(id) => {
-        if (id === 'workspace' || id === 'workspace-tree' || id === 'flat') onGroupPick(id)
-        else if (id === 'manual' || id === 'updated') onOrderPick(id)
-        else if (id === 'hide-archived') onArchivedFilterPick('default')
-        else if (id === 'show-archived') onArchivedFilterPick('show')
-        else if (id === 'only-archived') onArchivedFilterPick('only')
-        setOpen(false)
+    <ZoneViewOptions
+      labels={{
+        label: t('viewOptions.label'),
+        groupByLabel: t('groupBy.label'),
+        groupByWorkspace: t('groupBy.workspace'),
+        groupByWorkspaceTree: t('groupBy.workspaceTree'),
+        groupByFlat: t('groupBy.flat'),
+        orderByLabel: t('orderBy.label'),
+        orderByManual: t('orderBy.manual'),
+        orderByUpdated: t('orderBy.updated'),
+        filterByLabel: t('filterBy.label'),
+        hideArchived: t('viewOptions.hideArchived'),
+        showArchived: t('viewOptions.showArchived'),
+        onlyArchived: t('viewOptions.onlyArchived'),
       }}
-      align="end"
-      dense
-      listClassName={css.viewOptionsMenu}
-      // Portal: the section header clips overflow, so an in-place list would
-      // be cut off at the header's bounds.
-      portal
-      anchor={(
-        <Tooltip label={t('viewOptions.label')} side="bottom" delayMs={500}>
-          <button
-            type="button"
-            className={clsx(css.iconButton, css.wide)}
-            aria-label={t('viewOptions.label')}
-            onClick={() => { setOpen(v => !v) }}
-          >
-            <IconSlidersTwoOutlineRegular />
-          </button>
-        </Tooltip>
-      )}
+      sections={['group', 'order', 'filter']}
+      groupBy={groupBy}
+      orderBy={orderBy}
+      archivedFilter={archivedFilter}
+      onGroupPick={onGroupPick}
+      onOrderPick={onOrderPick}
+      onArchivedFilterPick={onArchivedFilterPick}
+      stopPropagation
+    />
+  )
+}
+
+/**
+ * Inline search control for the quick-qa and secure zone section headers. The
+ * zone's query lives in the Workspace browser's persisted viewing store, so the
+ * pill expands/collapses under the browser's control while the draft survives a
+ * zone collapse or reload. Expanding hides the sibling header actions the same
+ * way the workspace zone's own search does, so the pill takes the row's
+ * remaining width.
+ */
+function ZoneSearchControl({ listView, expanded, setExpanded, setQuery, t }: {
+  listView: { orderBy: SessionOrderBy; archivedFilter: ArchivedFilter; query: string }
+  expanded: boolean
+  setExpanded: (expanded: boolean) => void
+  setQuery: (query: string) => void
+  t: WorkspaceBrowserProps['t']
+}) {
+  const root = useRef<HTMLDivElement | null>(null)
+  const normalizedQuery = listView.query.trim()
+  useEffect(() => {
+    if (!expanded) return
+    const onClick = (event: MouseEvent): void => {
+      if (!(event.target instanceof Node) || root.current?.contains(event.target) === true) return
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+      if (normalizedQuery !== '') return
+      setExpanded(false)
+    }
+    document.addEventListener('click', onClick)
+    return () => { document.removeEventListener('click', onClick) }
+  }, [expanded, normalizedQuery, setExpanded])
+  return (
+    <div ref={root} className={clsx(css.searchSlot, expanded && css.searchSlotExpanded)}>
+      <ZoneSearch
+        expanded={expanded}
+        query={listView.query}
+        labels={{
+          aria: t('search.sessions.aria'),
+          placeholder: t('search.placeholder'),
+          clear: t('search.clear'),
+        }}
+        onExpandedChange={setExpanded}
+        onQueryChange={setQuery}
+        onClear={() => {
+          setQuery('')
+          setExpanded(false)
+        }}
+      />
+    </div>
+  )
+}
+
+/** View-options menu for the quick-qa and secure zones (order + filter only). */
+function ZoneViewOptionsMenu({ orderBy, archivedFilter, onOrderPick, onArchivedFilterPick, t }: {
+  orderBy: SessionOrderBy
+  archivedFilter: ArchivedFilter
+  onOrderPick: (mode: SessionOrderBy) => void
+  onArchivedFilterPick: (filter: ArchivedFilter) => void
+  t: WorkspaceBrowserProps['t']
+}) {
+  return (
+    <ZoneViewOptions
+      labels={{
+        label: t('viewOptions.label'),
+        groupByLabel: t('groupBy.label'),
+        groupByWorkspace: t('groupBy.workspace'),
+        groupByWorkspaceTree: t('groupBy.workspaceTree'),
+        groupByFlat: t('groupBy.flat'),
+        orderByLabel: t('orderBy.label'),
+        orderByManual: t('zone.order.manual'),
+        orderByUpdated: t('zone.order.updated'),
+        filterByLabel: t('filterBy.label'),
+        hideArchived: t('viewOptions.hideArchived'),
+        showArchived: t('viewOptions.showArchived'),
+        onlyArchived: t('viewOptions.onlyArchived'),
+      }}
+      sections={['order', 'filter']}
+      orderBy={orderBy}
+      archivedFilter={archivedFilter}
+      onOrderPick={onOrderPick}
+      onArchivedFilterPick={onArchivedFilterPick}
     />
   )
 }
@@ -969,6 +1024,11 @@ export function WorkspaceBrowser({
   const groupBy = useStore(s => s.groupBy)
   const orderBy = useStore(s => s.orderBy)
   const zoneExpansion = useStore(s => s.zoneExpansion)
+  const zoneListView = useStore(s => s.zoneListView)
+  // Zone view state omitted in pre-zone-view snapshots reads as recency order
+  // with archived rows hidden, matching each zone's shipped behavior.
+  const quickQaListView = zoneListView?.['quick-qa'] ?? { orderBy: 'updated' as const, archivedFilter: 'default' as const, query: '' }
+  const secureListView = zoneListView?.secure ?? { orderBy: 'updated' as const, archivedFilter: 'default' as const, query: '' }
   // Persisted view blobs written before the archived filter existed rehydrate
   // without the field; they read as the default hide-archived view.
   const archivedFilter = useStore(s => s.archivedFilter ?? 'default')
@@ -1086,14 +1146,18 @@ export function WorkspaceBrowser({
   const saveSessionOrder = (accountKey: string, order: readonly string[]): void => {
     actions.setSessionOrder(accountKey, order, activeSessionOrders)
   }
-  // The two sidebar zones below the Workspace browser (quick-qa and secure)
-  // fold independently; the Workspace browser is not itself a folding zone.
+  // The three sidebar zones (workspace, quick-qa, secure) are mutually
+  // exclusive: the store folds the other two whenever one opens.
   const setZoneExpanded = actions.setZoneExpanded
   const zoneExpanded = (zoneKey: string): boolean => zoneExpansion?.[zoneKey] !== false
   // The query outlives the tree and the input (both wide-only) so collapsing
   // does not silently drop an in-progress filter.
   const [query, setQuery] = useState('')
   const [searchExpanded, setSearchExpanded] = useState(false)
+  // The zone search pills are controlled here so an expanded search can hide
+  // its sibling view/add actions; a persisted query re-expands on mount.
+  const [quickQaSearchExpanded, setQuickQaSearchExpanded] = useState(quickQaListView.query !== '')
+  const [secureSearchExpanded, setSecureSearchExpanded] = useState(secureListView.query !== '')
   const [revealSessionId, setRevealSessionId] = useState<SessionId | undefined>(undefined)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
@@ -1288,6 +1352,38 @@ export function WorkspaceBrowser({
   return (
     <div className={clsx(css.root, !wide && css.rail)}>
       <div className={css.zones}>
+        {wide && (
+          <AccordionSection
+            sectionKey="quick-qa"
+            title={t('zone.quickQa')}
+            expanded={zoneExpanded('quick-qa')}
+            onExpandedChange={(expanded) => { setZoneExpanded('quick-qa', expanded) }}
+            newLabel={t('zone.quickQa.new')}
+            onNew={() => { startSession(undefined, { agentPreset: 'quick-qa' }) }}
+          >
+            <div className={css.zoneContent}>
+              <div className={css.sectionHeader}>
+                <ZoneSearchControl
+                  listView={quickQaListView}
+                  expanded={quickQaSearchExpanded}
+                  setExpanded={setQuickQaSearchExpanded}
+                  setQuery={(v) => { actions.setZoneListView('quick-qa', { query: v }) }}
+                  t={t}
+                />
+                <div className={clsx(css.headerActions, quickQaSearchExpanded && css.headerActionsHidden)}>
+                  <ZoneViewOptionsMenu
+                    orderBy={quickQaListView.orderBy}
+                    archivedFilter={quickQaListView.archivedFilter}
+                    onOrderPick={(mode) => { actions.setZoneListView('quick-qa', { orderBy: mode }) }}
+                    onArchivedFilterPick={(filter) => { actions.setZoneListView('quick-qa', { archivedFilter: filter }) }}
+                    t={t}
+                  />
+                </div>
+              </div>
+              {renderSlot('sidebar.workspaces.footer', {}, { only: 'quick-qa' })}
+            </div>
+          </AccordionSection>
+        )}
         <AccordionSection
           sectionKey="workspace"
           title={groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
@@ -1511,34 +1607,46 @@ export function WorkspaceBrowser({
         </div>
         </AccordionSection>
 
-      {/* The three sibling sidebar zones: workspace, quick-qa and secure. */}
       {wide && (
-        <>
-          <AccordionSection
-            sectionKey="quick-qa"
-            title={t('zone.quickQa')}
-            expanded={zoneExpanded('quick-qa')}
-            onExpandedChange={(expanded) => { setZoneExpanded('quick-qa', expanded) }}
-            newLabel={t('zone.quickQa.new')}
-            onNew={() => { startSession(undefined, { agentPreset: 'quick-qa' }) }}
-          >
-            <div className={css.zoneContent}>
-              {renderSlot('sidebar.workspaces.footer', {}, { only: 'quick-qa' })}
+        <AccordionSection
+          sectionKey="secure"
+          title={t('zone.secure')}
+          expanded={zoneExpanded('secure')}
+          onExpandedChange={(expanded) => { setZoneExpanded('secure', expanded) }}
+          newLabel={t('zone.secure.new')}
+          onNew={() => { startSession(undefined, { agentPreset: 'secure' }) }}
+        >
+          <div className={css.zoneContent}>
+            <div className={css.sectionHeader}>
+              <ZoneSearchControl
+                listView={secureListView}
+                expanded={secureSearchExpanded}
+                setExpanded={setSecureSearchExpanded}
+                setQuery={(v) => { actions.setZoneListView('secure', { query: v }) }}
+                t={t}
+              />
+              <div className={clsx(css.headerActions, secureSearchExpanded && css.headerActionsHidden)}>
+                <ZoneViewOptionsMenu
+                  orderBy={secureListView.orderBy}
+                  archivedFilter={secureListView.archivedFilter}
+                  onOrderPick={(mode) => { actions.setZoneListView('secure', { orderBy: mode }) }}
+                  onArchivedFilterPick={(filter) => { actions.setZoneListView('secure', { archivedFilter: filter }) }}
+                  t={t}
+                />
+                {/* Adding stays the directory flow's one route; the secure
+                    zone reuses the workspace header's affordance, so a
+                    composition without a picker hides the dead button. */}
+                {directoryFlowAvailable && (
+                  <ZoneAddWorkspace
+                    label={t('workspace.add')}
+                    onClick={() => { requestAddWorkspace() }}
+                  />
+                )}
+              </div>
             </div>
-          </AccordionSection>
-          <AccordionSection
-            sectionKey="secure"
-            title={t('zone.secure')}
-            expanded={zoneExpanded('secure')}
-            onExpandedChange={(expanded) => { setZoneExpanded('secure', expanded) }}
-            newLabel={t('zone.secure.new')}
-            onNew={() => { startSession(undefined, { agentPreset: 'secure' }) }}
-          >
-            <div className={css.zoneContent}>
-              {renderSlot('sidebar.workspaces.footer', {}, { only: 'secure-zone' })}
-            </div>
-          </AccordionSection>
-        </>
+            {renderSlot('sidebar.workspaces.footer', {}, { only: 'secure-zone' })}
+          </div>
+        </AccordionSection>
       )}
       </div>
 

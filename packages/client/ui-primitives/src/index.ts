@@ -32,6 +32,12 @@ export type { SegmentedControlOption } from './SegmentedControl.tsx'
 export { Checkbox } from './Checkbox.tsx'
 export { Input } from './Input.tsx'
 export { InlineEditor } from './InlineEditor.tsx'
+export {
+  ZoneSearch, ZoneViewOptions, ZoneAddWorkspace, sanitizeZoneSearchQuery, ZONE_SEARCH_QUERY_MAX_CODE_UNITS,
+} from './ZoneChrome.tsx'
+export type {
+  ZoneSearchLabels, ZoneViewOptionsLabels, ZoneViewOptionsOverride, ZoneSessionOrderBy, ZoneSessionGroupBy, ZoneArchivedFilter,
+} from './ZoneChrome.tsx'
 export { Menu, MenuItemButton } from './Menu.tsx'
 export { MenuSurface } from './MenuSurface.tsx'
 export type { MenuSurfaceProps } from './MenuSurface.tsx'

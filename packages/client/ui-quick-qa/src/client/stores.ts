@@ -1,4 +1,4 @@
-/** Quick answers history write-side store: transient failure lines only. */
+/** Quick answers history write-side store: transient failure lines. */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 
 /** View-state the history owns; Session history lives in the object layer. */
@@ -13,7 +13,7 @@ export type QuickQaPanelActions = {
 }
 
 /**
- * Create the history store for transient failure lines.
+ * Create the history store: transient failure lines.
  * @returns a store factory whose instance the Slot registration owns.
  */
 export function createQuickQaStore(): EngineStoreHandle<QuickQaPanelState, QuickQaPanelActions> {
@@ -21,6 +21,7 @@ export function createQuickQaStore(): EngineStoreHandle<QuickQaPanelState, Quick
     init: () => ({
       failures: [],
     }),
+    persist: 'dsh.quickqa.view.v1',
     actions: {
       setFailures: (d, failures) => { d.failures = failures },
     },

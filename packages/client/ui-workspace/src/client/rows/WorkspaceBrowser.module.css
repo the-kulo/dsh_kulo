@@ -343,6 +343,12 @@
   padding-left: 4px;
 }
 
+/* The zone section header nests inside zoneContent, which already carries the
+   4px left inset the workspace section header adds itself. */
+.zoneContent .sectionHeader {
+  padding-left: 0;
+}
+
 /* List seat: always mounted so the shell foot never moves. The equal split
    hands this seat its share, so it scrolls its overflow itself while the
    first-boundary drop marker keeps its header-gap coordinate outside the

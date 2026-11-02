@@ -1,7 +1,7 @@
-/* Quick-qa zone body: compact search over the conversation list. The header,
-   search control, and session rows mirror the Workspace browser's metrics
-   (36px header, 28px inline search, 32px session cell) so the zone reads as
-   the browser's sibling; grouping, folder, and drag affordances stay out. */
+/* Quick-qa zone body: the conversation list. The header chrome (search,
+   view options, New conversation) lives in the accordion header owned by
+   ui-workspace; this panel renders only the scrollable list on the Workspace
+   browser's metrics (32px session cell). */
 
 .root {
   flex: 1 1 0;
@@ -13,128 +13,9 @@
   min-height: 0;
 }
 
-/* Header row: one expanding search pill, same 36px rhythm as the zone header. */
-.header {
-  flex: none;
-  display: flex;
-  align-items: center;
-  height: 36px;
-  box-sizing: border-box;
-}
-
-/* Inline search, after the Workspace browser's expanding control: a bare
-   icon button that grows into a bordered pill. */
-.search {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-width: 0;
-  height: 28px;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  border: none;
-  border-radius: var(--dsw-radius-sm);
-  background: transparent;
-  cursor: text;
-  color: var(--dsw-alias-label-secondary);
-  overflow: hidden;
-  transition:
-    padding 180ms var(--ds-ease-in-out),
-    border-color 180ms var(--ds-ease-in-out),
-    background-color 180ms var(--ds-ease-in-out);
-}
-
-.searchExpanded {
-  height: 30px;
-  padding: 0 4px 0 0;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md);
-  background: transparent;
-  color: var(--dsw-alias-label-caption);
-}
-
-.searchButton {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--dsw-radius-sm);
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  color: inherit;
-}
-
-.searchExpanded .searchButton {
-  height: 30px;
-}
-
-@media (hover: hover) {
-  .searchButton:hover {
-    background: var(--dsw-alias-interactive-bg-hover);
-  }
-
-  .searchExpanded .searchButton:hover {
-    background: transparent;
-  }
-}
-
-.searchInput {
-  flex: 1;
-  width: 0;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  opacity: 0;
-  pointer-events: none;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-primary);
-  transition: opacity 120ms var(--ds-ease-in-out);
-}
-
-.searchExpanded .searchInput {
-  margin-left: -2px;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.searchInput::placeholder {
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.clearButton {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--dsw-radius-sm);
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.searchButton:focus-visible,
-.clearButton:focus-visible,
 .sessionRow:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
-}
-
-@media (hover: hover) {
-  .clearButton:hover {
-    background: var(--dsw-alias-interactive-bg-hover);
-  }
 }
 
 /* The list seat scrolls its own overflow; the accordion body clips it. */
@@ -281,11 +162,4 @@
   color: var(--dsw-alias-state-error-primary);
   border-top: 0.5px solid var(--dsw-alias-border-l3);
   overflow-wrap: anywhere;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .search,
-  .searchInput {
-    transition: none;
-  }
 }

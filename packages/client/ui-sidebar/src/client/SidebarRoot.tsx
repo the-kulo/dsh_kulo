@@ -4,12 +4,13 @@
  * content freezes at its expanded width (inline style) and fades out in place
  * while the sliding column (AppFrame grid tracks) clips it — nothing reflows
  * mid-slide. At settle the wide-only content unmounts and the upper
- * controls enter the 56px rail from the same horizontal offset (one icon each,
- * same top-down order) on one fade that ends with the slide. The bottom-pinned
- * settings control only fades. The workspace/session browsing region between
- * global panel rows and the foot is the `sidebar.workspaces` registrant's,
- * and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
- * hands them the wide flag (plus an expand request callback for the browser).
+ * controls (account launcher + panel toggle) enter the 56px rail from the
+ * same horizontal offset on one fade that ends with the slide. The
+ * bottom-pinned settings control only fades. The workspace/session browsing
+ * region between global panel rows and the foot is the `sidebar.workspaces`
+ * registrant's, and the foot holds `sidebar.settings` plus
+ * `sidebar.footer.action`; the shell hands them the wide flag (plus an
+ * expand request callback for the browser).
  *
  * The column also owns whether the scroll regions nested in it draw a
  * scrollbar at all: the shell tracks the pointer and rebinds ui-theme's
@@ -19,14 +20,12 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  FishLogo, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconPanelLeftOutlineRegular,
-  isDarwinDesktop, Menu, ShortcutKeys, Tooltip,
+  FishLogo, IconPanelLeftOutlineRegular, isDarwinDesktop, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  SidebarPanelActionsOwnerProps, SidebarPanelMetadata, SidebarRootComponentProps, SidebarRootInjected, SidebarSectionOwnerProps,
+  SidebarPanelMetadata, SidebarRootComponentProps, SidebarRootInjected, SidebarSectionOwnerProps,
 } from './contract/slots.ts'
-import { FIXED_PANEL_ID } from './panel-pins.ts'
 import css from './SidebarRoot.module.css'
 
 /** Wide-content unmount delay; matches the 150ms wide-content fade-out. */
@@ -82,36 +81,6 @@ function PanelRow({ id, label, wide, usePanelInfo, selectPanel, trackEntryClick,
   )
 }
 
-type PanelMoreMenuProps =
-  Pick<SidebarSectionOwnerProps, 'wide'>
-  & Omit<SidebarPanelActionsOwnerProps, 'onDismiss'>
-  & PropsRenderSlots<'sidebar.panellist.actions'>
-  & Pick<InjectFace<SidebarRootInjected>, 'trackEntryClick'>
-  & { readonly label: string }
-
-/** The panel list's More launcher: a panel-row button whose menu rows come from `sidebar.panellist.actions`. */
-function PanelMoreMenu({ wide, label, entries, onOpen, onPinnedChange, trackEntryClick, renderSlot }: PanelMoreMenuProps) {
-  const [open, setOpen] = useState(false)
-  const onDismiss = (): void => { setOpen(false) }
-  return (
-    <Menu open={open} onClose={onDismiss} portal autoFocus className={css.moreAnchor} listClassName={css.moreMenu}
-      anchor={(
-        <Tooltip label={label} delayMs={500} disabled={wide}>
-          <button type="button" className={css.panelRow} aria-label={label} aria-haspopup="menu" aria-expanded={open}
-            onClick={() => {
-              trackEntryClick({ menu_name: 'more', position: 'sidebar' })
-              setOpen(value => !value)
-            }}>
-            <span className={css.panelGlyph} aria-hidden="true"><IconAppsAddOutlineRegular size={wide ? 16 : 18} /></span>
-            {wide && <span className={clsx(css.panelTitle, css.wide)}>{label}</span>}
-          </button>
-        </Tooltip>
-      )}>
-      {renderSlot('sidebar.panellist.actions', { entries, onOpen, onPinnedChange, onDismiss })}
-    </Menu>
-  )
-}
-
 /**
  * Render the sidebar column shell.
  * @param props - composed slot props (runtime share + injected callbacks, contract/slots.ts).
@@ -120,28 +89,17 @@ function PanelMoreMenu({ wide, label, entries, onOpen, onPinnedChange, trackEntr
 export function SidebarRoot({
   collapsed,
   width,
-  startSession,
   toggleSidebar,
   selectPanel,
-  setPinned,
   trackEntryClick,
-  useRemoteAccess,
   usePanels,
-  useEntryPins,
-  useEntryActions,
   useShortcuts,
   usePanelInfo,
   t,
   renderSlot,
 }: SidebarRootComponentProps) {
   const panels = usePanels(snapshot => snapshot)
-  const unpinned = useEntryPins(ids => ids)
-  const activePanelId = usePanelInfo(info => info.activePanelId)
-  const hasEntryActions = useEntryActions(registered => registered)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
-  const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
-  // A page whose access snapshot excludes starting a Session offers no New Session affordance.
-  const canStartSession = useRemoteAccess('session/create')
   const toggleLabel = collapsed ? t('toggle.open') : t('toggle.collapse')
   // Wide content stays mounted while the collapse animates (fading via
   // .collapsed .wide), unmounts at settle, and remounts right away on expand.
@@ -153,11 +111,6 @@ export function SidebarRoot({
   }, [collapsed])
   const windowsTitlebar = document.documentElement.hasAttribute('data-windows-titlebar')
   const wide = windowsTitlebar ? !collapsed : !collapsed || !settled
-  // The Windows titlebar hosts the New Session controls while the sidebar is collapsed.
-  const openNewSession = (): void => {
-    trackEntryClick({ menu_name: 'new_session', position: windowsTitlebar && collapsed ? 'titlebar' : 'sidebar' })
-    startSession()
-  }
   // The Windows caption menus occupy the strip to the right of these controls
   // (that is what --dsh-windows-menu-start reserves), so a right-side bubble
   // lands under their text. Below the caption is the only clear side.
@@ -259,35 +212,13 @@ export function SidebarRoot({
           traffic lights and keeps the toggle at the sidebar's top-right. */}
       {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
       <div className={css.logoRow} data-window-drag>
+        <div className={css.accountSeat}>{renderSlot('sidebar.account', { wide })}</div>
         {!darwinDesktop && toggle}
       </div>
 
-      {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
-      {canStartSession && (
-        <Tooltip label={t('session.new.label')} shortcutKeys={newShortcut?.keys} delayMs={500} side={captionTooltipSide} disabled={wide}>
-          <button
-            type="button"
-            className={css.newSession}
-            aria-label={t('session.new.label')}
-            aria-keyshortcuts={newShortcut?.aria}
-            onClick={openNewSession}
-          >
-            <span className={css.newSessionLabelMask}><span className={css.newSessionContent}>
-              {wide
-                ? <IconNewChatOutlineMedium size={14} />
-                : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
-              {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
-            </span></span>
-            {wide && newShortcut !== undefined && newShortcut.keys.length > 0 && <span className={css.newSessionShortcut} aria-hidden="true">
-              <ShortcutKeys keys={newShortcut.keys} />
-            </span>}
-          </button>
-        </Tooltip>
-      )}
-
       {panels.length > 0 && (
         <nav className={css.panelList} aria-label={t('panels.label')}>
-          {panels.filter(({ id }) => id === FIXED_PANEL_ID || !unpinned.includes(id)).map(({ id, label }) => (
+          {panels.map(({ id, label }) => (
             <PanelRow
               key={id}
               id={id}
@@ -299,23 +230,6 @@ export function SidebarRoot({
               renderSlot={renderSlot}
             />
           ))}
-          {hasEntryActions && (
-            <PanelMoreMenu
-              wide={wide}
-              label={t('panels.more')}
-              entries={panels.filter(({ id }) => id !== FIXED_PANEL_ID)
-                .map(({ id, label }) => ({ id, label, pinned: !unpinned.includes(id), active: id === activePanelId }))}
-              onOpen={(id) => {
-                const entry = officialEntry(id)
-                if (entry !== undefined) trackEntryClick({ menu_name: entry, position: 'sidebar_more' })
-                const panel = panels.find(candidate => candidate.id === id)
-                if (panel !== undefined) selectPanel(panel.id)
-              }}
-              onPinnedChange={setPinned}
-              trackEntryClick={trackEntryClick}
-              renderSlot={renderSlot}
-            />
-          )}
         </nav>
       )}
 

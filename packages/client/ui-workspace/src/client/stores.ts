@@ -18,6 +18,22 @@ export type SessionGroupBy = 'workspace' | 'workspace-tree' | 'flat'
 /** Session order: saved manual positions or current recency. */
 export type SessionOrderBy = 'manual' | 'updated'
 
+/** Sidebar zones that share the Workspace browser's chrome; the workspace zone carries the browsing list. */
+export type SidebarZoneKey = 'workspace' | 'quick-qa' | 'secure'
+
+/**
+ * One zone's list viewing state. Zones without Workspaces keep no grouping
+ * choice; a zone's persisted ordering is its view-options selection (the
+ * quick-qa and secure zones reorder their flat lists through it), while the
+ * workspace zone keeps its own manual-order accounts above.
+ */
+export type ZoneListViewState = {
+  orderBy: SessionOrderBy
+  archivedFilter: ArchivedFilter
+  /** Title filter draft the zone's header search writes; '' means no filter. */
+  query: string
+}
+
 /** Workspace browser viewing state persisted across surface remounts and reloads. */
 type WorkspaceViewState = {
   groupBy: SessionGroupBy
@@ -28,8 +44,10 @@ type WorkspaceViewState = {
   sessionOrderByAccount: Record<string, string[]>
   /** Archived-row visibility; omitted in pre-filter v5 snapshots and read as 'default'. */
   archivedFilter?: ArchivedFilter
-  /** Sidebar zone-accordion expansion; omitted in pre-zone v6 snapshots and read as expanded. */
+  /** Sidebar zone-accordion expansion, mutually exclusive across the workspace/quick-qa/secure zones; omitted in pre-zone v6 snapshots and read as expanded. */
   zoneExpansion?: Record<string, boolean>
+  /** Per-zone list viewing state for the quick-qa and secure zones; omitted in pre-zone-view v6 snapshots and read as recency order with archived rows hidden. */
+  zoneListView?: Record<string, ZoneListViewState>
 }
 
 type SessionOrderSource = {
@@ -69,6 +87,7 @@ type WorkspaceViewActions = {
   ) => void
   setArchivedFilter: (draft: WorkspaceViewState, filter: ArchivedFilter) => void
   setZoneExpanded: (draft: WorkspaceViewState, zoneKey: string, expanded: boolean) => void
+  setZoneListView: (draft: WorkspaceViewState, zoneKey: SidebarZoneKey, view: Partial<ZoneListViewState>) => void
 }
 
 /** Copy read-only projections into the persisted mutable store representation. */
@@ -128,10 +147,24 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         }))
       },
       setArchivedFilter: (d, filter: ArchivedFilter) => { d.archivedFilter = filter },
-      setZoneExpanded: (d, zoneKey: string, expanded: boolean) => { d.zoneExpansion = { ...d.zoneExpansion, [zoneKey]: expanded } },
+      setZoneExpanded: (d, zoneKey: string, expanded: boolean) => {
+        // The workspace/quick-qa/secure zones are mutually exclusive: opening
+        // one folds the other two so the sidebar shows at most one body.
+        if (expanded) {
+          d.zoneExpansion = { workspace: false, 'quick-qa': false, secure: false, [zoneKey]: true }
+        } else {
+          d.zoneExpansion = { ...d.zoneExpansion, [zoneKey]: false }
+        }
+      },
+      setZoneListView: (d, zoneKey: SidebarZoneKey, view: Partial<ZoneListViewState>) => {
+        const current = d.zoneListView?.[zoneKey] ?? { orderBy: 'updated' as SessionOrderBy, archivedFilter: 'default' as ArchivedFilter, query: '' }
+        d.zoneListView = { ...d.zoneListView, [zoneKey]: { ...current, ...view } }
+      },
     },
   })
 }
 
 /** The bound write set of one viewing-store instance (what the UiWorkspace service drives). */
 export type WorkspaceViewStoreActions = ReturnType<ReturnType<typeof createWorkspaceViewStore>['create']>['actions']
+/** One viewing-store instance's read side: the live snapshot source the UiWorkspace service re-publishes per zone. */
+export type WorkspaceViewStoreInstance = ReturnType<ReturnType<typeof createWorkspaceViewStore>['create']>

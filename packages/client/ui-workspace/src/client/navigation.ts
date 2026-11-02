@@ -23,7 +23,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
-import type { WorkspaceViewStoreActions } from './stores.ts'
+import type {
+  SidebarZoneKey, WorkspaceViewStoreActions, WorkspaceViewStoreInstance, ZoneListViewState,
+} from './stores.ts'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 
 interface MainSelection {
   readonly sessionId?: SessionId
@@ -43,6 +46,23 @@ export interface UiWorkspace {
    * @param target - known Session identity or durable direct-parent subagent address to display.
    */
   openSession(target: SessionTarget): void
+  /**
+   * The persisted list viewing knobs of one sidebar zone (ordering, archived
+   * visibility): the source the zone's header view options write, delivered
+   * to the zone's panel through the injected `hooks` compartment so the
+   * controller re-derives its list. The observable's snapshot identity is
+   * stable between store writes that leave the zone's knobs unchanged.
+   * @param zone - the sidebar zone whose view state is requested.
+   * @returns the zone's live view-state source.
+   */
+  zoneListViewSource(zone: SidebarZoneKey): HostObservable<ZoneListViewState>
+  /**
+   * Persist one zone's list viewing knobs (ordering, archived visibility) in
+   * the browser's viewing store, so the zone's view options survive reloads.
+   * @param zone - the sidebar zone whose view changes.
+   * @param view - the changed knobs; omitted knobs keep their stored values.
+   */
+  setZoneListView(zone: SidebarZoneKey, view: Partial<ZoneListViewState>): void
   /**
    * Whether a Session is attached to any Workspace, as opposed to a standalone
    * zone conversation created with quick:true.
@@ -182,6 +202,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   )
   private mainReference: SessionReference | undefined
   private restorationNavigation: AbortSignal | undefined
+  /** Per-zone view-state sources, cached so each zone's observable keeps one identity. */
+  private readonly zoneListViewSources = new Map<SidebarZoneKey, HostObservable<ZoneListViewState>>()
 
   /**
    * @param ctx - Client root Context.
@@ -189,6 +211,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    * @param workspaces - pure Workspace Controller.
    * @param sessions - pure Session Controller.
    * @param view - the browser's viewing-store write set (one instance shared with its registration).
+   * @param viewInstance - the same instance's read side (the per-zone view-state sources subscribe it).
    * @param notify - show one notice through the Workspace notice channel.
    */
   constructor(
@@ -196,7 +219,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly directoryPicker: ClientRemote['directoryPicker'],
     private readonly workspaces: IWorkspaces,
     private readonly sessions: ISessions,
-    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder'>,
+    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setZoneListView'>,
+    private readonly viewInstance: WorkspaceViewStoreInstance,
     private readonly notify: (toast: RowToast) => void,
   ) {
     super(ctx, 'uiWorkspace')
@@ -214,6 +238,34 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   connectWorkspace(workspaceId: WorkspaceId, options: Pick<StartSessionOptions, 'agentPreset'> = {}): Promise<SessionId> {
     return this.connectBlank(workspaceId, options)
+  }
+
+  setZoneListView(zone: SidebarZoneKey, view: Partial<ZoneListViewState>): void {
+    this.view.setZoneListView(zone, view)
+  }
+
+  zoneListViewSource(zone: SidebarZoneKey): HostObservable<ZoneListViewState> {
+    let source = this.zoneListViewSources.get(zone)
+    if (source === undefined) {
+      const store = this.viewInstance
+      const read = (): ZoneListViewState =>
+        store.getSnapshot().zoneListView?.[zone] ?? { orderBy: 'updated', archivedFilter: 'default', query: '' }
+      // uSES keeps a subscriber subscribed for the binding's lifetime; a
+      // selector returning a fresh object would loop re-renders, so the
+      // snapshot is cached until the zone's stored knobs actually change.
+      let current = read()
+      source = {
+        getSnapshot: () => current,
+        subscribe: (listener: () => void) => store.subscribe(() => {
+          const next = read()
+          if (next.orderBy === current.orderBy && next.archivedFilter === current.archivedFilter && next.query === current.query) return
+          current = next
+          listener()
+        }),
+      }
+      this.zoneListViewSources.set(zone, source)
+    }
+    return source
   }
 
   /**

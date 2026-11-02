@@ -17,6 +17,22 @@ import type { createSecureZoneStore } from './stores.ts'
 /** Agent preset whose Sessions the panel reads; composed without tools or runtime context. */
 export const SECURE_PRESET_ID = 'secure'
 
+/** Archived-row visibility the panel's view options switch between. */
+export type SecureZoneArchivedFilter = 'default' | 'show' | 'only'
+
+/**
+ * The zone's list viewing knobs: the ordering and archived filter the
+ * accordion header's view options persist in the Workspace browser's store.
+ * The controller's {@link SecureZoneController.setListView} re-derives the
+ * published list when the owner share reports a change.
+ */
+export interface SecureZoneListView {
+  orderBy: 'manual' | 'updated'
+  archivedFilter: SecureZoneArchivedFilter
+  /** Title filter draft the zone's header search writes; '' means no filter. */
+  query: string
+}
+
 type SecureZoneView = ReturnType<ReturnType<typeof createSecureZoneStore>['create']>
 
 /** One standalone secure-zone conversation in the zone's history list. */
@@ -45,12 +61,13 @@ function isSecureZoneIdentity(id: SessionId): boolean {
 
 /** Read-only owner of the secure-zone conversation list. */
 export class SecureZoneController {
-  /** Standalone secure-zone conversations, pinned first then newest first, archived excluded. */
+  /** Standalone secure-zone conversations, pinned first then ordered by the zone's view options. */
   readonly sessionItems = createSnapshotStore<readonly SecureZoneSessionItem[]>([])
 
   private listSubscription: (() => void) | null = null
   private workspaceSubscription: (() => void) | null = null
   private disposed = false
+  private listView: SecureZoneListView = { orderBy: 'manual', archivedFilter: 'default', query: '' }
 
   constructor(
     private readonly ctx: ClientContext,
@@ -92,6 +109,17 @@ export class SecureZoneController {
     return result.value
   }
 
+  /**
+   * Apply the persisted zone list view (ordering + archived filter) the
+   * panel's header view options report, then republish the derived list.
+   * @param view - the zone's current view options from the Workspace browser's store.
+   */
+  setListView(view: SecureZoneListView): void {
+    if (view.orderBy === this.listView.orderBy && view.archivedFilter === this.listView.archivedFilter) return
+    this.listView = view
+    this.refresh()
+  }
+
   /** Follow the secure-zone conversation list without creating an Agent. */
   async start(): Promise<void> {
     this.listSubscription ??= this.sessions.list.subscribe(() => { this.refresh() })
@@ -121,10 +149,11 @@ export class SecureZoneController {
       }))
       .filter(item => !item.blank || item.current)
     const visible = items
-      .filter(item => !item.archived)
+      .filter(item => this.listView.archivedFilter === 'show' || (this.listView.archivedFilter === 'only') === item.archived)
       .sort((left, right) => {
         if (left.pinned !== right.pinned) return left.pinned ? -1 : 1
-        return right.updatedAt - left.updatedAt
+        if (this.listView.orderBy === 'updated') return right.updatedAt - left.updatedAt
+        return 0
       })
     this.sessionItems.set(visible)
   }

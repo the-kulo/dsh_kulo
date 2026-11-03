@@ -11,13 +11,17 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { UsageSummary, UsageSummaryRequest } from '../types.ts'
 import { shanghaiDay } from '../usage.ts'
 import {
-  filterDays, resolveRange, sumDays, type UsageRangePreset,
+  collectModelKeys, filterDays, filterDaysByModels, resolveRange, sumDays,
+  type UsageRangePreset,
 } from './usageAggregate.ts'
+import type { UsageLocaleKey } from './locales.ts'
 import { UsageSummaryCard } from './UsageSummaryCard.tsx'
 import { UsageTimeRange } from './UsageTimeRange.tsx'
 import { UsageTrendChart } from './UsageTrendChart.tsx'
-import { UsageDetailTabs } from './UsageDetailTabs.tsx'
-import { UsageCalendar, UsageCard } from './UsageCalendar.tsx'
+import { UsageConsumptionChart } from './UsageConsumptionChart.tsx'
+import { UsageRequestsChart } from './UsageRequestsChart.tsx'
+import { UsageRankingChart } from './UsageRankingChart.tsx'
+import { UsageCacheTable } from './UsageCacheTable.tsx'
 import css from './UsageSection.module.css'
 
 /** Remote face injected by the Client plugin. */
@@ -35,12 +39,38 @@ type LoadState =
   | { readonly status: 'loading' | 'error'; readonly snapshot?: UsageSummary }
   | { readonly status: 'ready'; readonly snapshot: UsageSummary }
 
-function isDay(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+type UsageTab = 'consumption' | 'trend' | 'requests' | 'rank' | 'cache'
+
+type UsagePeriod = 'day' | 'week'
+
+/** Filter values the query button commits to every chart and table. */
+interface UsageFilters {
+  readonly preset: UsageRangePreset
+  readonly customFrom: string
+  readonly customTo: string
+  readonly period: UsagePeriod
+  readonly models: ReadonlySet<string>
+}
+
+const TABS: readonly { readonly id: UsageTab; readonly labelKey: UsageLocaleKey }[] = [
+  { id: 'consumption', labelKey: 'tabConsumption' },
+  { id: 'trend', labelKey: 'tabTrend' },
+  { id: 'requests', labelKey: 'tabRequestDist' },
+  { id: 'rank', labelKey: 'tabRequestRank' },
+  { id: 'cache', labelKey: 'tabCacheAnalysis' },
+]
+
+const NO_MODELS: ReadonlySet<string> = new Set<string>()
+
+const INITIAL_FILTERS: UsageFilters = {
+  preset: '30d', customFrom: '', customTo: '', period: 'day', models: NO_MODELS,
 }
 
 /** Centered light empty/loading/error surface: an icon plus one line of copy. */
-function StateBlock({ icon, children }: { readonly icon: React.ReactNode; readonly children: React.ReactNode }): React.ReactElement {
+function StateBlock({ icon, children }: {
+  readonly icon: React.ReactNode
+  readonly children: React.ReactNode
+}): React.ReactElement {
   return (
     <div className={css.stateBlock}>
       <span className={css.stateIcon}>{icon}</span>
@@ -52,15 +82,12 @@ function StateBlock({ icon, children }: { readonly icon: React.ReactNode; readon
 /** Render the usage Settings section. */
 export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElement {
   const today = shanghaiDay(Date.now())
-  const [preset, setPreset] = useState<UsageRangePreset>('30d')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
-  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined)
+  const [draft, setDraft] = useState<UsageFilters>(INITIAL_FILTERS)
+  const [applied, setApplied] = useState<UsageFilters>(INITIAL_FILTERS)
+  const [tab, setTab] = useState<UsageTab>('consumption')
   const [revision, setRevision] = useState(0)
   const [state, setState] = useState<LoadState>({ status: 'loading' })
 
-  // The contribution calendar always reads the complete recorded history; the
-  // time-range filter only scopes the summary card, trend chart, and detail tabs.
   const load = useCallback(() => summary({}), [summary])
   useEffect(() => {
     let current = true
@@ -75,41 +102,52 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
   const format = useCallback((value: number): string => new Intl.NumberFormat(locale).format(value), [locale])
   const formatPercent = useCallback((value: number): string =>
     new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 }).format(value), [locale])
+  const formatCompact = useMemo(() =>
+    new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }), [locale])
   const formatDate = useCallback((value: string): string =>
     new Intl.DateTimeFormat(locale, {
       timeZone: 'Asia/Shanghai', year: 'numeric', month: 'short', day: 'numeric', weekday: 'short',
     }).format(new Date(`${value}T00:00:00.000Z`)), [locale])
   const formatAxisDate = useCallback((value: string): string =>
-    new Intl.DateTimeFormat(locale, {
-      timeZone: 'Asia/Shanghai', month: 'short', day: 'numeric',
-    }).format(new Date(`${value}T00:00:00.000Z`)), [locale])
-  const monthLabel = useCallback((value: string): string =>
-    new Intl.DateTimeFormat(locale, {
-      timeZone: 'Asia/Shanghai', month: 'short',
-    }).format(new Date(`${value}T00:00:00.000Z`)), [locale])
+    value.includes('W')
+      ? t('weekLabel', { week: value.slice(value.indexOf('W') + 1) })
+      : new Intl.DateTimeFormat(locale, {
+        timeZone: 'Asia/Shanghai', month: 'short', day: 'numeric',
+      }).format(new Date(`${value}T00:00:00.000Z`)), [locale, t])
 
   const snapshot = state.snapshot
   const empty = snapshot !== undefined
     && snapshot.days.every(day => day.providers.every(provider => provider.models.length === 0))
 
+  const allModels = useMemo(
+    () => snapshot === undefined ? [] : collectModelKeys(snapshot.days),
+    [snapshot],
+  )
+
   const range = useMemo(
-    () => resolveRange(today, preset, customFrom || undefined, customTo || undefined),
-    [today, preset, customFrom, customTo],
+    () => resolveRange(today, applied.preset, applied.customFrom || undefined, applied.customTo || undefined),
+    [today, applied],
   )
   const scopedDays = useMemo(
-    () => snapshot !== undefined ? filterDays(snapshot.days, range) : [],
-    [snapshot, range],
+    () => snapshot === undefined
+      ? []
+      : filterDaysByModels(filterDays(snapshot.days, range), applied.models),
+    [snapshot, range, applied.models],
   )
-  const rangeTotals = useMemo(() => sumDays(scopedDays), [scopedDays])
+  const totals = useMemo(() => sumDays(scopedDays), [scopedDays])
 
-  const selectedDay = selectedDate !== undefined && isDay(selectedDate)
-    ? snapshot?.days.find(day => day.date === selectedDate)
-    : undefined
+  const formatRowTime = useCallback(
+    (period: string, date?: string): string => formatAxisDate(date ?? period),
+    [formatAxisDate],
+  )
 
-  function handleRangeChange(nextPreset: UsageRangePreset, from?: string, to?: string): void {
-    setPreset(nextPreset)
-    setCustomFrom(from ?? '')
-    setCustomTo(to ?? '')
+  function handleRangeChange(preset: UsageRangePreset, from?: string, to?: string): void {
+    setDraft(previous => ({ ...previous, preset, customFrom: from ?? '', customTo: to ?? '' }))
+  }
+
+  function handleQuery(): void {
+    setApplied(draft)
+    setRevision(value => value + 1)
   }
 
   function retry(): void {
@@ -124,12 +162,21 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
       </header>
 
       <UsageTimeRange
-        preset={preset}
-        customFrom={customFrom}
-        customTo={customTo}
+        preset={draft.preset}
+        customFrom={draft.customFrom}
+        customTo={draft.customTo}
         today={today}
         t={t}
         onChange={handleRangeChange}
+        granularity={draft.period}
+        onGranularityChange={(period) => {
+          if (period === 'hour') return
+          setDraft(previous => ({ ...previous, period }))
+        }}
+        selectedModels={draft.models}
+        allModels={allModels}
+        onModelsChange={(models) => { setDraft(previous => ({ ...previous, models })) }}
+        onQuery={handleQuery}
       />
 
       {state.status === 'error'
@@ -167,21 +214,73 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
       {snapshot !== undefined && !empty
         ? (
           <>
-            <UsageSummaryCard totals={rangeTotals} t={t} format={format} formatPercent={formatPercent} />
-            <UsageTrendChart days={scopedDays} t={t} format={format} formatDate={formatDate} formatAxisDate={formatAxisDate} />
-            <UsageDetailTabs days={scopedDays} t={t} format={format} formatDate={formatDate} formatPercent={formatPercent} />
-            <div className={css.activitySection}>
-              <h3 className={css.sectionHeading}>{t('activity')}</h3>
-              <UsageCalendar
-                snapshot={snapshot}
-                t={t}
-                format={format}
-                formatDate={formatDate}
-                monthLabel={monthLabel}
-                today={today}
-                selectedDate={selectedDate}
-                onSelectDate={(date) => { setSelectedDate(date === selectedDate ? undefined : date) }}
-              />
+            <UsageSummaryCard totals={totals} t={t} format={format} formatPercent={formatPercent} />
+            <div className={css.panel}>
+              <div className={css.detailTabs} role="tablist" aria-label={t('title')}>
+                {TABS.map(entry => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === entry.id}
+                    className={css.detailTab}
+                    data-active={tab === entry.id ? 'true' : undefined}
+                    onClick={() => { setTab(entry.id) }}
+                  >
+                    {t(entry.labelKey)}
+                  </button>
+                ))}
+              </div>
+              <div className={css.panelBody}>
+                {tab === 'consumption'
+                  ? (
+                    <UsageConsumptionChart
+                      days={scopedDays}
+                      granularity={applied.period}
+                      t={t}
+                      formatCompact={formatCompact}
+                      formatAxisDate={formatAxisDate}
+                    />
+                  )
+                  : null}
+                {tab === 'trend'
+                  ? (
+                    <UsageTrendChart
+                      days={scopedDays}
+                      granularity={applied.period}
+                      t={t}
+                      format={format}
+                      formatDate={formatDate}
+                      formatAxisDate={formatAxisDate}
+                    />
+                  )
+                  : null}
+                {tab === 'requests'
+                  ? (
+                    <UsageRequestsChart
+                      days={scopedDays}
+                      t={t}
+                      format={format}
+                      formatPercent={formatPercent}
+                    />
+                  )
+                  : null}
+                {tab === 'rank'
+                  ? <UsageRankingChart days={scopedDays} t={t} formatCompact={formatCompact} />
+                  : null}
+                {tab === 'cache'
+                  ? (
+                    <UsageCacheTable
+                      days={scopedDays}
+                      granularity={applied.period}
+                      t={t}
+                      format={format}
+                      formatPercent={formatPercent}
+                      formatRowTime={formatRowTime}
+                    />
+                  )
+                  : null}
+              </div>
             </div>
           </>
         )
@@ -193,46 +292,6 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
             <strong className={css.stateTitle}>{t('emptyTitle')}</strong>
             <p className={css.stateText}>{t('emptyDescription')}</p>
           </StateBlock>
-        )
-        : null}
-
-      {selectedDay !== undefined
-        ? (
-          <div className={css.day} key={selectedDay.date}>
-            <div className={css.dayHead}>
-              <h3>{formatDate(selectedDay.date)}</h3>
-              <Button size="sm" variant="outline" onClick={() => { setSelectedDate(undefined) }}>{t('allHistory')}</Button>
-            </div>
-            <div className={css.providers}>
-              {selectedDay.providers.map(provider => (
-                <UsageCard key={provider.id} title={t(provider.id)} totals={provider} t={t} format={format} />
-              ))}
-            </div>
-            <div className={css.tableWrap}>
-              <table className={css.table}>
-                <thead>
-                  <tr>
-                    <th>{t('model')}</th>
-                    <th>{t('input')}</th>
-                    <th>{t('cached')}</th>
-                    <th>{t('output')}</th>
-                    <th>{t('totalTokens')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedDay.providers.flatMap(provider => provider.models.map(model => (
-                    <tr key={`${model.provider}${model.model}`}>
-                      <th scope="row"><span>{model.model}</span><small>{model.provider}</small></th>
-                      <td>{format(model.inputTokens)}</td>
-                      <td>{format(model.cachedTokens)}</td>
-                      <td>{format(model.outputTokens)}</td>
-                      <td>{format(model.totalTokens)}</td>
-                    </tr>
-                  )))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         )
         : null}
     </section>

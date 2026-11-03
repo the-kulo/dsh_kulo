@@ -14,6 +14,13 @@ export type UsageLocaleKey =
   | 'provider' | 'cacheHit' | 'cacheHitDash'
   | 'activity' | 'noData'
   | 'loading' | 'inputHint' | 'shareOfConsumed'
+  | 'tabConsumption' | 'tabTrend' | 'tabRequestDist' | 'tabRequestRank' | 'tabCacheAnalysis'
+  | 'kpiInputTokens' | 'kpiOutputTokens' | 'kpiCachedTokens' | 'kpiCacheHitRate'
+  | 'granularityDay' | 'granularityWeek' | 'granularityHour' | 'granularityHourHint'
+  | 'chartTokenTotal' | 'chartRequests' | 'chartTotal' | 'chartCacheHit' | 'chartHitRate'
+  | 'tableModel' | 'tableTime' | 'tableInput' | 'tableOutput' | 'tableCached' | 'tableHitRate'
+  | 'paginationPrev' | 'paginationNext' | 'paginationInfo'
+  | 'modelFilter' | 'query' | 'totalCount' | 'weekLabel'
 
 /** English strings for every usage dashboard locale key. */
 export const en: Record<UsageLocaleKey, string> = {
@@ -70,6 +77,37 @@ export const en: Record<UsageLocaleKey, string> = {
   loading: 'Loading…',
   inputHint: 'Excludes cached',
   shareOfConsumed: '{share} of consumed tokens',
+  tabConsumption: 'Consumption distribution',
+  tabTrend: 'Call trend',
+  tabRequestDist: 'Request count distribution',
+  tabRequestRank: 'Request count ranking',
+  tabCacheAnalysis: 'Cache hit analysis',
+  kpiInputTokens: 'Total input tokens',
+  kpiOutputTokens: 'Total output tokens',
+  kpiCachedTokens: 'Cache hit tokens',
+  kpiCacheHitRate: 'Overall cache hit rate',
+  granularityDay: 'Day',
+  granularityWeek: 'Week',
+  granularityHour: 'Hour',
+  granularityHourHint: 'Hour granularity is not yet supported',
+  chartTokenTotal: 'Token total',
+  chartRequests: 'Requests',
+  chartTotal: 'Total',
+  chartCacheHit: 'Cache hit',
+  chartHitRate: 'Hit rate',
+  tableModel: 'Model',
+  tableTime: 'Time',
+  tableInput: 'Input',
+  tableOutput: 'Output',
+  tableCached: 'Cached',
+  tableHitRate: 'Hit rate',
+  paginationPrev: 'Previous',
+  paginationNext: 'Next',
+  paginationInfo: '{from}–{to} of {total}',
+  modelFilter: 'Model filter',
+  query: 'Query',
+  totalCount: 'Total: {count}',
+  weekLabel: 'W{week}',
 }
 
 /** Simplified Chinese strings for every usage dashboard locale key. */
@@ -127,6 +165,37 @@ export const zh: Record<UsageLocaleKey, string> = {
   loading: '加载中…',
   inputHint: '不含缓存',
   shareOfConsumed: '占真实消耗的 {share}',
+  tabConsumption: '消耗分布',
+  tabTrend: '调用趋势',
+  tabRequestDist: '调用次数分布',
+  tabRequestRank: '调用次数排行',
+  tabCacheAnalysis: '缓存命中分析',
+  kpiInputTokens: '总输入 Token',
+  kpiOutputTokens: '总输出 Token',
+  kpiCachedTokens: '缓存命中 Token',
+  kpiCacheHitRate: '整体缓存命中率',
+  granularityDay: '天',
+  granularityWeek: '周',
+  granularityHour: '小时',
+  granularityHourHint: '暂不支持小时粒度',
+  chartTokenTotal: 'Token 总量',
+  chartRequests: '请求数',
+  chartTotal: '总计',
+  chartCacheHit: '缓存命中',
+  chartHitRate: '命中率',
+  tableModel: '模型',
+  tableTime: '时间',
+  tableInput: '输入',
+  tableOutput: '输出',
+  tableCached: '缓存命中',
+  tableHitRate: '命中率',
+  paginationPrev: '上一页',
+  paginationNext: '下一页',
+  paginationInfo: '第 {from}–{to} 条，共 {total} 条',
+  modelFilter: '模型筛选',
+  query: '查询',
+  totalCount: '总计：{count}',
+  weekLabel: '第{week}周',
 }
 
 /** Japanese dashboard strings, with untranslated labels inherited from English. */
@@ -148,6 +217,16 @@ export const ja = { ...en,
   provider: 'プロバイダー', cacheHit: 'キャッシュヒット率', cacheHitDash: '—',
   activity: 'アクティビティ', noData: 'データなし',
   loading: '読み込み中…', inputHint: 'キャッシュを除く', shareOfConsumed: '消費トークンの {share}',
+  tabConsumption: '消費分布', tabTrend: '呼出トレンド', tabRequestDist: '呼出回数分布',
+  tabRequestRank: '呼出回数ランキング', tabCacheAnalysis: 'キャッシュヒット分析',
+  kpiInputTokens: '入力トークン合計', kpiOutputTokens: '出力トークン合計',
+  kpiCachedTokens: 'キャッシュヒットトークン', kpiCacheHitRate: 'キャッシュヒット率',
+  granularityDay: '日', granularityWeek: '週', granularityHour: '時間', granularityHourHint: '時間粒度はまだサポートされていません',
+  chartTokenTotal: 'トークン総量', chartRequests: 'リクエスト数', chartTotal: '合計',
+  chartCacheHit: 'キャッシュヒット', chartHitRate: 'ヒット率',
+  tableModel: 'モデル', tableTime: '時間', tableInput: '入力', tableOutput: '出力', tableCached: 'キャッシュ', tableHitRate: 'ヒット率',
+  paginationPrev: '前へ', paginationNext: '次へ', paginationInfo: '{from}–{to} / {total}',
+  modelFilter: 'モデル選択', query: 'クエリ', totalCount: '合計: {count}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -169,6 +248,16 @@ export const es = { ...en,
   provider: 'Proveedor', cacheHit: 'Tasa de caché', cacheHitDash: '—',
   activity: 'Actividad', noData: 'Sin datos',
   loading: 'Cargando…', inputHint: 'Excluye caché', shareOfConsumed: '{share} de los tokens consumidos',
+  tabConsumption: 'Distribución de consumo', tabTrend: 'Tendencia de llamadas', tabRequestDist: 'Distribución de solicitudes',
+  tabRequestRank: 'Ranking de solicitudes', tabCacheAnalysis: 'Análisis de caché',
+  kpiInputTokens: 'Tokens de entrada totales', kpiOutputTokens: 'Tokens de salida totales',
+  kpiCachedTokens: 'Tokens en caché', kpiCacheHitRate: 'Tasa de aciertos de caché',
+  granularityDay: 'Día', granularityWeek: 'Semana', granularityHour: 'Hora', granularityHourHint: 'La granularidad por hora aún no está disponible',
+  chartTokenTotal: 'Total de tokens', chartRequests: 'Solicitudes', chartTotal: 'Total',
+  chartCacheHit: 'Aciertos de caché', chartHitRate: 'Tasa de aciertos',
+  tableModel: 'Modelo', tableTime: 'Hora', tableInput: 'Entrada', tableOutput: 'Salida', tableCached: 'Caché', tableHitRate: 'Tasa',
+  paginationPrev: 'Anterior', paginationNext: 'Siguiente', paginationInfo: '{from}–{to} de {total}',
+  modelFilter: 'Filtro de modelo', query: 'Consultar', totalCount: 'Total: {count}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -190,6 +279,16 @@ export const fr = { ...en,
   provider: 'Fournisseur', cacheHit: 'Taux de cache', cacheHitDash: '—',
   activity: 'Activité', noData: 'Aucune donnée',
   loading: 'Chargement…', inputHint: 'Cache exclu', shareOfConsumed: '{share} des tokens consommés',
+  tabConsumption: 'Répartition de la consommation', tabTrend: 'Tendance des appels', tabRequestDist: 'Répartition des requêtes',
+  tabRequestRank: 'Classement des requêtes', tabCacheAnalysis: 'Analyse du cache',
+  kpiInputTokens: 'Tokens d’entrée totaux', kpiOutputTokens: 'Tokens de sortie totaux',
+  kpiCachedTokens: 'Tokens en cache', kpiCacheHitRate: 'Taux de succès du cache',
+  granularityDay: 'Jour', granularityWeek: 'Semaine', granularityHour: 'Heure', granularityHourHint: 'La granularité horaire n’est pas encore disponible',
+  chartTokenTotal: 'Total de tokens', chartRequests: 'Requêtes', chartTotal: 'Total',
+  chartCacheHit: 'Succès du cache', chartHitRate: 'Taux de succès',
+  tableModel: 'Modèle', tableTime: 'Heure', tableInput: 'Entrée', tableOutput: 'Sortie', tableCached: 'Cache', tableHitRate: 'Taux',
+  paginationPrev: 'Précédent', paginationNext: 'Suivant', paginationInfo: '{from}–{to} sur {total}',
+  modelFilter: 'Filtre de modèle', query: 'Rechercher', totalCount: 'Total : {count}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -211,6 +310,16 @@ export const de = { ...en,
   provider: 'Anbieter', cacheHit: 'Cache-Trefferquote', cacheHitDash: '—',
   activity: 'Aktivität', noData: 'Keine Daten',
   loading: 'Wird geladen…', inputHint: 'Ohne Cache', shareOfConsumed: '{share} der verbrauchten Tokens',
+  tabConsumption: 'Verbrauchsverteilung', tabTrend: 'Aufruftrend', tabRequestDist: 'Anfragenverteilung',
+  tabRequestRank: 'Anfragenranking', tabCacheAnalysis: 'Cache-Trefferanalyse',
+  kpiInputTokens: 'Eingabe-Tokens gesamt', kpiOutputTokens: 'Ausgabe-Tokens gesamt',
+  kpiCachedTokens: 'Cache-Treffer-Tokens', kpiCacheHitRate: 'Cache-Trefferquote gesamt',
+  granularityDay: 'Tag', granularityWeek: 'Woche', granularityHour: 'Stunde', granularityHourHint: 'Stundengenauigkeit wird noch nicht unterstützt',
+  chartTokenTotal: 'Token gesamt', chartRequests: 'Anfragen', chartTotal: 'Gesamt',
+  chartCacheHit: 'Cache-Treffer', chartHitRate: 'Trefferquote',
+  tableModel: 'Modell', tableTime: 'Zeit', tableInput: 'Eingabe', tableOutput: 'Ausgabe', tableCached: 'Cache', tableHitRate: 'Quote',
+  paginationPrev: 'Zurück', paginationNext: 'Weiter', paginationInfo: '{from}–{to} von {total}',
+  modelFilter: 'Modellfilter', query: 'Abfrage', totalCount: 'Gesamt: {count}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -232,6 +341,16 @@ export const ru = { ...en,
   provider: 'Провайдер', cacheHit: 'Доля попаданий в кэш', cacheHitDash: '—',
   activity: 'Активность', noData: 'Нет данных',
   loading: 'Загрузка…', inputHint: 'Без учёта кэша', shareOfConsumed: '{share} от потреблённых токенов',
+  tabConsumption: 'Распределение потребления', tabTrend: 'Тренд вызовов', tabRequestDist: 'Распределение запросов',
+  tabRequestRank: 'Рейтинг запросов', tabCacheAnalysis: 'Анализ попаданий в кэш',
+  kpiInputTokens: 'Всего входных токенов', kpiOutputTokens: 'Всего выходных токенов',
+  kpiCachedTokens: 'Токенов в кэше', kpiCacheHitRate: 'Общая доля попаданий в кэш',
+  granularityDay: 'День', granularityWeek: 'Неделя', granularityHour: 'Час', granularityHourHint: 'Почасовая детализация пока не поддерживается',
+  chartTokenTotal: 'Всего токенов', chartRequests: 'Запросы', chartTotal: 'Всего',
+  chartCacheHit: 'Попадания в кэш', chartHitRate: 'Доля попаданий',
+  tableModel: 'Модель', tableTime: 'Время', tableInput: 'Ввод', tableOutput: 'Вывод', tableCached: 'Кэш', tableHitRate: 'Доля',
+  paginationPrev: 'Назад', paginationNext: 'Вперёд', paginationInfo: '{from}–{to} из {total}',
+  modelFilter: 'Фильтр моделей', query: 'Запрос', totalCount: 'Всего: {count}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -253,4 +372,18 @@ export const pt = { ...en,
   provider: 'Provedor', cacheHit: 'Taxa de cache', cacheHitDash: '—',
   activity: 'Atividade', noData: 'Sem dados',
   loading: 'Carregando…', inputHint: 'Exclui cache', shareOfConsumed: '{share} dos tokens consumidos',
+  tabConsumption: 'Distribuição de consumo', tabTrend: 'Tendência de chamadas',
+  tabRequestDist: 'Distribuição de requisições', tabRequestRank: 'Ranking de requisições',
+  tabCacheAnalysis: 'Análise de cache',
+  kpiInputTokens: 'Total de tokens de entrada', kpiOutputTokens: 'Total de tokens de saída',
+  kpiCachedTokens: 'Tokens em cache', kpiCacheHitRate: 'Taxa de acerto de cache',
+  granularityDay: 'Dia', granularityWeek: 'Semana', granularityHour: 'Hora',
+  granularityHourHint: 'Granularidade por hora ainda não disponível',
+  chartTokenTotal: 'Total de tokens', chartRequests: 'Requisições',
+  chartTotal: 'Total', chartCacheHit: 'Acertos de cache', chartHitRate: 'Taxa de acerto',
+  tableModel: 'Modelo', tableTime: 'Horário', tableInput: 'Entrada',
+  tableOutput: 'Saída', tableCached: 'Cache', tableHitRate: 'Taxa',
+  paginationPrev: 'Anterior', paginationNext: 'Próximo',
+  paginationInfo: '{from}–{to} de {total}',
+  modelFilter: 'Filtro de modelo', query: 'Consultar', totalCount: 'Total: {count}',
 } satisfies Record<UsageLocaleKey, string>

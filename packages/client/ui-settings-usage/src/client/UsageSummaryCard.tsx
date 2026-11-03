@@ -5,7 +5,7 @@
 
 import type { UsageSectionProps } from './UsageSection.tsx'
 import type { UsageTotals } from '../types.ts'
-import { cacheHitRate, consumedTokens } from './usageAggregate.ts'
+import { cacheHitRate } from './usageAggregate.ts'
 import css from './UsageSection.module.css'
 
 /** Props for the KPI card row. */
@@ -16,47 +16,34 @@ export interface UsageSummaryCardProps {
   readonly formatPercent: (value: number) => string
 }
 
-/** Four KPI cards: requests, input, output, and cache hit rate. */
+/** Four KPI cards: input tokens, output tokens, cached tokens, and the overall cache hit rate. */
 export function UsageSummaryCard({ totals, t, format, formatPercent }: UsageSummaryCardProps): React.ReactElement {
   const hit = cacheHitRate(totals)
   const hitText = hit === undefined ? t('cacheHitDash') : formatPercent(hit)
-  const consumed = consumedTokens(totals)
-  const outputShare = consumed > 0 ? totals.outputTokens / consumed : 0
+  const consumed = totals.inputTokens + totals.cachedTokens + totals.outputTokens
+  const hitHint = consumed > 0
+    ? t('shareOfConsumed', { share: formatPercent(totals.cachedTokens / consumed) })
+    : t('cacheHitDash')
   return (
     <div className={css.kpiGrid}>
-      <KpiCard
-        label={t('metricRequests')}
-        value={format(totals.requests)}
-        hint={`${format(totals.totalTokens)} ${t('tokens')}`}
-      />
-      <KpiCard
-        label={t('input')}
-        value={format(totals.inputTokens)}
-        hint={t('inputHint')}
-      />
-      <KpiCard
-        label={t('output')}
-        value={format(totals.outputTokens)}
-        hint={t('shareOfConsumed', { share: formatPercent(outputShare) })}
-      />
-      <KpiCard
-        label={t('metricCacheHit')}
-        value={hitText}
-        hint={`${format(totals.cachedTokens)} ${t('tokens')}`}
-      />
+      <KpiCard label={t('kpiInputTokens')} value={format(totals.inputTokens)} hint={t('inputHint')} />
+      <KpiCard label={t('kpiOutputTokens')} value={format(totals.outputTokens)} hint={t('tokens')} />
+      <KpiCard label={t('kpiCachedTokens')} value={format(totals.cachedTokens)} hint={t('tokens')} />
+      <KpiCard label={t('kpiCacheHitRate')} value={hitText} hint={hitHint} accent />
     </div>
   )
 }
 
-function KpiCard({ label, value, hint }: {
+function KpiCard({ label, value, hint, accent }: {
   readonly label: string
   readonly value: string
   readonly hint: string
+  readonly accent?: boolean
 }): React.ReactElement {
   return (
-    <article className={css.kpiCard}>
+    <article className={accent === true ? `${css.kpiCard} ${css.kpiCardAccent}` : css.kpiCard}>
       <span className={css.kpiLabel}>{label}</span>
-      <strong className={css.kpiValue}>{value}</strong>
+      <strong className={accent === true ? `${css.kpiValue} ${css.kpiValueAccent}` : css.kpiValue}>{value}</strong>
       <span className={css.kpiHint}>{hint}</span>
     </article>
   )

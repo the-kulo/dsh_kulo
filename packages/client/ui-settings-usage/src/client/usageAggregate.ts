@@ -6,7 +6,7 @@
 import type {
   UsageDaySummary, UsageModelSummary, UsageProviderSummary, UsageTotals,
 } from '../types.ts'
-import { zeroUsage } from '../usage.ts'
+import { addUsage, zeroUsage } from '../usage.ts'
 
 const DAY_MS = 86_400_000
 
@@ -148,4 +148,90 @@ export function aggregateModels(days: readonly UsageDaySummary[]): AggregatedMod
 /** Shift a `YYYY-MM-DD` date by `days` (UTC, matches Shanghai-day arithmetic). */
 export function shiftDay(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00.000Z`) + days * DAY_MS).toISOString().slice(0, 10)
+}
+
+/** Collect unique "provider/model" keys from day summaries, sorted. */
+export function collectModelKeys(days: readonly UsageDaySummary[]): string[] {
+  const keys = new Set<string>()
+  for (const day of days) {
+    for (const provider of day.providers) {
+      for (const model of provider.models) {
+        keys.add(`${model.provider}/${model.model}`)
+      }
+    }
+  }
+  return [...keys].sort()
+}
+
+/**
+ * Restrict day summaries to the selected `provider/model` keys, recomputing every total.
+ * @param days Day summaries to narrow.
+ * @param models Selected `provider/model` keys; an empty set keeps every model.
+ * @returns Days and providers with at least one selected model, with totals summed from those models.
+ */
+export function filterDaysByModels(
+  days: readonly UsageDaySummary[],
+  models: ReadonlySet<string>,
+): UsageDaySummary[] {
+  if (models.size === 0) return [...days]
+  const result: UsageDaySummary[] = []
+  for (const day of days) {
+    const providers: UsageProviderSummary[] = []
+    for (const provider of day.providers) {
+      const kept = provider.models.filter(model => models.has(`${model.provider}/${model.model}`))
+      if (kept.length === 0) continue
+      providers.push({ id: provider.id, models: kept, ...sumModels(kept) })
+    }
+    if (providers.length === 0) continue
+    result.push({ date: day.date, providers, ...sumModels(providers.flatMap(provider => provider.models)) })
+  }
+  return result
+}
+
+/** ISO week string for a YYYY-MM-DD date, using Monday-based weeks. */
+function isoWeek(date: string): string {
+  const d = new Date(`${date}T00:00:00.000Z`)
+  const day = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - day)
+  const year = d.getUTCFullYear()
+  const week = Math.ceil(
+    ((d.getTime() - Date.UTC(year, 0, 1)) / 86_400_000 + 1) / 7,
+  )
+  return `${year}-W${String(week).padStart(2, '0')}`
+}
+
+/** One period row for the multi-model trend chart. */
+export interface AggregatedPeriod {
+  readonly period: string
+  readonly models: Record<string, UsageTotals>
+  readonly date?: string
+}
+
+/**
+ * Aggregate days by period for multi-model charting.
+ * @param days Day summaries in ascending or descending order.
+ * @param granularity Grouping period.
+ */
+export function aggregateByPeriod(
+  days: readonly UsageDaySummary[],
+  granularity: 'day' | 'week',
+): AggregatedPeriod[] {
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
+  const map = new Map<string, AggregatedPeriod>()
+  for (const day of sorted) {
+    const period = granularity === 'week' ? isoWeek(day.date) : day.date
+    let entry = map.get(period)
+    if (!entry) {
+      entry = { period, models: {}, date: day.date }
+      map.set(period, entry)
+    }
+    const models = entry.models
+    for (const provider of day.providers) {
+      for (const model of provider.models) {
+        const key = `${model.provider}/${model.model}`
+        models[key] = models[key] ? addUsage(models[key], model) : { ...model }
+      }
+    }
+  }
+  return [...map.values()]
 }

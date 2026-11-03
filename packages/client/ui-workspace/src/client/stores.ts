@@ -32,6 +32,8 @@ export type ZoneListViewState = {
   archivedFilter: ArchivedFilter
   /** Title filter draft the zone's header search writes; '' means no filter. */
   query: string
+  /** Saved manual order for flat zones without Workspace grouping; recency fallback when absent. */
+  manualOrder?: readonly SessionId[]
 }
 
 /** Workspace browser viewing state persisted across surface remounts and reloads. */

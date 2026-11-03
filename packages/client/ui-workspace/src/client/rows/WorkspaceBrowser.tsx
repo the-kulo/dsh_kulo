@@ -2,23 +2,27 @@
  * The workspace/session browsing region filling the sidebar shell's
  * `sidebar.workspaces` hole: section header (title + view options + add
  * workspace), search, the grouped tree or flat list, and the workspace
- * dialogs. Wide state renders the full browser; rail state renders the two
- * region icons (search / add workspace) as 36px controls on the shell's shared
- * rail entry path, each requesting expansion through the owner share. Adding
- * is the header button's one action, so it raises the directory flow with no
- * menu in between; the flow and its error dialog live in WorkspacePicker
- * (same package — direct composition, no slot between them). A Session row's
- * "..." menu and hover buttons are the `sidebar.workspaces.session.menu.item`
- * and `sidebar.workspaces.session.row.action` lists rendered through this
- * entry's `renderSlot`; the actions in them, this package's own included,
- * are slot entries with their own behavior, so this component threads no
- * action callbacks and hosts no action surface.
+ * dialogs. Wide state renders the full browser with all three sidebar zones
+ * (quick answers / workspace / secure zone); rail state renders the three zone
+ * icon buttons as 36px controls on the shell's shared rail entry path, each
+ * expanding the sidebar and opening its zone through the owner share. The
+ * quick-qa and secure zones render the same session rows as the workspace
+ * zone — the shared FlatList/SearchResults bodies plus the row action slots —
+ * so all three zones carry one session-row capability. Adding is the header
+ * button's one action, so it raises the directory flow with no menu in
+ * between; the flow and its error dialog live in WorkspacePicker (same
+ * package — direct composition, no slot between them). A Session row's "…"
+ * menu and hover buttons are the `sidebar.workspaces.session.menu.item` and
+ * `sidebar.workspaces.session.row.action` lists rendered through this entry's
+ * `renderSlot`; the actions in them, this package's own included, are slot
+ * entries with their own behavior, so this component threads no action
+ * callbacks and hosts no action surface.
  */
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   AnimatedRows, Button, HoverCardGroup, IconArchiveOutlineRegular,
-  IconCloseFillRegular,
+  IconBookOutlineRegular, IconCloseFillRegular, IconLeafOutlineRegular, IconLockOutlineRegular,
   IconProjectAddOutlineRegular, IconQueueOutlineRegular, IconSearchOutlineRegular,
   Modal, Tooltip,
   ZoneAddWorkspace, ZoneSearch, ZoneViewOptions,
@@ -34,7 +38,7 @@ import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
   deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
-  pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
+  pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY, zoneSessionIds,
 } from '../tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { AccordionSection } from './AccordionSection.tsx'
@@ -337,7 +341,7 @@ type SessionTreeProps = Pick<
   /** Persist one Workspace group's expansion. */
   setGroupExpanded: (key: string, expanded: boolean) => void
   /** Save a drag order and select Manual. */
-  setSessionOrder: (accountKey: string, order: readonly string[]) => void
+  setSessionOrder: (accountKey: string, order: readonly SessionId[]) => void
   /** Registry-global pin and archive sets plus the archived-visibility choice. */
   rowState: SessionRowState
   /** Switch the archived filter back to the default hide-archived view. */
@@ -750,8 +754,9 @@ function SessionTree({
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
   list, sessionIds, rowState, onLeaveArchivedOnly, useSessionStatus, useSessionAccess, open, onSessionRenameRequest,
-  usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
+  usePanelInfo, setSessionOrder, listReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, home, t,
+  includeZoneSessions = false,
 }: Pick<
   SessionTreeProps,
   | 'useSessionStatus'
@@ -761,7 +766,6 @@ function FlatList({
   | 'renderSlot'
   | 'usePanelInfo'
   | 'setSessionOrder'
-  | 'workspaceReady'
   | 'animationResetKey'
   | 'revealSessionId'
   | 'onSessionRevealed'
@@ -772,12 +776,15 @@ function FlatList({
 > & {
   list: SessionListState
   sessionIds: readonly SessionId[]
+  listReady: boolean
+  /** A dedicated zone's list owns its preset sessions, which the browser's own views exclude. */
+  includeZoneSessions?: boolean
 }) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
   const rows = useMemo(
-    () => deriveFlat(list, sessionIds, rowState, statuses),
-    [list, sessionIds, rowState, statuses],
+    () => deriveFlat(list, sessionIds, rowState, statuses, { excludeZoneExclusive: !includeZoneSessions }),
+    [includeZoneSessions, list, sessionIds, rowState, statuses],
   )
   const [drag, setDrag] = useState<DragState | null>(null)
   const dropCommitted = useRef(false)
@@ -800,7 +807,7 @@ function FlatList({
         role="tree"
         label={t('section.sessions')}
         rowKeys={rows.length === 0 ? ['empty'] : rows.map(row => `session:${row.id}`)}
-        ready={list.phase === 'ready' && workspaceReady && drag === null}
+        ready={listReady && drag === null}
         resetKey={animationResetKey}
       >
         {rows.length === 0 && (
@@ -876,6 +883,7 @@ function SearchResults({
   resultLimit,
   usePanelInfo,
   useSessionAccess,
+  restrictTo,
   t,
 }: Pick<WorkspaceBrowserProps, 'useSessions' | 'useSessionStatus' | 'open' | 't' | 'usePanelInfo' | 'useSessionAccess'> & {
   workspaces: readonly WorkspaceView[]
@@ -887,6 +895,8 @@ function SearchResults({
   query: string
   remote: RemoteSearchState
   resultLimit: number
+  /** When present, keep both local and content matches inside these Session ids. */
+  restrictTo?: ReadonlySet<SessionId> | undefined
 }) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const list = useSessions(s => s)
@@ -904,8 +914,9 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      restrictTo,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit, restrictTo],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -957,6 +968,119 @@ function SearchResults({
   )
 }
 
+/** One dedicated sidebar zone's list body: the shared flat list or search results, restricted to the zone's own Sessions. */
+function ZoneList({
+  list, sessionIds, rowState, listView,
+  useSessions, useSessionStatus, useSessionAccess, usePanelInfo,
+  open, searchOpen, onUnarchive, onSessionRenameRequest, onLeaveArchivedOnly, setSessionOrder,
+  searchSessions, searchResultLimit, listReady, animationResetKey,
+  revealSessionId, onSessionRevealed, renderSlot, workspaces, home, t,
+}: {
+  list: SessionListState
+  sessionIds: readonly SessionId[]
+  rowState: SessionRowState
+  listView: { orderBy: SessionOrderBy; archivedFilter: ArchivedFilter; query: string }
+  useSessions: WorkspaceBrowserProps['useSessions']
+  useSessionStatus: WorkspaceBrowserProps['useSessionStatus']
+  useSessionAccess: WorkspaceBrowserProps['useSessionAccess']
+  usePanelInfo: WorkspaceBrowserProps['usePanelInfo']
+  open: (sessionId: SessionId) => void
+  /** Open a search-result Session, clearing the query so the list reveals the row. */
+  searchOpen: (sessionId: SessionId) => void
+  onUnarchive: (sessionId: SessionId) => void
+  onSessionRenameRequest: (sessionId: SessionId, currentTitle: string) => void
+  onLeaveArchivedOnly: () => void
+  setSessionOrder: (accountKey: string, order: readonly SessionId[]) => void
+  searchSessions: WorkspaceBrowserProps['searchSessions']
+  searchResultLimit: number
+  listReady: boolean
+  animationResetKey: string
+  revealSessionId?: SessionId | undefined
+  onSessionRevealed: (sessionId: SessionId) => void
+  renderSlot: PropsRenderSlots<
+    | 'sidebar.workspaces.session.menu.item'
+    | 'sidebar.workspaces.session.row.action'
+    | 'sidebar.session.row.trailing'
+    | 'sidebar.session.row.leading'
+    | 'sidebar.session.row.hover'
+  >['renderSlot']
+  workspaces: readonly WorkspaceView[]
+  home?: string | undefined
+  t: WorkspaceBrowserProps['t']
+}) {
+  const normalizedQuery = sanitizeSearchQuery(listView.query).trim()
+  const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
+    query: '',
+    status: 'idle',
+    items: [],
+    hasMore: false,
+  })
+  useEffect(() => {
+    if (normalizedQuery === '') {
+      setRemoteSearch({ query: '', status: 'idle', items: [], hasMore: false })
+      return
+    }
+    const controller = new AbortController()
+    setRemoteSearch({ query: normalizedQuery, status: 'loading', items: [], hasMore: false })
+    const timer = window.setTimeout(() => {
+      searchSessions(normalizedQuery, controller.signal).then((result) => {
+        if (controller.signal.aborted) return
+        setRemoteSearch({ query: normalizedQuery, status: 'ready', items: result.items, hasMore: result.hasMore })
+      }).catch(() => {
+        if (controller.signal.aborted) return
+        setRemoteSearch({ query: normalizedQuery, status: 'error', items: [], hasMore: false })
+      })
+    }, SEARCH_DEBOUNCE_MS)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [normalizedQuery, searchSessions])
+  const restrictTo = useMemo(() => new Set(sessionIds), [sessionIds])
+  if (normalizedQuery !== '') {
+    return (
+      <SearchResults
+        usePanelInfo={usePanelInfo}
+        useSessionAccess={useSessionAccess}
+        useSessions={useSessions}
+        useSessionStatus={useSessionStatus}
+        open={searchOpen}
+        onUnarchive={onUnarchive}
+        workspaces={workspaces}
+        archivedSessionIds={rowState.archivedSessionIds}
+        archivedFilter={rowState.archivedFilter}
+        query={normalizedQuery}
+        remote={remoteSearch}
+        resultLimit={searchResultLimit}
+        restrictTo={restrictTo}
+        t={t}
+      />
+    )
+  }
+  return (
+    <FlatList
+      useSessionAccess={useSessionAccess}
+      usePanelInfo={usePanelInfo}
+      list={list}
+      sessionIds={sessionIds}
+      includeZoneSessions
+      rowState={rowState}
+      onLeaveArchivedOnly={onLeaveArchivedOnly}
+      listReady={listReady}
+      animationResetKey={animationResetKey}
+      useSessionStatus={useSessionStatus}
+      open={open}
+      onSessionRenameRequest={onSessionRenameRequest}
+      renderSlot={renderSlot}
+      setSessionOrder={setSessionOrder}
+      revealSessionId={revealSessionId}
+      onSessionRevealed={onSessionRevealed}
+      home={home}
+      t={t}
+    />
+  )
+}
+
 /**
  * Render the browsing region.
  * @param props - composed slot props (shell owner share + store + injected actions).
@@ -975,6 +1099,7 @@ export function WorkspaceBrowser({
   useStore,
   actions,
   startSession,
+  startZoneSession,
   open,
   requestSessionRename,
   notifyArchivedNotOpenable,
@@ -1094,6 +1219,34 @@ export function WorkspaceBrowser({
       currentBlank !== undefined && flatMemberIds.includes(currentBlank) ? currentBlank : undefined,
     )
   }, [currentBlank, flatMemberIds, list.byId, orderBy, orderState, sessionOrderByAccount])
+  const quickQaMemberIds = useMemo(() => zoneSessionIds(list, 'quick-qa'), [list])
+  const secureMemberIds = useMemo(() => zoneSessionIds(list, 'secure'), [list])
+  const orderedQuickQaSessionIds = useMemo(() => {
+    const baseOrder = quickQaListView.orderBy === 'updated'
+      ? orderByRecency(quickQaMemberIds, list.byId)
+      : reconcileManualOrder(quickQaMemberIds, quickQaListView.manualOrder, list.byId, orderState)
+    return pinCurrentBlank(
+      baseOrder,
+      currentBlank !== undefined && quickQaMemberIds.includes(currentBlank) ? currentBlank : undefined,
+    )
+  }, [currentBlank, list.byId, orderState, quickQaListView.manualOrder, quickQaListView.orderBy, quickQaMemberIds])
+  const orderedSecureSessionIds = useMemo(() => {
+    const baseOrder = secureListView.orderBy === 'updated'
+      ? orderByRecency(secureMemberIds, list.byId)
+      : reconcileManualOrder(secureMemberIds, secureListView.manualOrder, list.byId, orderState)
+    return pinCurrentBlank(
+      baseOrder,
+      currentBlank !== undefined && secureMemberIds.includes(currentBlank) ? currentBlank : undefined,
+    )
+  }, [currentBlank, list.byId, orderState, secureListView.manualOrder, secureListView.orderBy, secureMemberIds])
+  const quickQaRowState = useMemo<SessionRowState>(
+    () => ({ ...orderState, archivedFilter: quickQaListView.archivedFilter }),
+    [orderState, quickQaListView.archivedFilter],
+  )
+  const secureRowState = useMemo<SessionRowState>(
+    () => ({ ...orderState, archivedFilter: secureListView.archivedFilter }),
+    [orderState, secureListView.archivedFilter],
+  )
   const activeSessionOrders = useMemo<Readonly<Record<string, readonly SessionId[]>>>(() => Object.fromEntries([
     ...orderedWorkspaces.map(workspace => [workspace.workspaceId, workspace.sessionIds] as const),
     [UNGROUPED_KEY, orderedUngroupedSessionIds] as const,
@@ -1146,10 +1299,22 @@ export function WorkspaceBrowser({
   const saveSessionOrder = (accountKey: string, order: readonly string[]): void => {
     actions.setSessionOrder(accountKey, order, activeSessionOrders)
   }
+  const saveQuickQaSessionOrder = (_accountKey: string, order: readonly SessionId[]): void => {
+    actions.setZoneListView('quick-qa', { orderBy: 'manual', manualOrder: order })
+  }
+  const saveSecureSessionOrder = (_accountKey: string, order: readonly SessionId[]): void => {
+    actions.setZoneListView('secure', { orderBy: 'manual', manualOrder: order })
+  }
+  const leaveZoneArchivedOnly = (zone: 'quick-qa' | 'secure'): void => {
+    actions.setZoneListView(zone, { archivedFilter: 'default' })
+  }
   // The three sidebar zones (workspace, quick-qa, secure) are mutually
   // exclusive: the store folds the other two whenever one opens.
   const setZoneExpanded = actions.setZoneExpanded
   const zoneExpanded = (zoneKey: string): boolean => zoneExpansion?.[zoneKey] !== false
+  // The workspace zone reads as Workspaces unless the flat view collapses every
+  // group into one list; the rail icon button shares the same title.
+  const workspaceZoneTitle = groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')
   // The query outlives the tree and the input (both wide-only) so collapsing
   // does not silently drop an in-progress filter.
   const [query, setQuery] = useState('')
@@ -1159,6 +1324,7 @@ export function WorkspaceBrowser({
   const [quickQaSearchExpanded, setQuickQaSearchExpanded] = useState(quickQaListView.query !== '')
   const [secureSearchExpanded, setSecureSearchExpanded] = useState(secureListView.query !== '')
   const [revealSessionId, setRevealSessionId] = useState<SessionId | undefined>(undefined)
+  const [zoneReveal, setZoneReveal] = useState<{ zone: 'quick-qa' | 'secure'; sessionId: SessionId } | null>(null)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
@@ -1186,6 +1352,20 @@ export function WorkspaceBrowser({
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
+  }
+  const openZoneSearchResult = (zone: 'quick-qa' | 'secure', sessionId: SessionId): void => {
+    if (archivedSessionIds.includes(sessionId)) {
+      notifyArchivedNotOpenable()
+      return
+    }
+    actions.setZoneListView(zone, { query: '' })
+    if (zone === 'quick-qa') setQuickQaSearchExpanded(false)
+    else setSecureSearchExpanded(false)
+    setZoneReveal({ zone, sessionId })
+    open(sessionId)
+  }
+  const acknowledgeZoneReveal = (sessionId: SessionId): void => {
+    setZoneReveal(current => current?.sessionId === sessionId ? null : current)
   }
   useEffect(() => {
     if (normalizedQuery !== '') setRevealSessionId(undefined)
@@ -1353,13 +1533,14 @@ export function WorkspaceBrowser({
     <div className={clsx(css.root, !wide && css.rail)}>
       <div className={css.zones}>
         {wide && (
+          <>
           <AccordionSection
             sectionKey="quick-qa"
             title={t('zone.quickQa')}
             expanded={zoneExpanded('quick-qa')}
             onExpandedChange={(expanded) => { setZoneExpanded('quick-qa', expanded) }}
             newLabel={t('zone.quickQa.new')}
-            onNew={() => { startSession(undefined, { agentPreset: 'quick-qa' }) }}
+            onNew={() => { startZoneSession('quick-qa') }}
           >
             <div className={css.zoneContent}>
               <div className={css.sectionHeader}>
@@ -1380,13 +1561,39 @@ export function WorkspaceBrowser({
                   />
                 </div>
               </div>
-              {renderSlot('sidebar.workspaces.footer', {}, { only: 'quick-qa' })}
+              <div className={css.listArea}>
+                <ZoneList
+                  list={list}
+                  sessionIds={orderedQuickQaSessionIds}
+                  rowState={quickQaRowState}
+                  listView={quickQaListView}
+                  useSessions={useSessions}
+                  useSessionStatus={useSessionStatus}
+                  useSessionAccess={useSessionAccess}
+                  usePanelInfo={usePanelInfo}
+                  open={guardedOpen}
+                  searchOpen={(sessionId) => { openZoneSearchResult('quick-qa', sessionId) }}
+                  onUnarchive={onSessionUnarchive}
+                  onSessionRenameRequest={requestSessionRename}
+                  onLeaveArchivedOnly={() => { leaveZoneArchivedOnly('quick-qa') }}
+                  setSessionOrder={saveQuickQaSessionOrder}
+                  searchSessions={searchSessions}
+                  searchResultLimit={searchResultLimit}
+                  listReady={list.phase === 'ready'}
+                  animationResetKey={`quick-qa/${quickQaListView.orderBy}/${quickQaListView.archivedFilter}`}
+                  revealSessionId={zoneReveal?.zone === 'quick-qa' ? zoneReveal.sessionId : undefined}
+                  onSessionRevealed={acknowledgeZoneReveal}
+                  renderSlot={renderSlot}
+                  workspaces={workspaces}
+                  home={home}
+                  t={t}
+                />
+              </div>
             </div>
           </AccordionSection>
-        )}
         <AccordionSection
           sectionKey="workspace"
-          title={groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
+          title={workspaceZoneTitle}
           expanded={zoneExpanded('workspace')}
           onExpandedChange={(expanded) => { setZoneExpanded('workspace', expanded) }}
           newLabel={t('zone.workspace.new')}
@@ -1477,7 +1684,7 @@ export function WorkspaceBrowser({
                     requestAddWorkspace()
                   }}
                 >
-                  <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
+                  <IconProjectAddOutlineRegular size={16} />
                 </button>
               </Tooltip>
             )}
@@ -1502,25 +1709,7 @@ export function WorkspaceBrowser({
           />
         </div>
 
-        {/* The collapsed rail keeps search as its own 36px control. */}
-        {!wide && <div className={css.search}>
-          <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys}>
-            <button
-              type="button"
-              className={css.searchButton}
-              aria-label={t('search.sessions.aria')}
-              aria-keyshortcuts={searchShortcut?.aria}
-              onClick={() => {
-                requestSearch()
-              }}
-            >
-              <IconSearchOutlineRegular size={18} />
-            </button>
-          </Tooltip>
-        </div>}
-
-        {/* Always-mounted seat keeps the region's flex slot while the list
-            itself is wide-only. */}
+        {/* Wide session-list seat; scrolls the tree/flat/search overflow. */}
         <div className={css.listArea}>
           {wide && (normalizedQuery !== ''
             ? (
@@ -1549,7 +1738,7 @@ export function WorkspaceBrowser({
                   sessionIds={orderedFlatSessionIds}
                   rowState={rowState}
                   onLeaveArchivedOnly={leaveArchivedOnly}
-                  workspaceReady={workspaceReady}
+                  listReady={list.phase === 'ready' && workspaceReady}
                   animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
                   useSessionStatus={useSessionStatus}
                   open={guardedOpen}
@@ -1607,14 +1796,13 @@ export function WorkspaceBrowser({
         </div>
         </AccordionSection>
 
-      {wide && (
         <AccordionSection
           sectionKey="secure"
           title={t('zone.secure')}
           expanded={zoneExpanded('secure')}
           onExpandedChange={(expanded) => { setZoneExpanded('secure', expanded) }}
           newLabel={t('zone.secure.new')}
-          onNew={() => { startSession(undefined, { agentPreset: 'secure' }) }}
+          onNew={() => { startZoneSession('secure') }}
         >
           <div className={css.zoneContent}>
             <div className={css.sectionHeader}>
@@ -1644,10 +1832,81 @@ export function WorkspaceBrowser({
                 )}
               </div>
             </div>
-            {renderSlot('sidebar.workspaces.footer', {}, { only: 'secure-zone' })}
+            <div className={css.listArea}>
+              <ZoneList
+                list={list}
+                sessionIds={orderedSecureSessionIds}
+                rowState={secureRowState}
+                listView={secureListView}
+                useSessions={useSessions}
+                useSessionStatus={useSessionStatus}
+                useSessionAccess={useSessionAccess}
+                usePanelInfo={usePanelInfo}
+                open={guardedOpen}
+                searchOpen={(sessionId) => { openZoneSearchResult('secure', sessionId) }}
+                onUnarchive={onSessionUnarchive}
+                onSessionRenameRequest={requestSessionRename}
+                onLeaveArchivedOnly={() => { leaveZoneArchivedOnly('secure') }}
+                setSessionOrder={saveSecureSessionOrder}
+                searchSessions={searchSessions}
+                searchResultLimit={searchResultLimit}
+                listReady={list.phase === 'ready'}
+                animationResetKey={`secure/${secureListView.orderBy}/${secureListView.archivedFilter}`}
+                revealSessionId={zoneReveal?.zone === 'secure' ? zoneReveal.sessionId : undefined}
+                onSessionRevealed={acknowledgeZoneReveal}
+                renderSlot={renderSlot}
+                workspaces={workspaces}
+                home={home}
+                t={t}
+              />
+            </div>
           </div>
         </AccordionSection>
-      )}
+          </>
+        )}
+        {!wide && (
+          <div className={css.railZones}>
+            <Tooltip label={t('zone.quickQa')} delayMs={500}>
+              <button
+                type="button"
+                className={css.iconButton}
+                aria-label={t('zone.quickQa')}
+                onClick={() => {
+                  setZoneExpanded('quick-qa', true)
+                  expandSidebar()
+                }}
+              >
+                <IconLeafOutlineRegular size={18} />
+              </button>
+            </Tooltip>
+            <Tooltip label={workspaceZoneTitle} delayMs={500}>
+              <button
+                type="button"
+                className={css.iconButton}
+                aria-label={workspaceZoneTitle}
+                onClick={() => {
+                  setZoneExpanded('workspace', true)
+                  expandSidebar()
+                }}
+              >
+                <IconBookOutlineRegular size={18} />
+              </button>
+            </Tooltip>
+            <Tooltip label={t('zone.secure')} delayMs={500}>
+              <button
+                type="button"
+                className={css.iconButton}
+                aria-label={t('zone.secure')}
+                onClick={() => {
+                  setZoneExpanded('secure', true)
+                  expandSidebar()
+                }}
+              >
+                <IconLockOutlineRegular size={18} />
+              </button>
+            </Tooltip>
+          </div>
+        )}
       </div>
 
       <Modal

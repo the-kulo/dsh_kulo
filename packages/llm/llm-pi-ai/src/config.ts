@@ -180,6 +180,15 @@ export interface PiAiProviderProfile {
   requestImageMaxBytes?: number
   /** Provider-owned model-request retry policy; omission uses normal mode with five retries. */
   retryPolicy?: RetryPolicyConfig
+  /**
+   * Whether runtime discovery may interrogate this route's endpoint and add
+   * advertised models to the runtime catalog as an additive overlay. Omission
+   * enables it; `false` keeps the runtime list exactly the configured catalog.
+   * Discovery never writes configuration back and never removes a configured
+   * model, so a curated `models` list may still gain vendor additions unless
+   * this flag is set.
+   */
+  discovery?: boolean
 }
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
@@ -341,6 +350,7 @@ const profile = z.object({
   transport: z.union(['sse', 'websocket', 'websocket-cached', 'auto']),
   timeoutMs: z.natural(),
   websocketConnectTimeoutMs: z.natural(),
+  discovery: z.boolean(),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
   maxRequestImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_REQUEST_IMAGE_BYTES),
   requestImagePixelBudget: z.number().step(1).min(1).default(DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET),

@@ -361,12 +361,6 @@
     - id: ui-workspace
       name: '@deepseek-ai/dsh-client-ui-workspace'
 
-    - id: ui-quick-qa
-      name: '@deepseek-ai/dsh-client-ui-quick-qa'
-
-    - id: ui-secure-zone
-      name: '@deepseek-ai/dsh-client-ui-secure-zone'
-
     # Durable workflow lifecycle as an independent Chat node after the
     # existing generic workflow tool row.
     - id: ui-workflow-run

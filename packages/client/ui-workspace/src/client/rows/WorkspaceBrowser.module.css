@@ -1,7 +1,6 @@
-/* The browsing stack and an occupied sidebar.workspaces.footer seat share
-   the shell's region height by equal flex grows from a zero basis: each seat
-   gets half, and whichever overflows scrolls inside its own seat instead of
-   pushing the other out. */
+/* The browsing stack and the zone accordions share the shell's region height
+   by equal flex grows from a zero basis, so each zone owns an equal slice and
+   scrolls inside it instead of pushing the others out. */
 .root {
   --dsh-session-list-edge-inset: var(--dsh-sidebar-inline-padding);
   --dsh-session-list-scrollbar-width: 5px;
@@ -271,18 +270,14 @@
 }
 
 /* Rail variant (own .rail class from the wide owner prop — the region never
-   reads the shell's class names): the two icon controls stack as 36x36
-   circles matching the shell's rail rhythm. Both use the rail's shared base
-   left anchor so the outer shell can translate the whole region uniformly. */
-.rail .sectionHeader {
-  gap: 0;
-  padding-left: 0;
-  margin-bottom: 12px;
-  justify-content: flex-start;
-}
-
-.rail .headerActions {
-  max-width: none;
+   reads the shell's class names): the three zone icon buttons stack as 36x36
+   controls matching the shell's rail rhythm. */
+.railZones {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .rail .iconButton {
@@ -293,36 +288,9 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.rail .search {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  margin: 0 0 12px;
-  gap: 0;
-  /* The collapsed search frame clips its button's hover, so it must carry the
-     rail's 12px rounding itself. */
-  border-radius: var(--dsw-radius-md);
-  border-color: transparent;
-  background: transparent;
-}
-
-.rail .searchButton {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--dsw-radius-md);
-  color: var(--dsw-alias-label-primary);
-}
-
-@media (hover: hover) {
-  .rail .searchButton:hover {
-    background: var(--dsw-alias-interactive-bg-hover);
-  }
-}
-
-/* Zone-accordion seat under the browsing region: the Workspace browsing
-   region and this seat split the shell height 1:2, and the two open zones
-   inside split their share equally — so the Workspace, quick-qa, and secure
-   zones each own one third of the height. Each body scrolls its own share.
+/* Zone accordions fill the browsing region's height: each expanded zone grows
+   from a zero basis to own an equal slice and scrolls inside it, so the
+   workspace, quick-qa, and secure zones each read as one third of the height.
    The seat mirrors the browser's own header insets (margin-right -4px on the
    header row, content nested 4px inside) so the zone headers align with the
    Workspace section header on both edges. */
@@ -349,10 +317,9 @@
   padding-left: 0;
 }
 
-/* List seat: always mounted so the shell foot never moves. The equal split
-   hands this seat its share, so it scrolls its overflow itself while the
-   first-boundary drop marker keeps its header-gap coordinate outside the
-   clip. */
+/* List seat: the wide session list's scroll region. It keeps its own overflow
+   while the first-boundary drop marker holds its header-gap coordinate outside
+   the clip. */
 .listArea {
   flex: 1;
   min-height: 0;
@@ -363,12 +330,6 @@
   padding-left: 4px;
   overflow-y: auto;
   scrollbar-gutter: stable;
-}
-
-.rail .listArea {
-  margin-left: 0;
-  margin-right: 0;
-  padding-left: 0;
 }
 
 /* Body of one list view (search, flat, or grouped): stacked under the seat.

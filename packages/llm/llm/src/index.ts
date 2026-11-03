@@ -19,6 +19,7 @@ import type {
   LlmModelContext,
   LlmModelDiscoveryRequest,
   LlmModelInfo,
+  LlmModelRefreshResult,
   LlmResolvedModelInfo,
   LlmProviderInfo,
   ModelModality,
@@ -358,6 +359,7 @@ export class LlmRuntime extends TypertRemoteService {
     string,
     (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>
   >()
+  private modelRefreshers = new Set<() => Promise<readonly LlmModelRefreshResult[]>>()
 
   constructor(ctx: Context) {
     super(ctx, 'llm')
@@ -655,6 +657,59 @@ export class LlmRuntime extends TypertRemoteService {
           settingsNs,
           ...request.baseURL === undefined ? {} : { baseURL: request.baseURL },
         },
+        { cause: error },
+      )
+    }
+  }
+
+  /**
+   * Register a runtime model-catalog refresher. The `llm-pi-ai` adapter family
+   * owns the discovery implementation; the runtime only aggregates results and
+   * publishes `llm/adapters-updated` once every registered refresher settled.
+   * Disposed with the fiber.
+   * @param refresh - interrogates every provider route the owner serves and
+   *   merges newly discovered models into its runtime catalog.
+   * @returns the disposer that withdraws the offer.
+   */
+  registerModelRefresher(refresh: () => Promise<readonly LlmModelRefreshResult[]>): () => void {
+    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
+      this.modelRefreshers.add(refresh)
+      yield () => {
+        this.modelRefreshers.delete(refresh)
+      }
+    }.bind(this), 'llm.registerModelRefresher()')
+    return () => void dispose()
+  }
+
+  /**
+   * Run every registered model-catalog refresher and announce the result. Per
+   * provider failures ride the individual results, so a broken route never
+   * blocks the others; only a refresher that throws escapes as a rejection.
+   * @returns one result per provider route the refreshers serve, in order.
+   */
+  async refreshModels(): Promise<LlmModelRefreshResult[]> {
+    const results: LlmModelRefreshResult[] = []
+    for (const refresh of this.modelRefreshers) {
+      for (const result of await refresh()) results.push(result)
+    }
+    this.emitAdaptersUpdated()
+    return results
+  }
+
+  /**
+   * Remote entry point for a manual model-catalog refresh.
+   * @returns one result per provider route, after the refresh committed.
+   * @throws RemoteError with `llm/model-refresh-rejected` when a refresher throws.
+   */
+  @Remote('refreshModels')
+  async remoteRefreshModels(): Promise<LlmModelRefreshResult[]> {
+    try {
+      return await this.refreshModels()
+    } catch (error: unknown) {
+      throw new RemoteError(
+        'llm/model-refresh-rejected',
+        error instanceof Error ? error.message : String(error),
+        {},
         { cause: error },
       )
     }

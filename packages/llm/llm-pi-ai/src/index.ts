@@ -61,13 +61,16 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type { Context } from '@deepseek-ai/cordis'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
-import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
+import type {
+  AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider, LlmDiscoveredModel, LlmModelRefreshResult,
+} from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-fs'
+import type { Api, Model } from '@earendil-works/pi-ai'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { PiAiAdapter } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
-import { catalogProvider, catalogProviderIds } from './catalog.ts'
-import { assertServiceable, Config, resolveProfiles } from './config.ts'
+import { catalogModels, catalogProvider, catalogProviderIds, materializeDiscoveredModels } from './catalog.ts'
+import { assertServiceable, Config, DEFAULT_CONTEXT_WINDOW, DEFAULT_INPUT, DEFAULT_MAX_TOKENS, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 import type { StoredModelDiscoveryProfile } from './discovery.ts'
@@ -150,6 +153,24 @@ function directoryEntries(
   return [...entries.values()]
 }
 
+/** Whether a provider's deployment headers already carry a credential. */
+function hasAuthorizationHeader(headers: Readonly<Record<string, string>> | undefined): boolean {
+  return Object.keys(headers ?? {}).some(name => name.toLowerCase() === 'authorization')
+}
+
+/**
+ * The one wire protocol every installed-catalog model on a route agrees on,
+ * when one exists. This is the protocol runtime discovery interrogates for a
+ * catalog route that did not override it; a mixed-api catalog route has no such
+ * answer and is skipped.
+ * @param provider - provider route key.
+ * @returns the shared protocol, or `undefined` when none is unambiguous.
+ */
+function sharedCatalogApi(provider: string): string | undefined {
+  const apis = new Set([...catalogModels(provider).values()].map(model => model.api))
+  return apis.size === 1 ? [...apis][0] : undefined
+}
+
 /** Register one generic pi-ai adapter for all configured provider routes. */
 export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
@@ -214,10 +235,17 @@ export function apply(ctx: Context, config: Config): void {
   // through `ctx` per call, so they stay correct across the collection rebuilds
   // a configuration change causes, and a sign-in survives one.
   const auth = { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) }
+  // Runtime-discovered models by provider route, materialized from endpoint
+  // listings. Configuration stays the baseline; this overlay only ever adds,
+  // and it is rebuilt (never persisted) by each refresh. The map is replaced,
+  // not mutated, so the adapter's reference-comparing snapshot rebuilds when a
+  // refresh changes its contents.
+  let discoveredModels = new Map<string, readonly Model<Api>[]>()
   const adapter = new PiAiAdapter({
     profiles,
     resolveApiKey,
     auth,
+    discovered: () => discoveredModels,
     resolveAttachments: () => ctx.get('attachments'),
     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(
       attachments,
@@ -281,6 +309,100 @@ export function apply(ctx: Context, config: Config): void {
     { ...request, ...signal === undefined ? {} : { signal } },
     () => storedDiscoveryProfile(request.provider),
   ))
+  // Runtime catalog refresh: interrogate every configured route that has a
+  // listable endpoint and a usable credential, materialize the newly advertised
+  // models, and overlay them on the adapter's collection. Failures are reported
+  // per provider so one broken route never blocks the others.
+  let inflightRefresh: Promise<LlmModelRefreshResult[]> | undefined
+  const refreshOne = async (
+    provider: string,
+    profile: ResolvedPiAiProviderProfile,
+  ): Promise<LlmModelRefreshResult> => {
+    if (profile.discovery === false) {
+      return { provider, status: 'skipped', added: 0, reason: 'runtime discovery is disabled for this provider' }
+    }
+    // A route the installed catalog fully describes is already served from it:
+    // the installed catalog is refreshed by upgrading pi-ai, and interrogating
+    // the endpoint would list every non-chat model the vendor hosts. Only a
+    // hand-declared route, or a catalog route the profile repoints at its own
+    // endpoint, is interrogated over the wire.
+    if (catalogModels(provider).size > 0 && profile.baseURL === undefined) {
+      return { provider, status: 'skipped', added: 0, reason: 'the installed catalog already serves this route' }
+    }
+    const api = profile.api ?? sharedCatalogApi(provider)
+    const baseURL = profile.baseURL ?? catalogProvider(provider)?.baseUrl
+    if (api === undefined) {
+      return { provider, status: 'skipped', added: 0, reason: 'the route speaks no single protocol to interrogate' }
+    }
+    if (baseURL === undefined) {
+      return { provider, status: 'skipped', added: 0, reason: 'the route has no endpoint to interrogate' }
+    }
+    let apiKey: string | undefined
+    try {
+      apiKey = await resolveApiKey(provider, profile)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!(error instanceof LlmError && error.code === 'MISSING_CREDENTIAL')
+        || !hasAuthorizationHeader(profile.headers)) {
+        return { provider, status: 'skipped', added: 0, reason: message }
+      }
+      // A deployment-owned Authorization header still authenticates a keyless probe.
+    }
+    let discovered: readonly LlmDiscoveredModel[]
+    try {
+      discovered = await discoverModels(
+        { baseURL, api, ...apiKey === undefined ? {} : { apiKey } },
+        () => ({ headers: profile.headers, resolveApiKey: () => Promise.resolve(undefined) }),
+      )
+    } catch (error) {
+      return { provider, status: 'failed', added: 0, reason: error instanceof Error ? error.message : String(error) }
+    }
+    const baseline = new Set(profile.piProvider?.getModels().map(model => model.id) ?? [])
+    const fresh = discovered.filter(model => !baseline.has(model.id))
+    if (fresh.length === 0) {
+      const next = new Map(discoveredModels)
+      next.delete(provider)
+      discoveredModels = next
+      return { provider, status: 'refreshed', added: 0 }
+    }
+    let materialized: readonly Model<Api>[]
+    try {
+      materialized = materializeDiscoveredModels({
+        provider,
+        api,
+        baseURL,
+        defaultContextWindow: profile.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
+        defaultMaxTokens: profile.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
+        defaultInput: profile.defaultInput ?? [...DEFAULT_INPUT],
+        ...profile.compat === undefined ? {} : { compat: profile.compat },
+      }, fresh)
+    } catch (error) {
+      return { provider, status: 'failed', added: 0, reason: error instanceof Error ? error.message : String(error) }
+    }
+    const next = new Map(discoveredModels)
+    next.set(provider, materialized)
+    discoveredModels = next
+    return { provider, status: 'refreshed', added: materialized.length }
+  }
+  const refreshModels = (): Promise<LlmModelRefreshResult[]> => {
+    if (inflightRefresh !== undefined) return inflightRefresh
+    const run = (async (): Promise<LlmModelRefreshResult[]> => {
+      const results: LlmModelRefreshResult[] = []
+      for (const [provider, profile] of profiles()) {
+        results.push(await refreshOne(provider, profile))
+      }
+      return results
+    })()
+    inflightRefresh = run.finally(() => { inflightRefresh = undefined })
+    return inflightRefresh
+  }
+  ctx.llm.registerModelRefresher(refreshModels)
+  // Startup pass: refresh once without blocking boot. A route without a key or
+  // a listable endpoint is skipped, and the per-route result keeps the failure.
+  void ctx.llm.refreshModels().catch((error: unknown) => {
+    ctx.logger.warn('llm-pi-ai: startup model refresh failed')
+    ctx.logger.warn(error)
+  })
   // Route effects bind to this apply fiber via the stable `ctx` reference,
   // even when a swap runs inside the scoped settings callback below. A bare
   // mount (zero routes) is the dormant posture: nothing registers until a

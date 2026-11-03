@@ -13,6 +13,7 @@
       config:
         id: quick-qa
         order: 4
+        hidden: true
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'

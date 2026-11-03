@@ -112,7 +112,9 @@ export function AgentPresetSeat({
   }, [developerTools, options.length])
 
   const chosen = state.options.find(option => option.id === state.current)
-  const chosenText = chosen === undefined ? undefined : presetDisplayText(chosen, t)
+  const chosenText = state.current === ''
+    ? undefined
+    : presetDisplayText(chosen ?? { id: state.current }, t)
   const label = chosenText?.name ?? state.current
   const ready = state.options.length > 0 && state.current !== ''
 

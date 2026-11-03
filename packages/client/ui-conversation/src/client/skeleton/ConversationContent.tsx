@@ -33,6 +33,12 @@ export function ConversationContent(props: ConversationContentProps) {
     sessionId === undefined ? undefined : snapshot.get(sessionId)?.pendingInteraction)
   const inputState = useInput(s => s)
   const cwd = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.cwd)
+  // A quick-qa Session runs under its own fixed preset and never belongs to a
+  // Workspace, so the composer's Workspace-picker trigger must not appear for
+  // it. The preset string is read from the summary projection (ui-conversation
+  // must not import the quick-qa package's constant).
+  const agentPreset = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.projectionValues?.agentPreset)
+  const quickQaSession = agentPreset === 'quick-qa'
   const workspaces = useWorkspaces(s => s)
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
@@ -109,26 +115,32 @@ export function ConversationContent(props: ConversationContentProps) {
 
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>
-      <WorkspaceChip
-        buttonRef={pickerAnchor}
-        label={chipTitle}
-        menuOpen={pickerOpen}
-        onClick={() => { setPickerOpen(open => !open) }}
-        t={t}
-      />
-      {renderSlot('conversation.hero.workspace', {
-        open: pickerOpen,
-        anchorRef: pickerAnchor,
-        selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
-        onPick: (workspaceId) => {
-          setPickerOpen(false)
-          setPendingWorkspaceId(workspaceId)
-          void selectWorkspace(workspaceId).catch(() => {
-            setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
-          })
-        },
-        onClose: () => { setPickerOpen(false) },
-      })}
+      {/* A quick-qa Session never belongs to a Workspace, so the hero row
+          offers no workspace chip (and no picker anchor for its menu). */}
+      {!quickQaSession && (
+        <>
+          <WorkspaceChip
+            buttonRef={pickerAnchor}
+            label={chipTitle}
+            menuOpen={pickerOpen}
+            onClick={() => { setPickerOpen(open => !open) }}
+            t={t}
+          />
+          {renderSlot('conversation.hero.workspace', {
+            open: pickerOpen,
+            anchorRef: pickerAnchor,
+            selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
+            onPick: (workspaceId) => {
+              setPickerOpen(false)
+              setPendingWorkspaceId(workspaceId)
+              void selectWorkspace(workspaceId).catch(() => {
+                setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
+              })
+            },
+            onClose: () => { setPickerOpen(false) },
+          })}
+        </>
+      )}
       {renderSlot('conversation.hero.agentPreset', {})}
       {sessionId === undefined ? null : <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div>}
     </div>
@@ -139,7 +151,7 @@ export function ConversationContent(props: ConversationContentProps) {
   // blank session whose workspace vanished (deleted from the sidebar). The
   // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
   // not a different tree, so the textarea DOM survives the transition.
-  const inert = sessionId === undefined || (hero && chipTitle === undefined)
+  const inert = sessionId === undefined || ((hero && chipTitle === undefined) && !quickQaSession)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.

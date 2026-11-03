@@ -738,8 +738,8 @@ export function SessionNodeItem({
       >
         {title}
       </span>
-      {/* Blank rows have no first prompt, so neither trailing details nor
-          actions for existing content are available. */}
+      {/* Blank rows have no first prompt, so their trailing details stay
+          hidden; the "…" menu still offers rename, copy ID, and delete. */}
       {!row.blank && (
         <span className={css.rowResting}>
           <span
@@ -755,35 +755,33 @@ export function SessionNodeItem({
       {/* The strip's clicks stay in the strip: the trigger and every
           row.action entry act without also opening the row, so an entry's
           button needs no propagation handling of its own. */}
-      {!row.blank && (
-        <span className={css.rowActions} onClick={(e) => { e.stopPropagation() }}>
-          <Menu
-            open={menuOpen}
-            onClose={() => { setMenuOpen(false) }}
-            portal
-            closeOnPointerLeave
-            anchor={(
-              <button
-                type="button"
-                className={css.iconButton}
-                aria-label={t('actions.session.aria', { name: title })}
-                onClick={() => { setMenuOpen(v => !v) }}
-              >
-                <IconEllipsisOutlineRegular />
-              </button>
-            )}
-          >
-            {renderSlot(
-              'sidebar.workspaces.session.menu.item',
-              { sessionId: node.id, displayTitle: row.title },
-              { hookContext: menuOpenState },
-            )}
-          </Menu>
-          <span className={css.rowQuickActions}>
-            {renderSlot('sidebar.workspaces.session.row.action', { sessionId: node.id, displayTitle: row.title })}
-          </span>
+      <span className={css.rowActions} onClick={(e) => { e.stopPropagation() }}>
+        <Menu
+          open={menuOpen}
+          onClose={() => { setMenuOpen(false) }}
+          portal
+          closeOnPointerLeave
+          anchor={(
+            <button
+              type="button"
+              className={css.iconButton}
+              aria-label={t('actions.session.aria', { name: title })}
+              onClick={() => { setMenuOpen(v => !v) }}
+            >
+              <IconEllipsisOutlineRegular />
+            </button>
+          )}
+        >
+          {renderSlot(
+            'sidebar.workspaces.session.menu.item',
+            { sessionId: node.id, displayTitle: row.title, blank: row.blank },
+            { hookContext: menuOpenState },
+          )}
+        </Menu>
+        <span className={css.rowQuickActions}>
+          {renderSlot('sidebar.workspaces.session.row.action', { sessionId: node.id, displayTitle: row.title, blank: row.blank })}
         </span>
-      )}
+      </span>
     </div>
   )
   return (

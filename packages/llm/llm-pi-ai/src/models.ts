@@ -53,6 +53,35 @@ export function createProvider(input: StaticProviderOptions): Provider {
 }
 
 /**
+ * Wrap one provider so its chat-model listing also carries runtime-discovered
+ * models, while every request dispatch still delegates to the base provider.
+ * The discovered models share the base provider's identity, endpoint, and
+ * protocol implementations, so a listing-added model stays requestable.
+ * @param base - the provider whose static catalog stays the baseline.
+ * @param discovered - additive models to append after the baseline.
+ * @returns a provider whose `getModels()` returns the baseline plus the overlay.
+ */
+export function withDiscoveredModels(base: Provider, discovered: readonly Model<Api>[]): Provider {
+  return {
+    id: base.id,
+    name: base.name,
+    ...base.baseUrl === undefined ? {} : { baseUrl: base.baseUrl },
+    auth: base.auth,
+    getModels: () => [...base.getModels(), ...discovered],
+    ...base.getAllModels === undefined ? {} : { getAllModels: base.getAllModels },
+    stream: (model, context, options) => base.stream(model, context, options),
+    streamSimple: (model, context, options) => base.streamSimple(model, context, options),
+    ...base.fetchDeferred === undefined ? {} : { fetchDeferred: base.fetchDeferred },
+    ...base.cancelDeferred === undefined ? {} : { cancelDeferred: base.cancelDeferred },
+    ...base.generateImages === undefined ? {} : { generateImages: base.generateImages },
+    ...base.classify === undefined ? {} : { classify: base.classify },
+    ...base.refreshModels === undefined ? {} : { refreshModels: base.refreshModels },
+    ...base.filterModels === undefined ? {} : { filterModels: base.filterModels },
+    ...base.filterAllModels === undefined ? {} : { filterAllModels: base.filterAllModels },
+  }
+}
+
+/**
  * Resolve selectable reasoning levels from pi-ai's public model metadata.
  * @param model - model descriptor carrying reasoning support and wire mappings.
  * @returns supported levels in pi-ai's escalation order.

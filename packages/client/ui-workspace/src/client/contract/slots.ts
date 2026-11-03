@@ -2,8 +2,9 @@
  * ui-workspace contracts. Two registrations share this package:
  *
  * - WorkspaceBrowser fills the sidebar shell's `sidebar.workspaces` hole —
- *   the whole browsing region (section header, search, grouped/flat session
- *   list, workspace dialogs). It registers this package's viewing store and
+ *   the whole browsing region: the three zone accordions (quick answers,
+ *   workspace, secure zone), each with the shared session rows, search, and
+ *   the workspace dialogs. It registers this package's viewing store and
  *   consumes the shell's two-fact owner share (wide / expandSidebar).
  * - WorkspacePicker fills the conversation empty-state hole (menu + error
  *   dialog shared with the browser).
@@ -80,6 +81,8 @@ export interface SessionRowOwnerProps {
   sessionId: SessionId
   /** Row display title: persisted title, or empty when the Session has none. */
   displayTitle: string
+  /** True for the New Session placeholder row: no first prompt yet. */
+  blank: boolean
 }
 
 /** The row menu's open state as its owner holds it: the `useState` pair. */
@@ -125,15 +128,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
-    /**
-     * Sidebar zone-accordion region below the Workspace and Session browser.
-     * Declared `kind: 'list'` so the quick-qa and secure-zone panels are two
-     * ordered entries of one zone list; the `id` orders the zones
-     * (quick-qa below secure). Each entry renders only its scrollable
-     * history: the accordion header (zone title, collapse chevron, New
-     * conversation button) is the declaring browser's.
-     */
-    'sidebar.workspaces.footer': { kind: 'list'; scope: 'root'; owner: Record<never, never> }
     /**
      * Leading decoration of one Session row, in the 16px cell before the title
      * that the row's own state dot otherwise occupies. A higher-priority state
@@ -268,6 +262,8 @@ export type WorkspaceBrowserInjected = {
    * then the recent Workspace, or clear into the New Session view.
    */
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
+  /** Create and open one dedicated-zone conversation (quick-qa or secure). */
+  startZoneSession: (zone: 'quick-qa' | 'secure') => void
   /** Open a real Session. */
   open: (sessionId: SessionId) => void
   /**
@@ -286,7 +282,7 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
-  /** Delete only a Host Workspace registration; directory and Session logs remain. */
+  /** Delete a Host Workspace together with its listed Sessions; the directory itself remains. */
   deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
    * Reorder a Workspace in the durable registry display order.
@@ -528,7 +524,6 @@ export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
   & PropsRenderSlots<
     | 'sidebar.workspaces.directoryFlow'
-    | 'sidebar.workspaces.footer'
     | 'sidebar.workspaces.session.menu.item'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'

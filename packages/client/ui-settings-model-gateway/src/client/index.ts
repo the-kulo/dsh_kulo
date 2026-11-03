@@ -53,6 +53,10 @@ export function apply(ctx: ClientContext): void {
   )
   const face = controller.inject()
   ctx.effect(() => () => { controller.dispose() }, 'ui-settings-model-gateway: gateway form')
+  ctx.effect(
+    () => ctx.remote.$on('llm/adapters-updated', () => { controller.refreshCatalog() }),
+    'ui-settings-model-gateway: adapter invalidations',
+  )
   ctx.effect(() => ctx.configForms.whileServed([MODEL_GATEWAY_NS], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'model-gateway',

@@ -14,6 +14,7 @@
 
 import { builtinProviders, getAllBuiltinModels, getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import type { BuiltinProvider } from '@earendil-works/pi-ai/providers/all'
+import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-llm'
 import type {
   AnthropicMessagesCompat,
   Api,
@@ -984,4 +985,48 @@ export function resolveRouteModels(
       + ` it exists on ${takers.join(', ')}`)
   }
   return { models: serviceableModels, configuredMaxTokens, modelErrors }
+}
+
+/**
+ * Materialize endpoint-discovered models for one route into pi-ai models.
+ *
+ * The route's resolved protocol and endpoint, plus its route-level defaults
+ * and compat switches, fill every field a listing cannot disclose. Discovered
+ * ids that collide with the configured catalog are never produced here: the
+ * caller filters them against the baseline before asking. A route whose
+ * protocol is not the one every discovered model speaks is the caller's to
+ * resolve; this function stamps that single protocol on every entry.
+ * @param route - the route's resolved protocol, endpoint, defaults, and compat.
+ * @param discovered - the models the endpoint advertised, in endpoint order.
+ * @returns materialized models, one per discovered entry, in the same order.
+ */
+export function materializeDiscoveredModels(
+  route: {
+    provider: string
+    api: string
+    baseURL: string
+    defaultContextWindow: number
+    defaultMaxTokens: number
+    defaultInput: readonly PiAiModality[]
+    compat?: PiAiCompatProfile
+  },
+  discovered: readonly LlmDiscoveredModel[],
+): readonly Model<Api>[] {
+  const entries: PiAiModelProfile[] = discovered.map(model => ({
+    id: model.id,
+    ...model.name === undefined ? {} : { name: model.name },
+    ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+    ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+    ...model.inputModalities === undefined ? {} : { input: [...model.inputModalities] },
+  }))
+  return resolveRouteModels({
+    provider: route.provider,
+    api: route.api,
+    baseURL: route.baseURL,
+    models: entries,
+    ...route.compat === undefined ? {} : { compat: route.compat },
+    defaultContextWindow: route.defaultContextWindow,
+    defaultMaxTokens: route.defaultMaxTokens,
+    defaultInput: [...route.defaultInput],
+  }, 'strict').models
 }

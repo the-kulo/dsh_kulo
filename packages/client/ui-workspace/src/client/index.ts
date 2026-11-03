@@ -1,7 +1,8 @@
 /**
  * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
- * the sidebar shell's `sidebar.workspaces` hole (the whole browsing region),
- * and WorkspacePicker fills the conversation hero's picker hole
+ * the sidebar shell's `sidebar.workspaces` hole (the whole browsing region:
+ * the workspace, quick-qa, and secure zones), and WorkspacePicker fills the
+ * conversation hero's picker hole
  * (`conversation.hero.workspace` — both hero forms). Both read real Host
  * Workspaces through the global useWorkspaces hook, and each declares its
  * own `single` directory-flow child hole for the composed picker package's
@@ -279,13 +280,18 @@ export function apply(ctx: Context): void {
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId, options) => { uiWorkspace.startSession(workspaceId, options) },
+    startZoneSession: (zone) => { uiWorkspace.startZoneSession(zone) },
     open: openSession,
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,
     requestSessionRename,
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
-    deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
+    deleteWorkspace: async (workspaceId) => {
+      const sessionIds = workspaces.list.getSnapshot().items
+        .find(item => item.workspaceId === workspaceId)?.sessionIds ?? []
+      await deleteWorkspaceCascade(workspaceId, sessionIds, sessions, workspaces)
+    },
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },
@@ -308,7 +314,6 @@ export function apply(ctx: Context): void {
       name: 'sidebar.workspaces',
       children: {
         'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' },
-        'sidebar.workspaces.footer': { kind: 'list', scope: 'root' },
         // Every row entry reads the menu's open state through a hook bound
         // from the row's render occurrence (the owner passes the state pair
         // as hookContext).
@@ -378,4 +383,26 @@ function activeSessionRefusal(reason: unknown): readonly SessionActivity[] | und
   if (!(reason instanceof Error) || reason.name !== 'WorkspaceArchiveError') return undefined
   const { rpcError } = reason as WorkspaceArchiveError
   return rpcError.code === 'workspace/session-active' ? rpcError.details.activity : undefined
+}
+
+/**
+ * Delete one Workspace together with every Session it lists. Sessions are
+ * removed first, in list order, and the registration only after every
+ * Session removal succeeds, so a Session refusal leaves the Workspace intact
+ * and the caller reports the failure instead of silently half-deleting.
+ * @param workspaceId - Workspace to remove.
+ * @param sessionIds - Sessions accounted to that Workspace.
+ * @param sessions - Session deletion service (same path as the row delete action).
+ * @param workspaces - Workspace deletion service.
+ */
+async function deleteWorkspaceCascade(
+  workspaceId: WorkspaceId,
+  sessionIds: readonly SessionId[],
+  sessions: Pick<ISessions, 'delete'>,
+  workspaces: Pick<IWorkspaces, 'delete'>,
+): Promise<void> {
+  for (const sessionId of sessionIds) {
+    await sessions.delete(sessionId)
+  }
+  await workspaces.delete(workspaceId)
 }

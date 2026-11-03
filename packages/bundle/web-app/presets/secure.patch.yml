@@ -15,6 +15,7 @@
       config:
         id: secure
         order: 5
+        hidden: true
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'

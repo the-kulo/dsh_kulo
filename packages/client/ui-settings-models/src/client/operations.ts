@@ -7,7 +7,7 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  LlmDiscoveredModel, LlmModelDiscoveryRequest,
+  LlmDiscoveredModel, LlmModelDiscoveryRequest, LlmModelRefreshResult,
   SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
@@ -28,6 +28,19 @@ export type ModelDiscoveryOutcome =
   /** The candidates the provider disclosed, in its own order. */
   | { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
   /** The interrogation was refused, with the Host's own diagnostic. */
+  | { readonly kind: 'refused'; readonly message: string }
+
+/** What one runtime model-catalog refresh answered. */
+export type ModelRefreshOutcome =
+  /** The refresh committed; added models and per-provider failures ride along. */
+  | {
+    readonly kind: 'refreshed'
+    /** Models added across every provider by this refresh. */
+    readonly added: number
+    /** Provider routes that failed, with their Host diagnostics. */
+    readonly failures: readonly LlmModelRefreshResult[]
+  }
+  /** The refresh could not run, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
 /** The Host operations the Models page and its cards invoke. */
@@ -65,6 +78,13 @@ export interface ModelsOperations {
    * @returns the candidates, or the refusal.
    */
   discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest): Promise<ModelDiscoveryOutcome>
+  /**
+   * Refresh the runtime model catalog from every configured provider endpoint,
+   * merging newly advertised models into the live catalog everywhere it is
+   * selected.
+   * @returns the refresh summary the section renders from.
+   */
+  refreshModels(): Promise<ModelRefreshOutcome>
 }
 
 /**
@@ -94,6 +114,16 @@ export function createModelsOperations(ctx: ClientContext): ModelsOperations {
       return response.ok
         ? { kind: 'found', models: response.value }
         : { kind: 'refused', message: response.error.message }
+    },
+    refreshModels: async () => {
+      const response = await ctx.remote.llm.refreshModels()
+      if (!response.ok) return { kind: 'refused', message: response.error.message }
+      const results = response.value
+      return {
+        kind: 'refreshed',
+        added: results.reduce((sum, result) => sum + result.added, 0),
+        failures: results.filter(result => result.status === 'failed'),
+      }
     },
   }
 }

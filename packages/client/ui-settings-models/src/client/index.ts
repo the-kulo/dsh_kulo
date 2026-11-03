@@ -47,7 +47,7 @@ const NS = 'settings.models'
 export type {
   ModelsSettingsState, ProviderDirectoryEntry, ProviderRow,
 } from './store.ts'
-export type { ModelDiscoveryOutcome, ModelsOperations, SettingsWriteOutcome } from './operations.ts'
+export type { ModelDiscoveryOutcome, ModelRefreshOutcome, ModelsOperations, SettingsWriteOutcome } from './operations.ts'
 
 /**
  * Refetch the page snapshot only after its first load: an unopened Models

@@ -58,7 +58,9 @@ export function AgentPresetLabel({
   if (preset === undefined) return null
 
   const option = options.find(entry => entry.id === preset)
-  const text = option === undefined ? undefined : presetDisplayText(option, t)
+  // Hidden shipped presets (quick-qa, secure) stay resolvable for display even
+  // though the picker roster omits them.
+  const text = presetDisplayText(option ?? { id: preset }, t)
   return (
     <span className={css.label} title={text?.description ?? t('headerHint')}>
       <IconAgentPresetOutlineRegular size={14} className={css.icon} />

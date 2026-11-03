@@ -15,6 +15,10 @@ export type AgentPresetSettingsKey =
   | 'view'
   | 'presetStandardName'
   | 'presetStandardDescription'
+  | 'presetDispatchName'
+  | 'presetDispatchDescription'
+  | 'presetTeamName'
+  | 'presetTeamDescription'
   | 'presetPtcName'
   | 'presetPtcDescription'
   | 'presetMinimalName'
@@ -42,7 +46,7 @@ export type AgentPresetSettingsKey =
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
   builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
+  sectionIntro: 'Choose the agent’s tools and how it works. Standard mode for everyday tasks, Team mode for parallel collaboration, and Dispatch mode for delegating to subagents.',
 
   seatHint: 'Choose the agent preset for your new task',
   headerHint: 'The agent preset chosen when this task started',
@@ -54,6 +58,12 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetStandardName: 'Standard mode',
   presetStandardDescription:
     'Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.',
+  presetDispatchName: 'Dispatch mode',
+  presetDispatchDescription:
+    'Delegate self-contained sub-tasks to subagents that run full tools in their own contexts, then aggregate their results.',
+  presetTeamName: 'Team mode',
+  presetTeamDescription:
+    'Collaborate through subagents with full tools and a shared task board, coordinating parallel work into one outcome.',
   presetPtcName: 'PTC mode',
   presetPtcDescription:
     'Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
@@ -93,7 +103,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
   builtInGroup: '内置', customGroup: '自定义',
-  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
+  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，并行协作用「团队模式」，委派子代理用「分发模式」。',
 
   seatHint: '选择新任务使用的 Agent 预设',
   headerHint: '本任务的 Agent 预设，在任务开始时确定',
@@ -104,6 +114,10 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 
   presetStandardName: '标准模式',
   presetStandardDescription: '处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。',
+  presetDispatchName: '分发模式',
+  presetDispatchDescription: '把独立子任务委派给子代理，在各自上下文中使用完整工具执行，再汇总结果。',
+  presetTeamName: '团队模式',
+  presetTeamDescription: '通过子代理协作，共享任务看板并并行推进，把多方工作整合成一个结果。',
   presetPtcName: 'PTC 模式',
   presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
   presetMinimalName: '极简模式',
@@ -145,7 +159,7 @@ export const ja = {
   ...guideJa,
   'builtInGroup': '組み込み',
   'customGroup': 'カスタム',
-  'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクには標準モードを、DSH に機能を追加するにはクリエイターモードを使用してください。',
+  'sectionIntro': 'エージェントのツールと動作を選択します。日常のタスクには標準モード、並行コラボレーションにはチームモード、サブエージェントへの委任にはディスパッチモードを使用します。',
   'seatHint': '新しいタスクで使用するエージェントプリセットを選択',
   'headerHint': 'このタスクの開始時に選択されたエージェントプリセット',
   'nav': 'エージェントプリセット',
@@ -153,6 +167,10 @@ export const ja = {
   'view': '設定を表示',
   'presetStandardName': '標準モード',
   'presetStandardDescription': 'コード、ファイル、情報を扱います。検索、編集、ターミナルコマンドなどのツールを必要に応じて利用でき、ほとんどのタスクに適しています。',
+  'presetDispatchName': 'ディスパッチモード',
+  'presetDispatchDescription': '自己完結したサブタスクをサブエージェントに委任し、それぞれのコンテキストで全ツールを使って実行させてから結果を集約します。',
+  'presetTeamName': 'チームモード',
+  'presetTeamDescription': 'フル機能のサブエージェントと共有タスクボードで協力し、並行作業を一つの成果にまとめます。',
   'presetPtcName': 'PTC モード',
   'presetPtcDescription': '標準モードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
   'presetMinimalName': '最小モード',
@@ -181,7 +199,7 @@ export const ja = {
 export const es = {
   ...guideEs,
   builtInGroup: 'Incorporado', customGroup: 'personalizado',
-  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo Estándar para las tareas diarias o el modo Creador para agregar capacidades a DSH.',
+  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Modo Estándar para las tareas diarias, modo Equipo para la colaboración en paralelo y modo Despacho para delegar en subagentes.',
 
   seatHint: 'Elija el agente preestablecido para su nueva tarea',
   headerHint: 'El agente preestablecido elegido cuando comenzó esta tarea',
@@ -193,6 +211,12 @@ export const es = {
   presetStandardName: 'Modo estándar',
   presetStandardDescription:
     'Trabaje con código, archivos e información. Adecuado para la mayoría de las tareas, con búsqueda, edición, comandos de terminal y otras herramientas disponibles según sea necesario.',
+  presetDispatchName: 'Modo despacho',
+  presetDispatchDescription:
+    'Delegue subtareas autocontenidas a subagentes que ejecutan las herramientas completas en su propio contexto y luego agregue sus resultados.',
+  presetTeamName: 'Modo equipo',
+  presetTeamDescription:
+    'Colabore mediante subagentes con herramientas completas y un tablero de tareas compartido, coordinando el trabajo paralelo en un resultado único.',
   presetPtcName: 'Modo PTC',
   presetPtcDescription:
     'Incluye todas las capacidades del modo Estándar. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
@@ -232,7 +256,7 @@ export const es = {
 export const fr = {
   ...guideFr,
   builtInGroup: 'Intégré', customGroup: 'Personnalisé',
-  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode Standard pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à DSH.',
+  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Mode Standard pour les tâches quotidiennes, mode Équipe pour la collaboration en parallèle et mode Distribution pour déléguer à des sous-agents.',
 
   seatHint: "Choisissez le préréglage d'agent pour votre nouvelle tâche",
   headerHint: "Le préréglage d'agent choisi au démarrage de cette tâche",
@@ -244,6 +268,12 @@ export const fr = {
   presetStandardName: 'Mode standard',
   presetStandardDescription:
     'Travaillez avec du code, des fichiers et des informations. Convient à la plupart des tâches, avec recherche, édition, commandes de terminal et autres outils disponibles selon les besoins.',
+  presetDispatchName: 'Mode distribution',
+  presetDispatchDescription:
+    'Déléguez des sous-tâches autonomes à des sous-agents qui exécutent l’ensemble des outils dans leur propre contexte, puis agréguez leurs résultats.',
+  presetTeamName: 'Mode équipe',
+  presetTeamDescription:
+    'Collaborez via des sous-agents disposant de tous les outils et d’un tableau de tâches partagé, en coordonnant le travail parallèle vers un résultat unique.',
   presetPtcName: 'Mode PTC',
   presetPtcDescription:
     'Inclut toutes les fonctionnalités du mode Standard. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
@@ -283,7 +313,7 @@ export const fr = {
 export const de = {
   ...guideDe,
   builtInGroup: 'Eingebaut', customGroup: 'Benutzerdefiniert',
-  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Standardmodus für alltägliche Aufgaben oder den Creator-Modus, um DSH Funktionen hinzuzufügen.',
+  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise. Standardmodus für alltägliche Aufgaben, Teammodus für parallele Zusammenarbeit und Verteilungsmodus für die Delegation an Subagenten.',
 
   seatHint: 'Wählen Sie die Agentenvoreinstellung für Ihre neue Aufgabe',
   headerHint: 'Die Agentenvoreinstellung, die beim Start dieser Aufgabe ausgewählt wurde',
@@ -295,6 +325,12 @@ export const de = {
   presetStandardName: 'Standardmodus',
   presetStandardDescription:
     'Arbeiten Sie mit Code, Dateien und Informationen. Geeignet für die meisten Aufgaben, da bei Bedarf Suche, Bearbeitung, Terminalbefehle und andere Tools verfügbar sind.',
+  presetDispatchName: 'Verteilungsmodus',
+  presetDispatchDescription:
+    'Delegieren Sie eigenständige Teilaufgaben an Subagenten, die die vollständigen Tools in ihrem eigenen Kontext ausführen, und fassen Sie die Ergebnisse zusammen.',
+  presetTeamName: 'Teammodus',
+  presetTeamDescription:
+    'Arbeiten Sie über Subagenten mit vollständigen Tools und einem gemeinsamen Aufgabenboard zusammen und führen Sie parallele Arbeit zu einem Ergebnis.',
   presetPtcName: 'PTC-Modus',
   presetPtcDescription:
     'Beinhaltet alle Funktionen des Standardmodus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
@@ -334,7 +370,7 @@ export const de = {
 export const ru = {
   ...guideRu,
   builtInGroup: 'Встроенный', customGroup: 'Пользовательский',
-  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте стандартный режим для повседневных задач или режим Creator, чтобы расширить возможности DSH.',
+  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Стандартный режим — для повседневных задач, командный режим — для параллельного сотрудничества, режим диспетчеризации — для делегирования субагентам.',
 
   seatHint: 'Выберите предустановку агента для вашей новой задачи',
   headerHint: 'Предварительная настройка агента, выбранная при запуске этой задачи',
@@ -346,6 +382,12 @@ export const ru = {
   presetStandardName: 'Стандартный режим',
   presetStandardDescription:
     'Работайте с кодом, файлами и информацией. Подходит для большинства задач, с поиском, редактированием, командами терминала и другими инструментами, доступными по мере необходимости.',
+  presetDispatchName: 'Режим диспетчеризации',
+  presetDispatchDescription:
+    'Делегируйте самодостаточные подзадачи субагентам, которые используют полный набор инструментов в собственном контексте, а затем объединяйте их результаты.',
+  presetTeamName: 'Командный режим',
+  presetTeamDescription:
+    'Совместная работа через субагентов с полным набором инструментов и общей доской задач, координация параллельной работы в единый результат.',
   presetPtcName: 'Режим PTC',
   presetPtcDescription:
     'Включает все возможности стандартного режима. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
@@ -385,7 +427,7 @@ export const ru = {
 export const pt = {
   ...guidePt,
   builtInGroup: 'Integrado', customGroup: 'Personalizado',
-  sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo Padrão para tarefas diárias ou o modo Criador para adicionar recursos ao DSH.',
+  sectionIntro: 'Escolha as ferramentas do agente e como ele funciona. Modo Padrão para tarefas diárias, modo Equipe para colaboração em paralelo e modo Distribuição para delegar a subagentes.',
 
   seatHint: 'Escolha a predefinição de agente para sua nova tarefa',
   headerHint: 'A predefinição do agente escolhida quando esta tarefa foi iniciada',
@@ -397,6 +439,12 @@ export const pt = {
   presetStandardName: 'Modo padrão',
   presetStandardDescription:
     'Trabalhe com código, arquivos e informações. Adequado para a maioria das tarefas, com pesquisa, edição, comandos de terminal e outras ferramentas disponíveis conforme necessário.',
+  presetDispatchName: 'Modo distribuição',
+  presetDispatchDescription:
+    'Delegue subtarefas autocontidas a subagentes que executam as ferramentas completas em seu próprio contexto e depois agregue os resultados.',
+  presetTeamName: 'Modo equipe',
+  presetTeamDescription:
+    'Colabore por meio de subagentes com ferramentas completas e um quadro de tarefas compartilhado, coordenando o trabalho paralelo em um resultado único.',
   presetPtcName: 'modo PTC',
   presetPtcDescription:
     'Inclui todos os recursos do modo Padrão. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',

@@ -24,12 +24,12 @@
 
 .depthTable th,
 .depthTable td {
-  padding: 6px 0;
+  padding: 8px 0;
   vertical-align: top;
 }
 
 .depthTable th {
-  width: 24px;
+  width: 28px;
   padding-right: 8px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;

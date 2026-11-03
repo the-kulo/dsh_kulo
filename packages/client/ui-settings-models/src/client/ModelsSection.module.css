@@ -26,6 +26,13 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.refreshRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .notice {
   margin: 0;
   font-size: 12px;

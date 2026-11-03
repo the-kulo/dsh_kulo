@@ -1,5 +1,6 @@
 /** Settings section for the model gateway routing, expert quota, and token budget. */
 
+import { useId } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
@@ -181,6 +182,10 @@ interface RouteRowProps {
 
 function RouteRow(props: RouteRowProps) {
   const { index, route, state, t } = props
+  const providerListId = useId()
+  const modelListId = useId()
+  const modelOptions = state.catalogModels.get(route.provider)
+    ?? [...new Set([...state.catalogModels.values()].flat())]
   return (
     <tr>
       <td>
@@ -211,19 +216,31 @@ function RouteRow(props: RouteRowProps) {
         <input
           className={css.textInput}
           type="text"
+          list={providerListId}
           value={route.provider}
           disabled={!state.writable || state.saving}
           onChange={event => { props.onProvider(index, event.target.value) }}
         />
+        <datalist id={providerListId}>
+          {state.catalogProviders.map(provider => (
+            <option key={provider} value={provider} />
+          ))}
+        </datalist>
       </td>
       <td>
         <input
           className={css.textInput}
           type="text"
+          list={modelListId}
           value={route.model}
           disabled={!state.writable || state.saving}
           onChange={event => { props.onModel(index, event.target.value) }}
         />
+        <datalist id={modelListId}>
+          {modelOptions.map(model => (
+            <option key={model} value={model} />
+          ))}
+        </datalist>
       </td>
       <td>
         <select

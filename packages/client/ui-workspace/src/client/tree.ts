@@ -33,6 +33,22 @@ function isZoneExclusive(session: SessionSummary): boolean {
   return typeof preset === 'string' && ZONE_EXCLUSIVE_PRESETS.has(preset)
 }
 
+/** One agent preset backed by a dedicated sidebar zone. */
+export type ZonePreset = 'quick-qa' | 'secure'
+
+/**
+ * Select the Sessions whose recorded preset places them in one dedicated
+ * sidebar zone. These are the same Sessions {@link isZoneExclusive} filters
+ * out of every Workspace browser view; the zone's own flat list reads them
+ * directly.
+ * @param list - Session list snapshot.
+ * @param preset - the zone's agent preset.
+ * @returns the zone's Session ids in list order.
+ */
+export function zoneSessionIds(list: SessionListState, preset: ZonePreset): SessionId[] {
+  return list.ids.filter((id) => list.byId[id]?.projectionValues?.agentPreset === preset)
+}
+
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
 
@@ -250,9 +266,10 @@ function sessionVisible(
   current: SessionId | undefined,
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
+  options: { readonly excludeZoneExclusive?: boolean } = {},
 ): boolean {
   if (session.origin === 'subagent') return false
-  if (isZoneExclusive(session)) return false
+  if (options.excludeZoneExclusive !== false && isZoneExclusive(session)) return false
   if (session.blank && session.id !== current) return false
   switch (archivedFilter) {
     case 'default':
@@ -523,13 +540,14 @@ export function deriveFlat(
   sessionIds: readonly SessionId[],
   rowState: SessionRowState,
   statuses: SessionStatuses,
+  options: { readonly excludeZoneExclusive?: boolean } = {},
 ): SessionNode[] {
   const archived = new Set(rowState.archivedSessionIds)
   const pinned = new Set(rowState.pinnedSessionIds)
   const current = mainSessionId(list)
   const members = sessionIds.flatMap((id) => {
     const session = list.byId[id]
-    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter)
+    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter, options)
       ? [session]
       : []
   })
@@ -549,6 +567,9 @@ export function deriveFlat(
  * @param statuses - unified UI status by Session.
  * @param content - ranked Host content-search page.
  * @param limit - protocol-owned maximum merged row count.
+ * @param restrictTo - when present, restricts both local and content matches to
+ * these Session ids and includes zone-exclusive Sessions within the set; used
+ * by a dedicated sidebar zone's search so results stay zone-local.
  * @returns bounded deduplicated flat rows and a refine-query hint bit.
  */
 export function deriveSearchResults(
@@ -560,11 +581,16 @@ export function deriveSearchResults(
   statuses: SessionStatuses,
   content: { items: readonly SessionSearchResultItem[]; hasMore: boolean },
   limit: number,
+  restrictTo?: ReadonlySet<SessionId>,
 ): SearchResultSet {
   const q = query.trim().toLowerCase()
   if (q === '') return { items: [], hasMore: false }
   const archived = new Set(archivedSessionIds)
   const current = mainSessionId(list)
+  const visible = (summary: SessionSummary): boolean => {
+    if (restrictTo !== undefined && !restrictTo.has(summary.id)) return false
+    return sessionVisible(summary, current, archived, archivedFilter, { excludeZoneExclusive: restrictTo === undefined })
+  }
 
   const workspaceBySession = new Map<SessionId, string>()
   for (const workspace of workspaces) {
@@ -584,7 +610,7 @@ export function deriveSearchResults(
     const summary = list.byId[id]
     // Blank placeholders never match a query (their canonical title displays
     // localized, so matching it would tie search to one language).
-    if (summary === undefined || summary.blank || !sessionVisible(summary, current, archived, archivedFilter)) continue
+    if (summary === undefined || summary.blank || !visible(summary)) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
       || labelOf(summary).toLowerCase().includes(q)
@@ -607,7 +633,7 @@ export function deriveSearchResults(
   for (const summary of orderedLocal) include(summary)
   for (const item of content.items) {
     const summary = list.byId[item.sessionId]
-    if (summary !== undefined && !summary.blank && sessionVisible(summary, current, archived, archivedFilter)) include(summary)
+    if (summary !== undefined && !summary.blank && visible(summary)) include(summary)
   }
 
   return {

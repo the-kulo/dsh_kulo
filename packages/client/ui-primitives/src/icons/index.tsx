@@ -608,3 +608,21 @@ export const IconAppsAddOutlineRegular = appsAddIcon('regular')
 
 /** Three entry tiles and an add mark with 1.3px strokes. */
 export const IconAppsAddOutlineMedium = appsAddIcon('medium')
+
+/** Regular one-pixel IconLeafOutline artwork. */
+export const IconLeafOutlineRegular = productIcon('leaf-outline', 'regular')
+
+/** Medium IconLeafOutline artwork with a 1.3px stroke. */
+export const IconLeafOutlineMedium = productIcon('leaf-outline', 'medium')
+
+/** Regular one-pixel IconBookOutline artwork. */
+export const IconBookOutlineRegular = productIcon('book-outline', 'regular')
+
+/** Medium IconBookOutline artwork with a 1.3px stroke. */
+export const IconBookOutlineMedium = productIcon('book-outline', 'medium')
+
+/** Regular one-pixel IconLockOutline artwork. */
+export const IconLockOutlineRegular = productIcon('lock-outline', 'regular')
+
+/** Medium IconLockOutline artwork with a 1.3px stroke. */
+export const IconLockOutlineMedium = productIcon('lock-outline', 'medium')

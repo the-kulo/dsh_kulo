@@ -7,6 +7,10 @@ export { UserMessageBubble } from './UserMessageBubble.tsx'
 export type { UserMessageBubbleProps } from './UserMessageBubble.tsx'
 export { StateDot } from './StateDot.tsx'
 export type { StateDotState } from './StateDot.tsx'
+export { sessionStatusLines } from './session-status.ts'
+export type {
+  SessionPendingKind, SessionStatusFacts, SessionStatusLine, SessionStatusLineKind,
+} from './session-status.ts'
 export { DisclosureRow } from './DisclosureRow.tsx'
 export type { DisclosureRowProps } from './DisclosureRow.tsx'
 export { AnimatedRows } from './AnimatedRows.tsx'

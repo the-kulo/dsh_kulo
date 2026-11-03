@@ -60,7 +60,7 @@ import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attac
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { requestImageTarget, toPiContext } from './context.ts'
-import { conversationUpdates, createModels, getSupportedThinkingLevels } from './models.ts'
+import { conversationUpdates, createModels, getSupportedThinkingLevels, withDiscoveredModels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 
 /**
@@ -79,6 +79,8 @@ interface PiAiSnapshot {
   profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>
   /** Providers for exactly those profiles; never mutated once published. */
   models: Models
+  /** Runtime-discovered model overlay this collection was built from. */
+  discovered: ReadonlyMap<string, readonly Model<Api>[]>
 }
 
 /** Constructor options for {@link PiAiAdapter}: the two resolution hooks the plugin owns. */
@@ -108,6 +110,13 @@ export interface PiAiAdapterOptions {
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
   resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
+  /**
+   * Runtime-discovered models by provider route, appended after each route's
+   * configured baseline. A changed map identity rebuilds the snapshot, so a
+   * discovery refresh reaches the next `listModels` or request without a
+   * configuration change.
+   */
+  discovered: () => ReadonlyMap<string, readonly Model<Api>[]>
   /**
    * Observe one assistant history message degrading to provider-neutral
    * conversion because its stored replay state is unusable by this build.
@@ -250,12 +259,17 @@ export class PiAiAdapter extends LlmAdapter {
    */
   private current(): PiAiSnapshot {
     const profiles = this.config.profiles()
-    if (this.snapshot?.profiles === profiles) return this.snapshot
+    const discovered = this.config.discovered()
+    if (this.snapshot?.profiles === profiles && this.snapshot.discovered === discovered) return this.snapshot
     const models: MutableModels = createModels(this.config.auth)
     for (const profile of profiles.values()) {
-      if (profile.piProvider !== undefined) models.setProvider(profile.piProvider)
+      if (profile.piProvider === undefined) continue
+      const extra = discovered.get(profile.provider)
+      models.setProvider(extra === undefined || extra.length === 0
+        ? profile.piProvider
+        : withDiscoveredModels(profile.piProvider, extra))
     }
-    this.snapshot = { profiles, models }
+    this.snapshot = { profiles, discovered, models }
     return this.snapshot
   }
 

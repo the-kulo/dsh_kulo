@@ -38,8 +38,8 @@
 .warning {
   margin: 4px 0 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .warning {
@@ -79,8 +79,8 @@
   border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-settings-card-fill);
   color: var(--dsw-alias-state-error-primary);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 /* Time range filter */
@@ -134,9 +134,9 @@
 }
 
 .summaryLabel {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .summaryValue {
@@ -150,8 +150,8 @@
 
 .summaryHint {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .summaryToggle {
@@ -161,8 +161,8 @@
   border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-brand-primary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
   cursor: pointer;
 }
 
@@ -214,12 +214,12 @@
 }
 
 .trendBtn {
-  padding: 4px 12px;
+  padding: 6px 12px;
   border: 0;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
   cursor: pointer;
 }
 
@@ -231,28 +231,28 @@
 .trendSvg {
   width: 100%;
   min-width: 480px;
-  height: 200px;
+  height: 240px;
 }
 
 .trendGridLine {
-  stroke: var(--dsw-alias-border-l3);
-  stroke-width: 0.5;
+  stroke: var(--dsw-alias-border-l4);
+  stroke-width: 1;
 }
 
 .trendAxisLabel {
-  fill: var(--dsw-alias-label-tertiary);
-  font-size: 10px;
+  fill: var(--dsw-alias-label-secondary);
+  font-size: 12px;
 }
 
 .trendArea {
   fill: var(--dsw-alias-brand-primary);
-  fill-opacity: 0.08;
+  fill-opacity: 0.12;
 }
 
 .trendLine {
   fill: none;
   stroke: var(--dsw-alias-brand-primary);
-  stroke-width: 1.5;
+  stroke-width: 2.5;
 }
 
 .trendDot {
@@ -265,8 +265,8 @@
   justify-content: center;
   min-height: 160px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 /* Detail tabs */
@@ -343,8 +343,8 @@
   gap: 3px;
   padding-left: 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .calendarMonth {
@@ -403,10 +403,10 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 6px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .legend .calendarCell {
@@ -446,8 +446,8 @@
 .providerHead > span,
 .totalLabel {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .providers {
@@ -495,16 +495,16 @@
   flex-direction: column;
   gap: 2px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .metric strong {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--dsw-alias-label-primary);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -519,14 +519,14 @@ table {
   width: 100%;
   min-width: 560px;
   border-collapse: collapse;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
   font-variant-numeric: tabular-nums;
 }
 
 th,
 td {
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: right;
   white-space: nowrap;
 }
@@ -534,8 +534,8 @@ td {
 thead {
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 thead th {
@@ -547,7 +547,7 @@ th:first-child {
 }
 
 tbody th {
-  max-width: 260px;
+  max-width: 300px;
   font-weight: 500;
 }
 
@@ -560,8 +560,8 @@ tbody th small {
 
 tbody th small {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
   font-weight: 400;
 }
 

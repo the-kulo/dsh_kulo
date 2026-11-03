@@ -79,6 +79,10 @@ export interface ModelGatewayCardState extends SettingsFormShell {
   conflicted: boolean
   /** Whether the token budget shares do not sum to 1. */
   sharesInvalid: boolean
+  /** Live provider ids for the routing provider/model candidate lists. */
+  catalogProviders: readonly string[]
+  /** Live model ids by provider for the routing candidate lists. */
+  catalogModels: ReadonlyMap<string, readonly string[]>
 }
 
 /** Registration-side face for the model gateway card. */
@@ -189,14 +193,18 @@ export class ModelGatewayCardController {
   private saveGeneration = 0
   private readonly store: SnapshotStore<ModelGatewayCardState>
   private readonly unsubscribe: () => void
+  private catalogProviders: readonly string[] = []
+  private catalogModels = new Map<string, readonly string[]>()
+  private catalogGeneration = 0
+  private catalogStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle'
 
   /**
    * @param scope - bound `model-gateway-settings` configuration form.
-   * @param _ctx - the card plugin's context (reserved for future catalog reads).
+   * @param ctx - the card plugin's context, whose `remote.session` serves the live model catalog.
    */
   constructor(
     private readonly scope: SettingsFormScope<ModelGatewaySettingsValue>,
-    _ctx: ClientContext,
+    private readonly ctx: ClientContext,
   ) {
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = scope.subscribe(() => {
@@ -210,13 +218,42 @@ export class ModelGatewayCardController {
       }
       this.publish()
     })
+    void this.loadCatalog()
   }
 
   /** Stop observing settings and suppress late write settlements. */
   dispose(): void {
     this.disposed = true
     this.saveGeneration += 1
+    this.catalogGeneration += 1
     this.unsubscribe()
+  }
+
+  /** Invalidate and reload model candidates after a Host model input changes. */
+  refreshCatalog(): void {
+    if (this.disposed) return
+    this.catalogGeneration += 1
+    this.catalogStatus = 'idle'
+    void this.loadCatalog()
+  }
+
+  private async loadCatalog(): Promise<void> {
+    if (this.disposed || this.catalogStatus === 'loading') return
+    const generation = this.catalogGeneration
+    this.catalogStatus = 'loading'
+    this.publish()
+    const response = await this.ctx.remote.session.modelCatalog()
+    if (generation !== this.catalogGeneration) return
+    if (response.ok) {
+      this.catalogProviders = response.value.groups.map(group => group.id)
+      this.catalogModels = new Map(
+        response.value.groups.map(group => [group.id, group.models.map(model => model.id)]),
+      )
+      this.catalogStatus = 'ready'
+    } else {
+      this.catalogStatus = 'error'
+    }
+    this.publish()
   }
 
   /**
@@ -465,6 +502,8 @@ export class ModelGatewayCardController {
       tokenBudget: { ...desiredTokenBudget },
       conflicted: this.conflicted,
       sharesInvalid: !sharesSumTo1(desiredTokenBudget),
+      catalogProviders: this.catalogProviders,
+      catalogModels: this.catalogModels,
     }
   }
 

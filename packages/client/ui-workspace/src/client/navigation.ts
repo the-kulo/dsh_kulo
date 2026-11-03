@@ -26,6 +26,7 @@ import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type {
   SidebarZoneKey, WorkspaceViewStoreActions, WorkspaceViewStoreInstance, ZoneListViewState,
 } from './stores.ts'
+import type { ZonePreset } from './tree.ts'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 
 interface MainSelection {
@@ -116,6 +117,15 @@ export interface UiWorkspace {
    * whether existing text or attachments are kept, replaced, or followed by the prompt.
    */
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void
+  /**
+   * Create and open one dedicated-zone conversation. Quick answers always
+   * creates an independent `quick: true` Session under the quick-qa preset;
+   * the secure zone reuses the current or most recent Workspace when one
+   * exists, else falls back to a `quick: true` secure Session. A refused
+   * creation is shown through the Workspace notice.
+   * @param zone - the dedicated zone whose new conversation is requested.
+   */
+  startZoneSession(zone: ZonePreset): void
   /**
    * Archive a Session and clear it when it is the current selection.
    * @param sessionId - Session to archive.
@@ -258,7 +268,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         getSnapshot: () => current,
         subscribe: (listener: () => void) => store.subscribe(() => {
           const next = read()
-          if (next.orderBy === current.orderBy && next.archivedFilter === current.archivedFilter && next.query === current.query) return
+          if (next.orderBy === current.orderBy && next.archivedFilter === current.archivedFilter && next.query === current.query
+            && next.manualOrder === current.manualOrder) return
           current = next
           listener()
         }),
@@ -430,6 +441,42 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     void opening.catch(
       (reason: unknown) => { console.warn('new session failed:', reason) },
     )
+  }
+
+  startZoneSession(zone: ZonePreset): void {
+    void this.openZoneSession(zone).catch((reason: unknown) => {
+      if (this.lifetime.signal.aborted) return
+      this.notify({ kind: 'createFailed', message: creationFailureMessage(reason) })
+    })
+  }
+
+  private async openZoneSession(zone: ZonePreset): Promise<void> {
+    if (zone === 'quick-qa') {
+      const sessionId = await this.sessions.create({ quick: true, agentPreset: 'quick-qa' })
+      this.openSession(sessionId)
+      return
+    }
+    const workspaceId = this.currentOrRecentWorkspaceId()
+    if (workspaceId === undefined) {
+      const sessionId = await this.sessions.create({ quick: true, agentPreset: 'secure' })
+      this.openSession(sessionId)
+      return
+    }
+    const sessionId = await this.connectBlank(workspaceId, { agentPreset: 'secure' })
+    this.openSession(sessionId)
+  }
+
+  private currentOrRecentWorkspaceId(): WorkspaceId | undefined {
+    const workspace = this.workspaces.list.getSnapshot()
+    const sessions = this.sessions.list.getSnapshot()
+    const current = this.mainReference?.sessionId
+    const currentWorkspaceId = current === undefined
+      ? undefined
+      : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
+    const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
+      ? recentWorkspace(workspace.items, sessions.byId)
+      : undefined
+    return currentWorkspaceId ?? recent
   }
 
   private prepareDraft(binding: SessionBinding, options: DraftInitializationOptions): void {

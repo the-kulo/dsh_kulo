@@ -1,0 +1,69 @@
+# Agent preset dispatch (委派/分发): one `@deepseek-ai/dsh-agent-preset`
+# declaration inserted after the web patch, beside the other shipped presets.
+#
+# A lean coordinator: it delegates self-contained sub-tasks to subagents that
+# run full-capability presets in their own contexts and aggregates the results.
+- insert:
+    - id: preset-dispatch
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dispatch
+        order: 2
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: >-
+                You are a dispatching coordinator. Break the task into
+                self-contained sub-tasks, delegate each to a subagent that works
+                in its own context, and aggregate their results. Start independent
+                delegations in parallel and continue useful work while they run.
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  agentPreset: standard
+                  allowedAgentPresets: [standard, team, dispatch]
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024

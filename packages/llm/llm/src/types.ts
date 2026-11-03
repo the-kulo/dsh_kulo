@@ -323,6 +323,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
       readonly settingsNs: string
       readonly baseURL?: string
     }
+    /** A runtime model-catalog refresh could not run at all. */
+    'llm/model-refresh-rejected': Record<string, never>
   }
 }
 
@@ -342,6 +344,21 @@ export interface LlmDiscoveredModel {
   maxTokens?: number
   /** Accepted input types when disclosed by the catalog or endpoint; absent means unknown. */
   inputModalities?: readonly ModelModality[]
+}
+
+/** Whether one provider route was refreshed, skipped, or failed. */
+export type LlmModelRefreshStatus = 'refreshed' | 'skipped' | 'failed'
+
+/** One provider route's outcome from a runtime model-catalog refresh. */
+export interface LlmModelRefreshResult {
+  /** Provider route the outcome describes. */
+  provider: string
+  /** Whether the route was refreshed, skipped, or failed. */
+  status: LlmModelRefreshStatus
+  /** Number of models the refresh added to the runtime catalog. */
+  added: number
+  /** Human-readable reason for a skipped or failed route. */
+  reason?: string
 }
 
 /** One adapter-discovered model; catalog membership is advisory, not request validation. */

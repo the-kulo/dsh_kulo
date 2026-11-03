@@ -18,8 +18,8 @@
 .unavailable {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .body {
@@ -36,7 +36,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--dsw-alias-label-primary);
 }
@@ -48,7 +48,7 @@
 
 .hint {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--dsw-alias-label-tertiary);
 }
@@ -56,11 +56,15 @@
 .subtitle {
   margin: 4px 0 0;
   font-size: 14px;
+  line-height: 22px;
   font-weight: 500;
 }
 
 .routingScroll {
-  max-height: 320px;
+  /* The body is a height-capped flex column: a shrinkable scroll box here
+     collapses to nothing once the other rows fill the cap. */
+  flex: none;
+  max-height: 360px;
   overflow: auto;
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-lg);
@@ -68,14 +72,16 @@
 
 .routingTable {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .routingTable th {
   position: sticky;
   top: 0;
-  padding: 6px 8px;
+  padding: 8px 12px;
   text-align: left;
   font-weight: 500;
   color: var(--dsw-alias-label-secondary);
@@ -84,7 +90,7 @@
 }
 
 .routingTable td {
-  padding: 4px 6px;
+  padding: 8px 12px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
@@ -93,8 +99,8 @@
 .numberInput {
   width: 100%;
   min-width: 0;
-  padding: 4px 6px;
-  font-size: 12px;
+  padding: 6px 10px;
+  font-size: 14px;
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
@@ -112,8 +118,8 @@
 .saveButton {
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-md);
-  padding: 4px 12px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
@@ -127,20 +133,20 @@
 }
 
 .removeButton {
-  padding: 2px 8px;
+  padding: 4px 10px;
   white-space: nowrap;
 }
 
 .numberGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .fieldLabel {
   display: grid;
-  gap: 4px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -153,7 +159,7 @@
 .invalid,
 .conflict {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--dsw-alias-state-error-primary);
 }

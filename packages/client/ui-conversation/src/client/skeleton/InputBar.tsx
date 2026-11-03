@@ -77,6 +77,11 @@ export const InputBar = memo(function InputBar({
   const planActive = useProjection('plan', plan => plan !== undefined && (plan.pending ? !plan.active : plan.active))
   // Absent (undefined: no frame yet) and cleared (null) both mean no goal.
   const hasGoal = useProjection('goal', goal => goal != null)
+  // A quick-qa Session runs under its own fixed preset and never belongs to a
+  // Workspace, so the composer offers no file intake and no workspace
+  // permission selector. The preset is read as a string here; this package
+  // must not import the quick-qa package's runtime constant.
+  const quickQa = useProjection('agentPreset', preset => preset === 'quick-qa')
   // Session-maybe: the machine faces are absent together while no session is
   // current; the bar renders the same DOM inert instead of a parallel tree.
   const live = input !== undefined && keyboard !== undefined && inputActions !== undefined
@@ -222,7 +227,7 @@ export const InputBar = memo(function InputBar({
   // The host enforces the same image limits at submit for callers that bypass
   // this composer.
   const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): void => {
-    if (uploadDenied || locked || machineBusy || (subagent !== null && !continuable)
+    if (uploadDenied || quickQa || locked || machineBusy || (subagent !== null && !continuable)
       || addFiles === undefined || files.length === 0) return
     const rejected = ((): string | null => {
       // Child prompts support images, but not generic file receipts or the
@@ -249,9 +254,9 @@ export const InputBar = memo(function InputBar({
       return addFiles(files, directories)
     })()
     if (rejected !== null) showToast(rejected)
-  }, [uploadDenied, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
+  }, [uploadDenied, quickQa, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
 
-  const canAcceptDrop = !uploadDenied && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
+  const canAcceptDrop = !uploadDenied && !quickQa && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const onPickFiles = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -481,7 +486,7 @@ export const InputBar = memo(function InputBar({
               onChange={onPickFiles}
             />
             <div className={css.modes}>
-              {sessionId === undefined ? null : renderSlot('conversation.input.permission', { locked })}
+              {sessionId === undefined || quickQa ? null : renderSlot('conversation.input.permission', { locked })}
               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
             </div>
             {input === undefined || sessionId === undefined

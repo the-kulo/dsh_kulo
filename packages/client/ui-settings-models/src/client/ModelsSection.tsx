@@ -268,6 +268,31 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   const [deleteFailure, setDeleteFailure] = useState<string | undefined>(undefined)
   const [savedTarget, setSavedTarget] = useState<ProviderIdentity | undefined>(undefined)
   const [dismissedSetup, setDismissedSetup] = useState<ReadonlySet<string>>(() => new Set())
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshSuccess, setRefreshSuccess] = useState<string | undefined>(undefined)
+  const [refreshError, setRefreshError] = useState<string | undefined>(undefined)
+  const [refreshFailures, setRefreshFailures] = useState<readonly { provider: string; reason: string }[]>([])
+
+  const refreshModels = (): void => {
+    if (refreshing || state.status !== 'ready') return
+    setRefreshing(true)
+    setRefreshSuccess(undefined)
+    setRefreshError(undefined)
+    setRefreshFailures([])
+    void operations.refreshModels().then((outcome) => {
+      if (outcome.kind === 'refused') {
+        setRefreshError(`${t('loadFailed')}: ${outcome.message}`)
+        return
+      }
+      setRefreshFailures(outcome.failures.map(failure => ({
+        provider: failure.provider,
+        reason: failure.reason ?? failure.provider,
+      })))
+      setRefreshSuccess(outcome.added > 0
+        ? t('refreshAdded').replace('{count}', String(outcome.added))
+        : t('refreshUpToDate'))
+    }).finally(() => { setRefreshing(false) })
+  }
 
   const announceSaved = (target: ProviderIdentity): void => {
     // Announced only once the refreshed directory is in the snapshot the
@@ -415,6 +440,21 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
       <h2 className={styles['title']}>{t('title')}</h2>
       <p className={styles['intro']}>{t('intro')}</p>
       {!state.writable && state.status === 'ready' ? <p className={styles['notice']}>{t('readOnly')}</p> : null}
+      <div className={styles['refreshRow']}>
+        <button
+          type="button"
+          className={styles['secondaryButton']}
+          disabled={refreshing || state.status !== 'ready'}
+          onClick={refreshModels}
+        >
+          {refreshing ? t('refreshingModels') : t('refreshModels')}
+        </button>
+        {refreshSuccess === undefined ? null : <p className={styles['savedNotice']} role="status">{refreshSuccess}</p>}
+        {refreshError === undefined ? null : <p className={styles['error']} role="alert">{refreshError}</p>}
+        {refreshFailures.map(failure => (
+          <p key={failure.provider} className={styles['error']}>{failure.provider}: {failure.reason}</p>
+        ))}
+      </div>
       {savedIdentity === undefined
         ? null
         : (

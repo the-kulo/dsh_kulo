@@ -25,7 +25,7 @@ import {
   IconBookOutlineRegular, IconCloseFillRegular, IconLeafOutlineRegular, IconLockOutlineRegular,
   IconProjectAddOutlineRegular, IconQueueOutlineRegular, IconSearchOutlineRegular,
   Modal, Tooltip,
-  ZoneAddWorkspace, ZoneSearch, ZoneViewOptions,
+  ZoneSearch, ZoneViewOptions,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
@@ -1339,6 +1339,8 @@ export function WorkspaceBrowser({
   // states; the menu anchors on this button).
   const wsPickerOpen = shortcutState.addRequested
   const wsPlusRef = useRef<HTMLButtonElement>(null)
+  const securePlusRef = useRef<HTMLButtonElement>(null)
+  const [addAnchor, setAddAnchor] = useState<'workspace' | 'secure'>('workspace')
   const composingRef = useRef(false)
 
   const openSearchResult = (sessionId: SessionId): void => {
@@ -1682,6 +1684,7 @@ export function WorkspaceBrowser({
                   aria-label={t('workspace.add')}
                   aria-keyshortcuts={addShortcut?.aria}
                   onClick={() => {
+                    setAddAnchor('workspace')
                     requestAddWorkspace()
                   }}
                 >
@@ -1690,24 +1693,6 @@ export function WorkspaceBrowser({
               </Tooltip>
             )}
           </div>
-          {/* Add flow + its error dialog (same package — direct composition). */}
-          <WorkspacePickFlow
-            t={t}
-            open={wsPickerOpen}
-            anchorRef={wsPlusRef}
-            useWorkspaces={useWorkspaces}
-            createWorkspace={createWorkspace}
-            useDirectoryFlow={useDirectoryFlow}
-            renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
-            addOnly
-            onBusyChange={setDirectoryBusy}
-            side="right"
-            onPick={(workspaceId) => {
-              closeAddWorkspace()
-              startSession(workspaceId, { clearPreviousDraft: false })
-            }}
-            onClose={() => { closeAddWorkspace() }}
-          />
         </div>
 
         {/* Wide session-list seat; scrolls the tree/flat/search overflow. */}
@@ -1826,10 +1811,20 @@ export function WorkspaceBrowser({
                     zone reuses the workspace header's affordance, so a
                     composition without a picker hides the dead button. */}
                 {directoryFlowAvailable && (
-                  <ZoneAddWorkspace
-                    label={t('workspace.add')}
-                    onClick={() => { requestAddWorkspace() }}
-                  />
+                  <Tooltip label={t('workspace.add')} side="bottom" delayMs={500}>
+                    <button
+                      ref={securePlusRef}
+                      type="button"
+                      className={css.iconButton}
+                      aria-label={t('workspace.add')}
+                      onClick={() => {
+                        setAddAnchor('secure')
+                        requestAddWorkspace()
+                      }}
+                    >
+                      <IconProjectAddOutlineRegular size={16} />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -1909,6 +1904,24 @@ export function WorkspaceBrowser({
           </div>
         )}
       </div>
+
+      <WorkspacePickFlow
+        t={t}
+        open={wsPickerOpen}
+        anchorRef={addAnchor === 'secure' ? securePlusRef : wsPlusRef}
+        useWorkspaces={useWorkspaces}
+        createWorkspace={createWorkspace}
+        useDirectoryFlow={useDirectoryFlow}
+        renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
+        addOnly
+        onBusyChange={setDirectoryBusy}
+        side="right"
+        onPick={(workspaceId) => {
+          closeAddWorkspace()
+          startSession(workspaceId, { clearPreviousDraft: false })
+        }}
+        onClose={() => { closeAddWorkspace() }}
+      />
 
       <Modal
         open={renameTarget !== null}

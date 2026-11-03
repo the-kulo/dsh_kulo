@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconPlusOutlineRegular, Modal, Switch, Tag, Tooltip, type TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronRightOutlineRegular, IconPlusOutlineRegular, Modal, Switch, Tag, Tooltip, type TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   GatewayCategory, GatewayRouteEntry, GatewayTier, GatewayZone,
   ModelGatewayCardFace, ModelGatewayCardState,
@@ -235,16 +235,27 @@ function RoutingBoard(props: RoutingBoardProps) {
           .filter(({ route }) => route.zone === zone.value)
         const headingId = `${boardId}-${zone.value}`
         return (
-          <section key={zone.value} className={css.zoneColumn} aria-labelledby={headingId}>
-            <header className={css.zoneHeader}>
-              <h4 id={headingId} className={css.zoneTitle}>{t(zone.key)}</h4>
-              <span className={css.zoneCount}>{rows.length}</span>
+          <section key={zone.value} className={css.boardColumn} aria-labelledby={headingId}>
+            <header className={css.boardColumnHead}>
+              <h4 id={headingId} className={css.boardColumnTitle}>{t(zone.key)}</h4>
+              <span className={css.boardColumnCount}>{rows.length}</span>
+              <Tooltip label={t('routingAdd')} side="bottom">
+                <button
+                  type="button"
+                  className={css.boardColumnAdd}
+                  disabled={disabled}
+                  onClick={() => { onAdd(zone.value) }}
+                  aria-label={t('routingAdd')}
+                >
+                  <IconPlusOutlineRegular size={14} />
+                </button>
+              </Tooltip>
             </header>
             {rows.length > 0
               ? (
                 <ul className={css.routeList}>
                   {rows.map(({ route, index }) => (
-                    <RouteCard
+                    <RouteRow
                       key={index}
                       route={route}
                       t={t}
@@ -255,17 +266,6 @@ function RoutingBoard(props: RoutingBoardProps) {
                 </ul>
               )
               : <p className={css.zoneEmpty}>{t('routingBoardEmpty')}</p>}
-            <Tooltip label={t('routingAdd')} side="bottom">
-              <button
-                type="button"
-                className={css.zoneAdd}
-                disabled={disabled}
-                onClick={() => { onAdd(zone.value) }}
-                aria-label={t('routingAdd')}
-              >
-                <IconPlusOutlineRegular size={16} />
-              </button>
-            </Tooltip>
           </section>
         )
       })}
@@ -281,28 +281,29 @@ interface RouteCardProps {
   onEdit: () => void
 }
 
-function RouteCard(props: RouteCardProps) {
+function RouteRow(props: RouteCardProps) {
   const { route, t, disabled, onEdit } = props
   const categoryKey = CATEGORY_OPTIONS.find(opt => opt.value === route.category)?.key
   const tierKey = TIER_OPTIONS.find(opt => opt.value === route.tier)?.key
   return (
     <li>
-      <Tooltip label={t('routingBoardHint')} side="bottom" delayMs={500}>
-        <button
-          type="button"
-          className={css.routeCard}
-          style={{ '--route-tier-color': TIER_COLOR[route.tier] } as React.CSSProperties}
-          disabled={disabled}
-          onClick={onEdit}
-        >
-          <span className={css.routeCategory}>{categoryKey !== undefined ? t(categoryKey) : route.category}</span>
-          <span className={css.routeModel}>
-            <span className={css.routeModelId}>{route.model}</span>
-            <span className={css.routeProvider}>{route.provider}</span>
-          </span>
+      <button
+        type="button"
+        className={css.routeRow}
+        style={{ '--route-tier-color': TIER_COLOR[route.tier] } as React.CSSProperties}
+        disabled={disabled}
+        onClick={onEdit}
+        title={t('routingBoardHint')}
+      >
+        <span className={css.routeTierDot} />
+        <span className={css.routeCategory}>{categoryKey !== undefined ? t(categoryKey) : route.category}</span>
+        <span className={css.routeModelId}>{route.model}</span>
+        <span className={css.routeProvider}>{route.provider}</span>
+        <span className={css.routeRowRight}>
           <Tag tone={TIER_TONE[route.tier]}>{tierKey !== undefined ? t(tierKey) : route.tier}</Tag>
-        </button>
-      </Tooltip>
+          <IconChevronRightOutlineRegular size={14} className={css.routeEditIcon} />
+        </span>
+      </button>
     </li>
   )
 }

@@ -77,38 +77,44 @@
   min-width: 0;
 }
 
-/* Routing board: three zone columns, each a card listing its routes. */
+/* Routing board: a single unified panel with three columns. */
 .board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 0;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
+  overflow: hidden;
 }
 
-.zoneColumn {
+.boardColumn {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   padding: 12px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: var(--dsw-radius-lg);
-  background: var(--dsw-alias-bg-layer-1);
+  border-right: 0.5px solid var(--dsw-alias-border-l2);
 }
 
-.zoneHeader {
+.boardColumn:last-child {
+  border-right: none;
+}
+
+.boardColumnHead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
-.zoneTitle {
+.boardColumnTitle {
   margin: 0;
   font-size: 13px;
   line-height: 20px;
   font-weight: 500;
 }
 
-.zoneCount {
+.boardColumnCount {
   flex: none;
   min-width: 22px;
   padding: 0 6px;
@@ -120,133 +126,146 @@
   color: var(--dsw-alias-label-secondary);
 }
 
-.routeList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.routeCard {
-  position: relative;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px 8px 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-2);
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-@media (hover: hover) {
-  .routeCard:hover:not(:disabled) {
-    background: var(--dsw-alias-interactive-bg-hover);
-  }
-}
-
-.routeCard:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-}
-
-.routeCard:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.routeCard::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  border-radius: 1.5px;
-  background: var(--route-tier-color);
-}
-
-.routeCategory {
-  flex: none;
-  padding: 2px 6px;
-  border-radius: var(--dsw-radius-xs);
-  background: var(--dsw-alias-interactive-bg-hover);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 500;
-}
-
-.routeModel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.routeProvider {
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.routeModelId {
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zoneEmpty {
-  margin: 0;
-  padding: 8px 0;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.zoneAdd {
+.boardColumnAdd {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
   padding: 0;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: var(--dsw-radius-md);
+  border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
 }
 
 @media (hover: hover) {
-  .zoneAdd:hover:not(:disabled) {
+  .boardColumnAdd:hover:not(:disabled) {
     background: var(--dsw-alias-interactive-bg-hover);
     color: var(--dsw-alias-label-primary);
   }
 }
 
-.zoneAdd:focus-visible {
+.boardColumnAdd:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
 }
 
-.zoneAdd:disabled {
+.boardColumnAdd:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.routeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.routeRow {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 46px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.routeRow + .routeRow {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+@media (hover: hover) {
+  .routeRow:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.routeRow:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+
+.routeRow:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.routeTierDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--route-tier-color);
+}
+
+.routeCategory {
+  flex: none;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.routeModelId {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeProvider {
+  flex: none;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeRowRight {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.routeEditIcon {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+@media (hover: hover) {
+  .routeRow:hover .routeEditIcon {
+    opacity: 1;
+  }
+}
+
+.zoneEmpty {
+  margin: 0;
+  padding: 8px 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 /* Number fields: label, input, and a unit suffix in one compact column. */
@@ -390,6 +409,14 @@
 @media (max-width: 720px) {
   .board {
     grid-template-columns: 1fr;
+  }
+
+  .boardColumn {
+    border-right: none;
+    border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  }
+  .boardColumn:last-child {
+    border-bottom: none;
   }
 }
 

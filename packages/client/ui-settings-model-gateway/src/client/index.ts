@@ -17,7 +17,7 @@ import { ModelGatewaySection } from './ModelGatewaySection.tsx'
 import {
   MODEL_GATEWAY_NS, ModelGatewayCardController,
 } from './model-gateway-card-controller.ts'
-import { en, zh, type ModelGatewayLocaleKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, zh, type ModelGatewayLocaleKey } from './locales.ts'
 
 export type { ModelGatewaySectionFace, ModelGatewaySectionProps } from './ModelGatewaySection.tsx'
 export type {
@@ -46,7 +46,7 @@ export const inject = ['slots', 'locale', 'remote', 'remote.session', 'configFor
  */
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-model-gateway: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-model-gateway: dictionaries')
   const controller = new ModelGatewayCardController(
     ctx.configForms.get(MODEL_GATEWAY_NS),
     ctx,

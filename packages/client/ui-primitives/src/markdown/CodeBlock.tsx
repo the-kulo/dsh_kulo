@@ -2,6 +2,7 @@ import { Fragment, useCallback, useMemo, useRef, useState, useSyncExternalStore 
 import type { CSSProperties, ReactNode, Ref } from 'react'
 import clsx from 'clsx'
 import { writeClipboard } from '../clipboard.ts'
+import { downloadTextFile } from '../download.ts'
 import { CodeToolbar, type CodeToolbarLabels } from '../CodeToolbar.tsx'
 import {
   StreamingHighlightSession, grammarLoadCount, highlightToHtml, subscribeGrammarLoaded,
@@ -56,6 +57,16 @@ const SHIKI_PRE_PROPS = {
 
 /** Completed-line group size; React reconciles groups while the DOM remains line-for-line identical. */
 const STREAMING_LINE_GROUP_SIZE = 32
+
+/** Fence languages with a conventional single extension; anything else downloads as txt. */
+const CODE_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  'ts', 'tsx', 'js', 'jsx', 'py', 'sql', 'json', 'sh', 'html', 'css', 'md', 'yaml', 'yml', 'java', 'go', 'rs', 'c', 'cpp',
+])
+
+function codeFileName(lang: string | undefined): string {
+  const ext = lang !== undefined && CODE_FILE_EXTENSIONS.has(lang) ? lang : 'txt'
+  return `code.${ext}`
+}
 
 function renderLine(line: readonly HighlightSpan[], index: number): ReactNode {
   return (
@@ -169,6 +180,10 @@ export function CodeBlock({
     })
   }, [copied, trimmed])
 
+  const onDownload = useCallback(() => {
+    downloadTextFile(codeFileName(lang), trimmed)
+  }, [lang, trimmed])
+
   // shiki's HTML output is a static span tree it generated from `code` (no
   // user HTML passes through), the sanctioned innerHTML consumption path per
   // shiki's own docs.
@@ -196,6 +211,7 @@ export function CodeBlock({
         {toolbarLabels !== undefined ? <CodeToolbar
           lang={lang} labels={toolbarLabels} copyLabel={copyLabel} copiedLabel={copiedLabel}
           copied={copied} wrapped={wrapped} onCopy={onCopy}
+          onDownload={toolbarLabels.downloadLabel === undefined ? undefined : onDownload}
           onWrap={wrap === undefined ? () => { setWrapped(value => !value) } : undefined}
         /> : <div className={css.banner} data-code-block-banner>
           <div className={css.infostring} data-text-interaction-exclude="">{lang ?? ''}</div>

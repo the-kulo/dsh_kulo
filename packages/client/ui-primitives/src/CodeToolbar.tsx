@@ -1,12 +1,12 @@
-/** Shared language, wrapping, and clipboard controls for code cards. */
+/** Shared language, wrapping, clipboard, and download controls for code cards. */
 import {
-  IconCheckOutlineRegular, IconCopyOutlineRegular, IconNowrapFillRegular, IconWrapFillRegular,
+  IconCheckOutlineRegular, IconCopyOutlineRegular, IconDownloadOutlineRegular, IconNowrapFillRegular, IconWrapFillRegular,
 } from './icons/index.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { supportsHighlighting } from './markdown/highlight.ts'
 import css from './CodeCard.module.css'
 
-/** Localized language fallback and wrapping actions supplied by the card owner. */
+/** Localized language fallback, wrapping, and download actions supplied by the card owner. */
 export interface CodeToolbarLabels {
   /** Title for an absent or unsupported language. */
   codeLabel: string
@@ -14,6 +14,8 @@ export interface CodeToolbarLabels {
   wrapLabel: string
   /** Action that preserves source columns with horizontal scrolling. */
   unwrapLabel: string
+  /** Download action label; omission hides the download button. */
+  downloadLabel?: string | undefined
 }
 
 /** Display state and callbacks for a code card's toolbar. */
@@ -28,6 +30,7 @@ interface CodeToolbarProps {
   wrapped: boolean
   onCopy?: (() => void) | undefined
   onWrap?: (() => void) | undefined
+  onDownload?: (() => void) | undefined
 }
 
 /**
@@ -35,7 +38,7 @@ interface CodeToolbarProps {
  * @param props - Localized labels, current state, and card-owned actions.
  * @returns The shared code-card header.
  */
-export function CodeToolbar({ lang, title, status, labels, copyLabel, copiedLabel, copied, wrapped, onCopy, onWrap }: CodeToolbarProps) {
+export function CodeToolbar({ lang, title, status, labels, copyLabel, copiedLabel, copied, wrapped, onCopy, onWrap, onDownload }: CodeToolbarProps) {
   const wrapLabel = wrapped ? labels.unwrapLabel : labels.wrapLabel
   const clipboardLabel = copied ? copiedLabel : copyLabel
   return (
@@ -46,6 +49,11 @@ export function CodeToolbar({ lang, title, status, labels, copyLabel, copiedLabe
       </div>
       <div className={css.actions}>
         {status !== undefined && <span className={css.status}>{status}</span>}
+        {onDownload !== undefined && labels.downloadLabel !== undefined && <Tooltip label={labels.downloadLabel} side="top" portal>
+          <button type="button" className={css.action} aria-label={labels.downloadLabel} onClick={onDownload}>
+            <IconDownloadOutlineRegular size={14} />
+          </button>
+        </Tooltip>}
         {onWrap !== undefined && <Tooltip label={wrapLabel} side="top" portal>
           <button type="button" className={css.action} aria-label={labels.wrapLabel} aria-pressed={wrapped} onClick={onWrap}>
             {wrapped ? <IconNowrapFillRegular size={14} /> : <IconWrapFillRegular size={14} />}

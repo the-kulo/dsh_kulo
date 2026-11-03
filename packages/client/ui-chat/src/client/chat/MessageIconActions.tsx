@@ -1,14 +1,23 @@
 // Shared IconActions chrome for user and assistant messages: copy
-// live, optional branch wiring, and an optional date-aware clock.
+// live, download the plain text, optional branch wiring, and an
+// optional date-aware clock.
 
 import { useId, type ReactNode } from 'react'
 import {
-  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, useClipboardCopy,
+  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular, IconDownloadOutlineRegular, Tooltip,
+  downloadTextFile, useClipboardCopy,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatMessageClock } from './message-chrome.ts'
 import { useCalendarDay } from './use-calendar-day.ts'
 import css from './MessageIconActions.module.css'
+
+/** Local `YYYYMMDD-HHmm` stamp for the message export file name. */
+function messageFileName(): string {
+  const now = new Date()
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `message-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.md`
+}
 
 export interface MessageIconActionsProps {
   /** Plain text the copy action writes. */
@@ -38,7 +47,7 @@ export interface MessageIconActionsProps {
 }
 
 /**
- * Copy / branch (/ clock) IconActions row shared by user and assistant chrome.
+ * Copy / download / branch (/ clock) IconActions row shared by user and assistant chrome.
  * @param props - Copy text, event time, clock side, branch callback, className.
  * @returns The actions row element.
  */
@@ -49,6 +58,7 @@ export function MessageIconActions({
   const day = useCalendarDay()
   const reasonId = useId()
   const { copied, onCopy } = useClipboardCopy(text)
+  const onDownload = () => { downloadTextFile(messageFileName(), text, 'text/markdown') }
   const clockEl = time === undefined ? null : (
     <span className={clock === 'start' ? css.timeStart : css.timeEnd}>
       {formatMessageClock(time, t, day)}
@@ -60,6 +70,11 @@ export function MessageIconActions({
       <Tooltip label={copied ? t('copied') : t('copy')} side="bottom">
         <button type="button" className={css.action} aria-label={copied ? t('copied') : t('copy')} onClick={onCopy}>
           {copied ? <IconCheckOutlineRegular /> : <IconCopyOutlineRegular />}
+        </button>
+      </Tooltip>
+      <Tooltip label={t('message.download')} side="bottom">
+        <button type="button" className={css.action} aria-label={t('message.download')} onClick={onDownload}>
+          <IconDownloadOutlineRegular />
         </button>
       </Tooltip>
       {extraActions}

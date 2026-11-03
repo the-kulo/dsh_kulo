@@ -13,6 +13,7 @@ export type UsageLocaleKey =
   | 'details' | 'tabDaily' | 'tabProvider' | 'tabModel'
   | 'provider' | 'cacheHit' | 'cacheHitDash'
   | 'activity' | 'noData'
+  | 'loading' | 'inputHint' | 'shareOfConsumed'
 
 /** English strings for every usage dashboard locale key. */
 export const en: Record<UsageLocaleKey, string> = {
@@ -66,6 +67,9 @@ export const en: Record<UsageLocaleKey, string> = {
   cacheHitDash: '—',
   activity: 'Activity',
   noData: 'No data',
+  loading: 'Loading…',
+  inputHint: 'Excludes cached',
+  shareOfConsumed: '{share} of consumed tokens',
 }
 
 /** Simplified Chinese strings for every usage dashboard locale key. */
@@ -120,6 +124,9 @@ export const zh: Record<UsageLocaleKey, string> = {
   cacheHitDash: '—',
   activity: '活跃度',
   noData: '暂无数据',
+  loading: '加载中…',
+  inputHint: '不含缓存',
+  shareOfConsumed: '占真实消耗的 {share}',
 }
 
 /** Japanese dashboard strings, with untranslated labels inherited from English. */
@@ -140,6 +147,7 @@ export const ja = { ...en,
   details: '詳細', tabDaily: 'リクエスト詳細', tabProvider: 'プロバイダー別', tabModel: 'モデル別',
   provider: 'プロバイダー', cacheHit: 'キャッシュヒット率', cacheHitDash: '—',
   activity: 'アクティビティ', noData: 'データなし',
+  loading: '読み込み中…', inputHint: 'キャッシュを除く', shareOfConsumed: '消費トークンの {share}',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -160,6 +168,7 @@ export const es = { ...en,
   details: 'Detalles', tabDaily: 'Detalles de solicitudes', tabProvider: 'Por proveedor', tabModel: 'Por modelo',
   provider: 'Proveedor', cacheHit: 'Tasa de caché', cacheHitDash: '—',
   activity: 'Actividad', noData: 'Sin datos',
+  loading: 'Cargando…', inputHint: 'Excluye caché', shareOfConsumed: '{share} de los tokens consumidos',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -180,6 +189,7 @@ export const fr = { ...en,
   details: 'Détails', tabDaily: 'Détails des requêtes', tabProvider: 'Par fournisseur', tabModel: 'Par modèle',
   provider: 'Fournisseur', cacheHit: 'Taux de cache', cacheHitDash: '—',
   activity: 'Activité', noData: 'Aucune donnée',
+  loading: 'Chargement…', inputHint: 'Cache exclu', shareOfConsumed: '{share} des tokens consommés',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -200,6 +210,7 @@ export const de = { ...en,
   details: 'Details', tabDaily: 'Anfragendetails', tabProvider: 'Nach Anbieter', tabModel: 'Nach Modell',
   provider: 'Anbieter', cacheHit: 'Cache-Trefferquote', cacheHitDash: '—',
   activity: 'Aktivität', noData: 'Keine Daten',
+  loading: 'Wird geladen…', inputHint: 'Ohne Cache', shareOfConsumed: '{share} der verbrauchten Tokens',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -220,6 +231,7 @@ export const ru = { ...en,
   details: 'Подробности', tabDaily: 'Детали запросов', tabProvider: 'По провайдерам', tabModel: 'По моделям',
   provider: 'Провайдер', cacheHit: 'Доля попаданий в кэш', cacheHitDash: '—',
   activity: 'Активность', noData: 'Нет данных',
+  loading: 'Загрузка…', inputHint: 'Без учёта кэша', shareOfConsumed: '{share} от потреблённых токенов',
 } satisfies Record<UsageLocaleKey, string>
 
 /** Localized dashboard strings, with untranslated labels inherited from English. */
@@ -240,4 +252,5 @@ export const pt = { ...en,
   details: 'Detalhes', tabDaily: 'Detalhes de solicitações', tabProvider: 'Por provedor', tabModel: 'Por modelo',
   provider: 'Provedor', cacheHit: 'Taxa de cache', cacheHitDash: '—',
   activity: 'Atividade', noData: 'Sem dados',
+  loading: 'Carregando…', inputHint: 'Exclui cache', shareOfConsumed: '{share} dos tokens consumidos',
 } satisfies Record<UsageLocaleKey, string>

@@ -523,12 +523,14 @@ function SessionHoverContent({ node, cwd, now, renderSlot, t }: {
  * @returns the result row.
  */
 export function SearchResultItem({
-  result, currentId, onOpen, onUnarchive, useSessionAccess, t,
+  result, currentId, onOpen, onUnarchive, useSessionAccess, showWorkspace = true, t,
 }: {
   result: SearchResultNode
   currentId: string | undefined
   onOpen: (id: SearchResultNode['id']) => void
   onUnarchive: (id: SearchResultNode['id']) => void
+  /** A dedicated zone is independent of Workspaces, so its results omit the owning-Workspace chip. */
+  showWorkspace?: boolean
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useSessionAccess'>) {
   const selected = result.id === currentId
@@ -569,7 +571,9 @@ export function SearchResultItem({
         )}
       </span>
       <span className={css.searchResultMeta}>
-        <span className={css.searchResultWorkspace}>{result.workspace || t('group.ungrouped')}</span>
+        {showWorkspace && (
+          <span className={css.searchResultWorkspace}>{result.workspace || t('group.ungrouped')}</span>
+        )}
         {result.snippet !== undefined && (
           <span className={css.searchResultSnippet}>{result.snippet}</span>
         )}

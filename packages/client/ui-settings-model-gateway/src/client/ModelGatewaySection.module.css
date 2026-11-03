@@ -31,6 +31,38 @@
   padding-right: 4px;
 }
 
+/* Card system: every group shares the settings material so the page reads as
+   one set of panels instead of free-floating rows. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+}
+
+.cardHint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .toggleRow {
   display: flex;
   align-items: flex-start;
@@ -38,7 +70,6 @@
   gap: 16px;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--dsw-alias-label-primary);
 }
 
 .toggleLabel {
@@ -46,97 +77,179 @@
   min-width: 0;
 }
 
-.hint {
+/* Routing board: three zone columns, each a card listing its routes. */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.zoneColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.zoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.zoneTitle {
   margin: 0;
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.subtitle {
-  margin: 4px 0 0;
-  font-size: 14px;
-  line-height: 22px;
-  font-weight: 500;
-}
-
-.routingScroll {
-  /* The body is a height-capped flex column: a shrinkable scroll box here
-     collapses to nothing once the other rows fill the cap. */
-  flex: none;
-  max-height: 360px;
-  overflow: auto;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-lg);
-}
-
-.routingTable {
-  width: 100%;
-  min-width: 640px;
-  border-collapse: collapse;
-  font-size: 13px;
   line-height: 20px;
-}
-
-.routingTable th {
-  position: sticky;
-  top: 0;
-  padding: 8px 12px;
-  text-align: left;
   font-weight: 500;
+}
+
+.zoneCount {
+  flex: none;
+  min-width: 22px;
+  padding: 0 6px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-xs);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
   color: var(--dsw-alias-label-secondary);
-  background: var(--dsw-alias-bg-layer-3);
-  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
-.routingTable td {
-  padding: 8px 12px;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+.routeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.select,
-.textInput,
-.numberInput {
+.routeCard {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  min-width: 0;
-  padding: 6px 10px;
-  font-size: 14px;
-  border: 0.5px solid var(--dsw-alias-border-l4);
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary);
-}
-
-.select:disabled,
-.textInput:disabled,
-.numberInput:disabled {
-  opacity: 0.6;
-}
-
-.addButton,
-.removeButton,
-.saveButton {
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md);
-  padding: 6px 14px;
-  font-size: 13px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.addButton:disabled,
-.removeButton:disabled,
-.saveButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+@media (hover: hover) {
+  .routeCard:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
-.removeButton {
-  padding: 4px 10px;
+.routeCard:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+
+.routeCard:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.routeCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 1.5px;
+  background: var(--route-tier-color);
+}
+
+.routeCategory {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-interactive-bg-hover);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.routeModel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.routeProvider {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.routeModelId {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zoneEmpty {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.zoneAdd {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .zoneAdd:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.zoneAdd:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+
+.zoneAdd:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Number fields: label, input, and a unit suffix in one compact column. */
 .numberGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -156,6 +269,96 @@
   text-overflow: ellipsis;
 }
 
+.fieldInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fieldUnit {
+  flex: none;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+.catalogHint {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.select,
+.numberInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+}
+
+.fieldInputRow .numberInput {
+  flex: 1;
+  width: auto;
+}
+
+.select:disabled,
+.numberInput:disabled {
+  opacity: 0.6;
+}
+
+/* Route editor modal. */
+.editorFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.modalFooterSpacer {
+  margin-right: auto;
+}
+
+.deleteButton {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-state-error-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .deleteButton:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover-danger);
+  }
+}
+
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .invalid,
 .conflict {
   margin: 0;
@@ -164,17 +367,34 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-.footer {
+/* Save bar sticks to the scroll viewport so the primary action never leaves sight. */
+.saveBar {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 12px;
-  padding-top: 8px;
+  padding: 10px 0;
+  background: var(--dsw-alias-bg-layer-2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.saveState {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@media (max-width: 720px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (pointer: coarse) {
   .select,
-  .textInput,
   .numberInput {
     font-size: 16px;
   }

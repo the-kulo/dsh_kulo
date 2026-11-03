@@ -2,7 +2,7 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsFormScope, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { SettingsFormPathOp, SettingsFormScope, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ModelGatewayLocaleKey } from './locales.ts'
 
 /** Namespace of the Host-owned model gateway settings. */
@@ -59,6 +59,8 @@ export interface ModelGatewaySettingsValue {
   enabled: boolean
   /** User-editable zone × category → model routing table. */
   routing: GatewayRouteEntry[]
+  /** Deployment default routing table used while the user routing is empty. */
+  defaultRouting?: GatewayRouteEntry[]
   /** Expert-tier quota limits. */
   expertQuota: GatewayExpertQuota
   /** Pool-tier token budget allocation. */
@@ -83,6 +85,8 @@ export interface ModelGatewayCardState extends SettingsFormShell {
   catalogProviders: readonly string[]
   /** Live model ids by provider for the routing candidate lists. */
   catalogModels: ReadonlyMap<string, readonly string[]>
+  /** Model-directory request state driving the provider/model candidate dropdowns. */
+  catalogStatus: 'idle' | 'loading' | 'ready' | 'error'
 }
 
 /** Registration-side face for the model gateway card. */
@@ -103,8 +107,8 @@ export interface ModelGatewayCardFace {
   setRouteCategory: (index: number, category: GatewayCategory) => void
   /** Stage the tier for one routing row. */
   setRouteTier: (index: number, tier: GatewayTier) => void
-  /** Append a new default routing row. */
-  addRoute: () => void
+  /** Append a new routing row, optionally pinned to a zone, category, provider, model, and tier. */
+  addRoute: (seed?: { zone?: GatewayZone, category?: GatewayCategory, provider?: string, model?: string, tier?: GatewayTier }) => void
   /** Remove one routing row. */
   removeRoute: (index: number) => void
   /** Stage one expert quota field. */
@@ -143,12 +147,15 @@ export const TIER_OPTIONS: readonly { value: GatewayTier, key: ModelGatewayLocal
   { value: 'local', key: 'tierLocal' },
 ]
 
-const DEFAULT_ROUTE: GatewayRouteEntry = {
-  zone: 'workspace',
-  category: 'simple',
-  provider: 'deepseek',
-  model: 'deepseek-v4-flash',
-  tier: 'pool',
+/** First catalog provider and its first model for a freshly added route, or empty when the directory is unavailable. */
+function catalogFirstRoute(
+  providers: readonly string[],
+  models: ReadonlyMap<string, readonly string[]>,
+): Pick<GatewayRouteEntry, 'provider' | 'model'> {
+  const provider = providers[0]
+  if (provider === undefined) return { provider: '', model: '' }
+  const model = models.get(provider)?.[0]
+  return { provider, model: model ?? '' }
 }
 
 function shallowEqualRouting(left: readonly GatewayRouteEntry[], right: readonly GatewayRouteEntry[]): boolean {
@@ -191,6 +198,7 @@ export class ModelGatewayCardController {
   private conflicted = false
   private disposed = false
   private saveGeneration = 0
+  private routingEdited = false
   private readonly store: SnapshotStore<ModelGatewayCardState>
   private readonly unsubscribe: () => void
   private catalogProviders: readonly string[] = []
@@ -269,7 +277,7 @@ export class ModelGatewayCardController {
       setRouteZone: (index, zone) => { this.setRouteZone(index, zone) },
       setRouteCategory: (index, category) => { this.setRouteCategory(index, category) },
       setRouteTier: (index, tier) => { this.setRouteTier(index, tier) },
-      addRoute: () => { this.addRoute() },
+      addRoute: (seed) => { this.addRoute(seed) },
       removeRoute: (index) => { this.removeRoute(index) },
       setExpertQuota: (field, value) => { this.setExpertQuota(field, value) },
       setTokenBudget: (field, value) => { this.setTokenBudget(field, value) },
@@ -283,7 +291,11 @@ export class ModelGatewayCardController {
   }
 
   private currentRouting(): GatewayRouteEntry[] {
-    return this.scope.getSnapshot().value?.routing.map(route => ({ ...route })) ?? []
+    const value = this.scope.getSnapshot().value
+    if (value === undefined) return []
+    const routing = value.routing ?? []
+    const source = routing.length > 0 ? routing : value.defaultRouting ?? []
+    return source.map(route => ({ ...route }))
   }
 
   private currentExpertQuota(): GatewayExpertQuota {
@@ -316,7 +328,7 @@ export class ModelGatewayCardController {
     if (this.draftRouting === undefined) {
       const snapshot = this.scope.getSnapshot()
       this.draftEnabled = snapshot.value?.enabled ?? true
-      this.draftRouting = snapshot.value?.routing.map(route => ({ ...route })) ?? []
+      this.draftRouting = this.currentRouting()
       this.draftExpertQuota = snapshot.value !== undefined ? { ...snapshot.value.expertQuota } : this.currentExpertQuota()
       this.draftTokenBudget = snapshot.value !== undefined ? { ...snapshot.value.tokenBudget } : this.currentTokenBudget()
       this.draftRevision = snapshot.revision
@@ -339,6 +351,7 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing[index] = { ...routing[index]!, provider }
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -350,6 +363,7 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing[index] = { ...routing[index]!, model }
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -361,6 +375,7 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing[index] = { ...routing[index]!, zone }
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -372,6 +387,7 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing[index] = { ...routing[index]!, category }
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -383,15 +399,30 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing[index] = { ...routing[index]!, tier }
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
 
-  private addRoute(): void {
+  private addRoute(seed?: { zone?: GatewayZone, category?: GatewayCategory, provider?: string, model?: string, tier?: GatewayTier }): void {
     const snapshot = this.scope.getSnapshot()
     if (this.disposed || snapshot.status !== 'ready' || !snapshot.writable || this.saving) return
     this.beginDraft()
-    this.draftRouting!.push({ ...DEFAULT_ROUTE })
+    const first = catalogFirstRoute(this.catalogProviders, this.catalogModels)
+    const route: GatewayRouteEntry = {
+      zone: 'workspace',
+      category: 'simple',
+      provider: first.provider,
+      model: first.model,
+      tier: 'pool',
+    }
+    if (seed?.zone !== undefined) route.zone = seed.zone
+    if (seed?.category !== undefined) route.category = seed.category
+    if (seed?.provider !== undefined) route.provider = seed.provider
+    if (seed?.model !== undefined) route.model = seed.model
+    if (seed?.tier !== undefined) route.tier = seed.tier
+    this.draftRouting!.push(route)
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -403,6 +434,7 @@ export class ModelGatewayCardController {
     const routing = this.draftRouting!
     if (index < 0 || index >= routing.length) return
     routing.splice(index, 1)
+    this.routingEdited = true
     this.failed = false
     this.publish()
   }
@@ -431,6 +463,7 @@ export class ModelGatewayCardController {
     this.draftExpertQuota = undefined
     this.draftTokenBudget = undefined
     this.draftRevision = undefined
+    this.routingEdited = false
     this.failed = false
     this.conflicted = false
   }
@@ -464,12 +497,15 @@ export class ModelGatewayCardController {
     this.failed = false
     this.conflicted = false
     this.publish()
-    await this.scope.mutate([
+    const ops: SettingsFormPathOp[] = [
       { op: 'set', path: ['enabled'], value: desiredEnabled },
-      { op: 'set', path: ['routing'], value: desiredRouting.map(route => ({ ...route })) },
       { op: 'set', path: ['expertQuota'], value: { ...desiredExpertQuota } },
       { op: 'set', path: ['tokenBudget'], value: { ...desiredTokenBudget } },
-    ], this.draftRevision)
+    ]
+    if (this.routingEdited) {
+      ops.push({ op: 'set', path: ['routing'], value: desiredRouting.map(route => ({ ...route })) })
+    }
+    await this.scope.mutate(ops, this.draftRevision)
     if (generation !== this.saveGeneration) return
     const landed = this.currentEnabled() === desiredEnabled
       && shallowEqualRouting(this.currentRouting(), desiredRouting)
@@ -504,6 +540,7 @@ export class ModelGatewayCardController {
       sharesInvalid: !sharesSumTo1(desiredTokenBudget),
       catalogProviders: this.catalogProviders,
       catalogModels: this.catalogModels,
+      catalogStatus: this.catalogStatus,
     }
   }
 

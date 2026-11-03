@@ -20,14 +20,23 @@
  */
 
 import { existsSync } from 'node:fs'
-import { isAbsolute, join, parse, relative, sep } from 'node:path'
+import { realpath } from 'node:fs/promises'
+import { isAbsolute, join, parse, relative, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { ItemRetainer, TextRetainer } from '@deepseek-ai/dsh-output-retention'
 import type { RetainedItems } from '@deepseek-ai/dsh-output-retention'
+import type {} from '@deepseek-ai/dsh-session-projection'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessOutputRead, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { SaveTextSpill, SpillRef } from '@deepseek-ai/dsh-spill'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
+
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionMap {
+    /** Dedicated sidebar zone the Session belongs to; null for ordinary Sessions. */
+    zone: 'quick-qa' | 'secure' | null
+  }
+}
 
 /**
  * Default cap on the complete raw `rg` stdout the tools will parse (the
@@ -79,6 +88,7 @@ export type SearchErrorCode =
   | 'SEARCH_INVALID_PATTERN'
   | 'SEARCH_FAILED'
   | 'SEARCH_RAW_OUTPUT_OVERFLOW'
+  | 'SEARCH_SANDBOX_DENIED'
   | 'SEARCH_ABORTED'
 
 /**
@@ -184,6 +194,72 @@ export function resolveRgPath(): Promise<string> {
 }
 
 /**
+ * Whether the executing Session belongs to the dedicated secure zone. Unknown
+ * (a non-agent call, no `sessionProjections` service, or a composition without
+ * the `zone` projection) reads as not secure, preserving ordinary behavior.
+ * @param ctx - context that may carry the `sessionProjections` service.
+ * @param exec - the tool execution whose owning Session is inspected.
+ * @returns true only for a `secure`-zone Session.
+ */
+function isSecureZone(ctx: Context, exec: ToolExecution): boolean {
+  if (exec.agent === undefined) return false
+  const projections = ctx.get('sessionProjections')
+  if (projections === undefined) return false
+  return projections.snapshot(exec.agent.session, ['zone']).values.zone === 'secure'
+}
+
+/** Whether a canonicalization failure is just a missing path (ENOENT/ENOTDIR). */
+function isMissingPath(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
+
+/** Realpath when possible; a missing path keeps its resolved spelling (no content can leak from a missing root). */
+async function canonicalOrResolved(path: string): Promise<string> {
+  try {
+    return await realpath(path)
+  } catch (error: unknown) {
+    if (isMissingPath(error)) return path
+    throw error
+  }
+}
+
+/** Whether `path` is `root` or a descendant, on canonical spellings. */
+function isUnderPath(path: string, root: string): boolean {
+  const rel = relative(root, path)
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+}
+
+/**
+ * Assert that a secure-zone Session's search root lies under its zone
+ * directory. The search root is the session workdir when `searchPath` is
+ * omitted; an absolute path or a `..`-escaped relative path canonicalizes
+ * (following symlinks) and is denied when it leaves the zone. Non-secure
+ * Sessions pass through unchanged.
+ * @param ctx - the search tool context.
+ * @param exec - the tool execution; supplies the owning Session.
+ * @param workdir - the resolved working directory (the zone directory).
+ * @param searchPath - the raw `path` argument, or undefined for the default root.
+ * @returns after the containment check passes.
+ */
+export async function assertSecureZoneSearchRoot(
+  ctx: Context,
+  exec: ToolExecution,
+  workdir: string,
+  searchPath: string | undefined,
+): Promise<void> {
+  if (!isSecureZone(ctx, exec) || searchPath === undefined) return
+  const root = await canonicalOrResolved(workdir)
+  const candidate = await canonicalOrResolved(isAbsolute(searchPath) ? searchPath : resolve(workdir, searchPath))
+  if (!isUnderPath(candidate, root)) {
+    throw new SearchError(
+      `cannot search "${searchPath}": secure-zone sessions may only search inside their zone directory`,
+      'SEARCH_SANDBOX_DENIED',
+    )
+  }
+}
+
+/**
  * Run the packaged ripgrep binary with a plain argv vector and return its
  * complete raw stdout. The working directory is the calling agent's session
  * current directory when available, else
@@ -217,6 +293,8 @@ export function resolveRgPath(): Promise<string> {
  * @param rawOutputMaxBytes - cap on the complete raw stdout the tool will parse.
  * @param graceMs - the seam's terminate-escalation grace period.
  * @param stderrMaxBytes - cap on the retained stderr diagnostic tail.
+ * @param searchPath - the raw `path` argument (search root), or undefined for
+ *   the default workdir root; forwarded to the secure-zone guard.
  * @returns the complete stdout, the zero-result flag, and the resolved workdir.
  */
 export async function runRipgrep(
@@ -227,6 +305,7 @@ export async function runRipgrep(
   rawOutputMaxBytes: number,
   graceMs: number,
   stderrMaxBytes: number,
+  searchPath?: string,
 ): Promise<RipgrepRun> {
   if (exec.signal.aborted) {
     throw new SearchError(`${toolName} was aborted before completion (tool timeout or caller cancellation)`, 'SEARCH_ABORTED')
@@ -234,6 +313,7 @@ export async function runRipgrep(
   const workdir = exec.agent === undefined
     ? process.cwd()
     : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
+  await assertSecureZoneSearchRoot(ctx, exec, workdir, searchPath)
   let handle: SubprocessHandle
   try {
     handle = ctx.subprocess.spawn({

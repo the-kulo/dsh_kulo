@@ -16,6 +16,7 @@ import type { SessionBinding, SessionListState } from '../sessions/service.ts'
 import type { SessionFace } from './session.ts'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { SessionReferenceSource } from '../index.ts'
+import type { SessionZone } from '../../types.ts'
 
 export type { AgentContext } from '../scope.ts'
 
@@ -94,6 +95,7 @@ export interface ISessions {
     quick?: boolean
     sessionId?: SessionId
     agentPreset?: string
+    zone?: SessionZone
   }): Promise<SessionId>
   /**
    * Remove one ordinary Session from every Workspace it is listed in without

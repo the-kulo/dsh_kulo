@@ -35,7 +35,6 @@ export {
   ModelGatewayRouteEntrySchema,
   ModelGatewayExpertQuotaSchema,
   ModelGatewayTokenBudgetSchema,
-  DEFAULT_ROUTING,
   DEFAULT_EXPERT_QUOTA,
   DEFAULT_TOKEN_BUDGET,
 } from './settings.ts'

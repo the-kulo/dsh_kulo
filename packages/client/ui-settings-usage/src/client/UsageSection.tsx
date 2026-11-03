@@ -4,7 +4,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconGaugeOutlineRegular, IconInfoOutlineRegular, IconWarningTriangleOutlineRegular, StateDot,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UsageSummary, UsageSummaryRequest } from '../types.ts'
 import { shanghaiDay } from '../usage.ts'
@@ -37,6 +39,16 @@ function isDay(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
 }
 
+/** Centered light empty/loading/error surface: an icon plus one line of copy. */
+function StateBlock({ icon, children }: { readonly icon: React.ReactNode; readonly children: React.ReactNode }): React.ReactElement {
+  return (
+    <div className={css.stateBlock}>
+      <span className={css.stateIcon}>{icon}</span>
+      <div className={css.stateBody}>{children}</div>
+    </div>
+  )
+}
+
 /** Render the usage Settings section. */
 export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElement {
   const today = shanghaiDay(Date.now())
@@ -67,6 +79,10 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
     new Intl.DateTimeFormat(locale, {
       timeZone: 'Asia/Shanghai', year: 'numeric', month: 'short', day: 'numeric', weekday: 'short',
     }).format(new Date(`${value}T00:00:00.000Z`)), [locale])
+  const formatAxisDate = useCallback((value: string): string =>
+    new Intl.DateTimeFormat(locale, {
+      timeZone: 'Asia/Shanghai', month: 'short', day: 'numeric',
+    }).format(new Date(`${value}T00:00:00.000Z`)), [locale])
   const monthLabel = useCallback((value: string): string =>
     new Intl.DateTimeFormat(locale, {
       timeZone: 'Asia/Shanghai', month: 'short',
@@ -96,6 +112,11 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
     setCustomTo(to ?? '')
   }
 
+  function retry(): void {
+    setState({ status: 'loading', ...snapshot === undefined ? {} : { snapshot } })
+    setRevision(value => value + 1)
+  }
+
   return (
     <section className={css.section} aria-busy={state.status === 'loading'}>
       <header className={css.header}>
@@ -112,26 +133,42 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
       />
 
       {state.status === 'error'
+        ? (snapshot === undefined
+          ? (
+            <StateBlock icon={<IconWarningTriangleOutlineRegular size={22} className={css.stateIconError} />}>
+              <p className={css.stateText}>{t('loadFailed')}</p>
+              <Button size="sm" variant="outline" onClick={retry}>{t('retry')}</Button>
+            </StateBlock>
+          )
+          : (
+            <div className={`${css.banner} ${css.bannerError}`} role="alert">
+              <IconWarningTriangleOutlineRegular size={16} className={css.bannerIcon} />
+              <span className={css.bannerText}>{t('loadFailed')}</span>
+              <Button size="sm" variant="outline" onClick={retry}>{t('retry')}</Button>
+            </div>
+          ))
+        : null}
+      {state.status === 'loading' && snapshot === undefined
         ? (
-          <div className={css.error} role="alert">
-            <span>{t('loadFailed')}</span>
-            <Button size="sm" variant="outline" onClick={() => {
-              setState({ status: 'loading', ...snapshot === undefined ? {} : { snapshot } })
-              setRevision(value => value + 1)
-            }}>{t('retry')}</Button>
+          <StateBlock icon={<StateDot state="ongoing" size={20} />}>
+            <p className={css.stateText}>{t('loading')}</p>
+          </StateBlock>
+        )
+        : null}
+      {snapshot?.incomplete === true
+        ? (
+          <div className={`${css.banner} ${css.bannerWarn}`}>
+            <IconInfoOutlineRegular size={16} className={css.bannerIcon} />
+            <span className={css.bannerText}>{t('incomplete')}</span>
           </div>
         )
         : null}
-      {state.status === 'loading' && snapshot === undefined
-        ? <div className={css.loading}><StateDot state="ongoing" size={24} /></div>
-        : null}
-      {snapshot?.incomplete === true ? <p className={css.warning}>{t('incomplete')}</p> : null}
 
       {snapshot !== undefined && !empty
         ? (
           <>
             <UsageSummaryCard totals={rangeTotals} t={t} format={format} formatPercent={formatPercent} />
-            <UsageTrendChart days={scopedDays} t={t} format={format} formatDate={formatDate} />
+            <UsageTrendChart days={scopedDays} t={t} format={format} formatDate={formatDate} formatAxisDate={formatAxisDate} />
             <UsageDetailTabs days={scopedDays} t={t} format={format} formatDate={formatDate} formatPercent={formatPercent} />
             <div className={css.activitySection}>
               <h3 className={css.sectionHeading}>{t('activity')}</h3>
@@ -152,10 +189,10 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
 
       {state.status !== 'loading' && empty
         ? (
-          <div className={css.empty}>
-            <strong>{t('emptyTitle')}</strong>
-            <p>{t('emptyDescription')}</p>
-          </div>
+          <StateBlock icon={<IconGaugeOutlineRegular size={22} />}>
+            <strong className={css.stateTitle}>{t('emptyTitle')}</strong>
+            <p className={css.stateText}>{t('emptyDescription')}</p>
+          </StateBlock>
         )
         : null}
 
@@ -172,7 +209,7 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
               ))}
             </div>
             <div className={css.tableWrap}>
-              <table>
+              <table className={css.table}>
                 <thead>
                   <tr>
                     <th>{t('model')}</th>

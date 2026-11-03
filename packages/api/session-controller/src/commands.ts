@@ -17,7 +17,7 @@ import {
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
 import type {} from '@deepseek-ai/dsh-typert-registry'
@@ -55,7 +55,17 @@ import type {
   SessionUpdateQueueRequest,
   SessionUpdateQueueValue,
   SessionRequestId,
+  SessionZone,
 } from './types.ts'
+import { secureLocalRoutes, type SecureZonePolicy } from './secure-zone.ts'
+
+/** Project directories the dedicated sidebar zones own. */
+export interface ZoneDirectories {
+  /** Quick-answer zone project directory. */
+  readonly quickQaDir: string
+  /** Secure zone project directory. */
+  readonly secureDir: string
+}
 
 type PromptContentCandidate =
   | SessionPromptRequest['content'][number]
@@ -92,11 +102,15 @@ export class SessionCommandController {
    * @param ctx - Host context carrying Agent, model, attachment, title, and Workspace services.
    * @param agents - sole owner of create, resume, and Agent composition.
    * @param defaultCwd - project directory used when create names neither a Workspace nor a cwd.
+   * @param secure - secure-zone model and tool boundary policy.
+   * @param zones - project directories the dedicated zones own.
    */
   constructor(
     private readonly ctx: Context,
     private readonly agents: ApiSessionAgentController,
     private readonly defaultCwd: string,
+    private readonly secure: SecureZonePolicy,
+    private readonly zones: ZoneDirectories,
   ) {}
 
   /**
@@ -104,6 +118,9 @@ export class SessionCommandController {
    * blank Session while it is an unarchived member of the requested Workspace.
    * A `quick` Session uses the Host default directory as durable metadata; the
    * Host never joins it to a Workspace or reuses a Workspace-listed Session.
+   * A dedicated-zone Session owns its zone directory as cwd regardless of
+   * placement: a quick-qa Session always runs `quick`, while a secure Session
+   * runs `quick` or joins the named Workspace.
    * @param request - optional blank Session to reuse, location, and Agent preset.
    * @returns the created or reused Session identity, its preset when configured, and its Workspace membership.
    */
@@ -114,6 +131,12 @@ export class SessionCommandController {
     if (request.quick === true && (request.workspaceId !== undefined || request.cwd !== undefined)) {
       throw new RemoteError('gateway/bad-request', 'session.create accepts quick without workspaceId or cwd', {})
     }
+    if (request.zone === 'quick-qa' && request.quick !== true) {
+      throw new RemoteError('gateway/bad-request', 'a quick-qa session requires quick: true', {})
+    }
+    if (request.zone === 'secure' && request.quick !== true && request.workspaceId === undefined) {
+      throw new RemoteError('gateway/bad-request', 'a secure session requires quick: true or a workspaceId', {})
+    }
     let workspace: Workspace | undefined
     if (request.workspaceId !== undefined) {
       workspace = this.ctx.workspaceRegistry.get(request.workspaceId)
@@ -123,13 +146,15 @@ export class SessionCommandController {
         })
       }
     }
-    const cwd = request.quick === true ? this.defaultCwd : workspace?.path ?? request.cwd ?? this.defaultCwd
+    const cwd = this.zoneDirectory(request.zone)
+      ?? (request.quick === true ? this.defaultCwd : workspace?.path ?? request.cwd ?? this.defaultCwd)
     let created: ApiSessionCreated
     try {
       created = await this.agents.createSession({
         ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
         cwd,
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
+        ...(request.zone === undefined ? {} : { zone: request.zone }),
         reusable: (sessionId) => {
           if (request.quick === true) {
             return !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId)
@@ -143,9 +168,15 @@ export class SessionCommandController {
       this.rejectCreation(error)
     }
     const sessionId = created.agent.id
+    if (request.zone !== undefined) {
+      created.agent.session.append('session/zone', { zone: request.zone })
+    }
     if (workspace !== undefined) {
       try {
-        await workspace.attachSession(sessionId)
+        await workspace.attachSession(
+          sessionId,
+          request.zone === 'secure' ? { independentCwd: true } : undefined,
+        )
       } catch (error) {
         throw new RemoteError(
           'session/workspace-attach-failed',
@@ -157,6 +188,7 @@ export class SessionCommandController {
     return {
       sessionId,
       ...(created.agentPreset === undefined ? {} : { agentPreset: created.agentPreset }),
+      ...(request.zone === undefined ? {} : { zone: request.zone }),
       workspaceId: workspace?.id
         ?? (request.sessionId === undefined ? null : this.workspaceOf(sessionId)?.id ?? null),
     }
@@ -165,6 +197,13 @@ export class SessionCommandController {
   /** The Workspace that lists the Session, or undefined when none does. */
   private workspaceOf(sessionId: SessionId): Workspace | undefined {
     return this.ctx.workspaceRegistry.list().find(workspace => workspace.sessionIds.includes(sessionId))
+  }
+
+  /** The project directory one dedicated zone owns, or undefined for a non-zone create. */
+  private zoneDirectory(zone: SessionZone | undefined): string | undefined {
+    if (zone === 'quick-qa') return this.zones.quickQaDir
+    if (zone === 'secure') return this.zones.secureDir
+    return undefined
   }
 
   /**
@@ -195,6 +234,7 @@ export class SessionCommandController {
    */
   async selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
     const agent = await this.resolveAgent(request.sessionId)
+    this.assertZoneModel(agent.session, request)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
         await this.requireModel(request)
@@ -402,6 +442,23 @@ export class SessionCommandController {
       throw new RemoteError('session/model-unavailable', 'Select an available model before sending a message.',
         { provider: selection.provider, model: selection.model })
     }
+  }
+
+  /** Refuse a model selection outside the secure-zone local allowlist. */
+  private assertZoneModel(session: Session, request: SessionSelectModelRequest): void {
+    if (this.zoneOf(session) !== 'secure') return
+    const allowed = secureLocalRoutes(this.ctx, this.secure)
+    if (!allowed.some(route => route.provider === request.provider && route.model === request.model)) {
+      throw new RemoteError('session/model-unavailable',
+        'Only the secure-zone local model is available for this session.',
+        { provider: request.provider, model: request.model })
+    }
+  }
+
+  /** Read the current zone from a live Session's projection. */
+  private zoneOf(session: Session): SessionZone | null {
+    const value = this.ctx.sessionProjections.snapshot(session, ['zone']).values.zone
+    return value ?? null
   }
 
   /**

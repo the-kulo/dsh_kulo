@@ -113,11 +113,15 @@ export interface Workspace {
    * live or persisted
    * header cwd must resolve to an existing directory equal to {@link path};
    * unknown ids, missing or invalid cwd values, and mismatches reject without
-   * writing.
+   * writing. `independentCwd` skips the cwd validation for a dedicated-zone
+   * Session that owns its own project directory and is listed here only for
+   * grouping.
    * @param sessionId - The session to record.
+   * @param options - `independentCwd` accounts the Session under this
+   *   Workspace path without requiring its cwd to equal it.
    * @returns resolution after durability.
    */
-  attachSession(sessionId: SessionId): Promise<void>
+  attachSession(sessionId: SessionId, options?: { readonly independentCwd?: boolean }): Promise<void>
 
   /**
    * Move an accounted session within the manual order, DOM-insertBefore-like:

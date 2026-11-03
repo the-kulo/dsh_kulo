@@ -19,7 +19,9 @@
     "src/list.ts",
     "src/media-references.ts",
     "src/archived-session-gate.ts",
-    "src/skill-catalog.ts"
+    "src/skill-catalog.ts",
+    "src/zone.ts",
+    "src/secure-zone.ts"
   ],
   "references": [
     {
@@ -36,6 +38,9 @@
     },
     {
       "path": "../../core/scope"
+    },
+    {
+      "path": "../../core/tools"
     },
     {
       "path": "../../core/session"

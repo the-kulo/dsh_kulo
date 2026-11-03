@@ -12,6 +12,7 @@ export type BuiltInPresetCopyKey =
   | 'presetStandardName' | 'presetStandardDescription'
   | 'presetDispatchName' | 'presetDispatchDescription'
   | 'presetTeamName' | 'presetTeamDescription'
+  | 'presetDiscussionRoomName' | 'presetDiscussionRoomDescription'
   | 'presetPtcName' | 'presetPtcDescription'
   | 'presetMinimalName' | 'presetMinimalDescription'
   | 'presetCordisName' | 'presetCordisDescription'
@@ -45,6 +46,7 @@ const BUILT_IN_PRESET_KEYS: Readonly<Partial<Record<string, PresetLocaleKeys>>> 
   standard: { name: 'presetStandardName', description: 'presetStandardDescription' },
   dispatch: { name: 'presetDispatchName', description: 'presetDispatchDescription' },
   team: { name: 'presetTeamName', description: 'presetTeamDescription' },
+  'discussion-room': { name: 'presetDiscussionRoomName', description: 'presetDiscussionRoomDescription' },
   ptc: { name: 'presetPtcName', description: 'presetPtcDescription' },
   minimal: { name: 'presetMinimalName', description: 'presetMinimalDescription' },
   cordis: { name: 'presetCordisName', description: 'presetCordisDescription' },

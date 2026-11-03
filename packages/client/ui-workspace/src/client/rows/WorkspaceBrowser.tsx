@@ -935,6 +935,7 @@ function SearchResults({
               onOpen={open}
               onUnarchive={onUnarchive}
               useSessionAccess={useSessionAccess}
+              showWorkspace={restrictTo === undefined}
               t={t}
             />
           ))}

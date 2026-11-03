@@ -60,6 +60,8 @@ export interface ModelGatewayConfigShape {
   readonly enabled: Volatile<boolean>
   /** Initial routing table inherited when the user document does not override it. */
   readonly routing: Volatile<ModelGatewayRouteEntry[]>
+  /** Deployment default routing table used when the user document carries no routing. */
+  readonly defaultRouting: Volatile<ModelGatewayRouteEntry[]>
   /** Initial expert quota inherited when the user document does not override it. */
   readonly expertQuota: Volatile<ModelGatewayExpertQuota>
   /** Initial token budget inherited when the user document does not override it. */
@@ -113,35 +115,42 @@ export const ModelGatewayTokenBudgetSchema: z<ModelGatewayTokenBudget> = z.objec
   reserveShare: z.number().min(0).max(1),
 })
 
-const LOCAL_PROVIDER = 'local'
 const LKL_MODEL = 'LKL-GLM-5.2-FP8'
-const POOL_PROVIDER = 'deepseek'
 const FLASH_MODEL = 'deepseek-v4-flash'
 const PRO_MODEL = 'deepseek-v4-pro'
-const K3_PROVIDER = 'k3'
 const K3_MODEL = 'k3'
 
-/** Default routing table mirroring the current routing.ts rules. */
-export const DEFAULT_ROUTING: readonly ModelGatewayRouteEntry[] = [
-  { zone: 'secure', category: 'sensitive', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'secure', category: 'test', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'workspace', category: 'sensitive', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'workspace', category: 'test', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'workspace', category: 'backend', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'workspace', category: 'sql', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'workspace', category: 'release', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'workspace', category: 'simple', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'workspace', category: 'frontend', provider: K3_PROVIDER, model: K3_MODEL, tier: 'pool' },
-  { zone: 'workspace', category: 'reasoning', provider: POOL_PROVIDER, model: PRO_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'sensitive', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'quick-qa', category: 'test', provider: LOCAL_PROVIDER, model: LKL_MODEL, tier: 'local' },
-  { zone: 'quick-qa', category: 'backend', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'frontend', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'sql', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'release', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'reasoning', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
-  { zone: 'quick-qa', category: 'simple', provider: POOL_PROVIDER, model: FLASH_MODEL, tier: 'pool' },
+/**
+ * Zone × category × tier skeleton for the conservative fallback routing table.
+ * The provider is resolved at runtime from the live model directory; these
+ * model ids stay as the historical shape so a deployment without an explicit
+ * `defaultRouting` keeps one route per zone × category pair.
+ */
+const FALLBACK_ROUTING_SHAPE: readonly Omit<ModelGatewayRouteEntry, 'provider'>[] = [
+  { zone: 'secure', category: 'sensitive', model: LKL_MODEL, tier: 'local' },
+  { zone: 'secure', category: 'test', model: LKL_MODEL, tier: 'local' },
+  { zone: 'workspace', category: 'sensitive', model: LKL_MODEL, tier: 'local' },
+  { zone: 'workspace', category: 'test', model: LKL_MODEL, tier: 'local' },
+  { zone: 'workspace', category: 'backend', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'workspace', category: 'sql', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'workspace', category: 'release', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'workspace', category: 'simple', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'workspace', category: 'frontend', model: K3_MODEL, tier: 'pool' },
+  { zone: 'workspace', category: 'reasoning', model: PRO_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'sensitive', model: LKL_MODEL, tier: 'local' },
+  { zone: 'quick-qa', category: 'test', model: LKL_MODEL, tier: 'local' },
+  { zone: 'quick-qa', category: 'backend', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'frontend', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'sql', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'release', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'reasoning', model: FLASH_MODEL, tier: 'pool' },
+  { zone: 'quick-qa', category: 'simple', model: FLASH_MODEL, tier: 'pool' },
 ]
+
+/** Minimal structural face of the optional LLM directory used by the conservative fallback. */
+interface LlmDirectory {
+  listProviders(): readonly { readonly id: string }[]
+}
 
 /** Default expert quota limits. */
 export const DEFAULT_EXPERT_QUOTA: ModelGatewayExpertQuota = {
@@ -198,7 +207,8 @@ export function assertValidRouteEntry(entry: ModelGatewayRouteEntry): void {
 export class ModelGatewayConfig extends Service {
   static Config = z.object({
     enabled: z.boolean().default(true).volatile(),
-    routing: z.array(ModelGatewayRouteEntrySchema).default([...DEFAULT_ROUTING]).volatile(),
+    routing: z.array(ModelGatewayRouteEntrySchema).default([]).volatile(),
+    defaultRouting: z.array(ModelGatewayRouteEntrySchema).default([]).volatile().hidden(true),
     expertQuota: ModelGatewayExpertQuotaSchema.default({ ...DEFAULT_EXPERT_QUOTA }).volatile(),
     tokenBudget: ModelGatewayTokenBudgetSchema.default({ ...DEFAULT_TOKEN_BUDGET }).volatile(),
   })
@@ -213,7 +223,7 @@ export class ModelGatewayConfig extends Service {
    */
   current(): ModelGatewaySettings {
     const enabled = this.config.enabled.get()
-    const routing = this.config.routing.get()
+    const routing = this.effectiveRouting()
     const expertQuota = this.config.expertQuota.get()
     const tokenBudget = this.config.tokenBudget.get()
     for (const entry of routing) assertValidRouteEntry(entry)
@@ -223,6 +233,33 @@ export class ModelGatewayConfig extends Service {
       expertQuota: { ...expertQuota },
       tokenBudget: { ...tokenBudget },
     }
+  }
+
+  /**
+   * Resolve the routing table the gateway actually runs: the user override when
+   * present, otherwise the deployment `defaultRouting`, otherwise the conservative
+   * catalog-derived fallback.
+   * @returns the effective zone × category routing table.
+   */
+  private effectiveRouting(): readonly ModelGatewayRouteEntry[] {
+    const configured = this.config.routing.get()
+    if (configured.length > 0) return configured
+    const defaults = this.config.defaultRouting.get()
+    if (defaults.length > 0) return defaults
+    return this.fallbackRouting()
+  }
+
+  /**
+   * Build the conservative fallback: the first live model-directory provider with
+   * the historical model ids. Returns empty when no provider is registered, since
+   * there is then no directory to resolve a provider from.
+   * @returns the fallback routing table, or an empty table with no live provider.
+   */
+  private fallbackRouting(): readonly ModelGatewayRouteEntry[] {
+    const llm: LlmDirectory | undefined = this.ctx.get('llm')
+    const firstProvider = llm?.listProviders()[0]?.id
+    if (firstProvider === undefined) return []
+    return FALLBACK_ROUTING_SHAPE.map(entry => ({ ...entry, provider: firstProvider }))
   }
 }
 

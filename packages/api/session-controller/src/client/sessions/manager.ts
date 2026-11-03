@@ -11,6 +11,7 @@ import type {
   SessionDeleteValue,
   SessionRenameValue,
   SessionSummary,
+  SessionZone,
 } from '../../types.ts'
 import { mergeOrderedBaseline } from '../ordered-baseline.ts'
 import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
@@ -519,11 +520,13 @@ export class SessionManager {
       quick?: boolean
       sessionId?: SessionId
       agentPreset?: string
+      zone?: SessionZone
     } = {},
   ): Promise<RemoteResult<{ sessionId: SessionId; workspaceId: WorkspaceId | null }>> {
     const shared = {
       ...(opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }),
       ...(opts.agentPreset === undefined ? {} : { agentPreset: opts.agentPreset }),
+      ...(opts.zone === undefined ? {} : { zone: opts.zone }),
     }
     const payload = opts.workspaceId !== undefined
       ? { workspaceId: opts.workspaceId, ...shared }

@@ -26,7 +26,7 @@ import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type {
   SidebarZoneKey, WorkspaceViewStoreActions, WorkspaceViewStoreInstance, ZoneListViewState,
 } from './stores.ts'
-import type { ZonePreset } from './tree.ts'
+import { zoneOfSession, type ZonePreset } from './tree.ts'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 
 interface MainSelection {
@@ -34,10 +34,12 @@ interface MainSelection {
   readonly subagentAddress?: SubagentAddress
 }
 
-/** Content preparation and Agent preset for the Session a Workspace flow opens. */
+/** Content preparation, Agent preset, and zone for the Session a Workspace flow opens. */
 export interface StartSessionOptions extends DraftInitializationOptions {
   /** Agent preset the Session runs; the Host default when omitted. */
   readonly agentPreset?: string
+  /** Dedicated sidebar zone the Session joins; orthogonal to the agent preset. */
+  readonly zone?: ZonePreset
 }
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
@@ -84,7 +86,7 @@ export interface UiWorkspace {
   openWorkspace(
     workspaceId: WorkspaceId,
     beforeOpen?: (sessionId: SessionId) => void,
-    options?: Pick<StartSessionOptions, 'agentPreset'>,
+    options?: Pick<StartSessionOptions, 'agentPreset' | 'zone'>,
   ): Promise<void>
   /**
    * Fork a Session without changing the current selection.
@@ -107,7 +109,7 @@ export interface UiWorkspace {
    * @param options - choices for the created or reused Session.
    * @returns a Session already addressable through the Session Controller.
    */
-  connectWorkspace(workspaceId: WorkspaceId, options?: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId>
+  connectWorkspace(workspaceId: WorkspaceId, options?: Pick<StartSessionOptions, 'agentPreset' | 'zone'>): Promise<SessionId>
   /**
    * Open the Workspace blank `connectWorkspace` resolves, so New Session returns to that blank's
    * unsent draft. A creation the Host refuses is shown through the Workspace notice and leaves the
@@ -118,11 +120,10 @@ export interface UiWorkspace {
    */
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void
   /**
-   * Create and open one dedicated-zone conversation. Quick answers always
-   * creates an independent `quick: true` Session under the quick-qa preset;
-   * the secure zone reuses the current or most recent Workspace when one
-   * exists, else falls back to a `quick: true` secure Session. A refused
-   * creation is shown through the Workspace notice.
+   * Create and open one dedicated-zone conversation. A quick-qa Session always
+   * runs `quick: true` and never joins a Workspace; a secure Session connects
+   * the current or most recent Workspace when one exists, otherwise it runs
+   * `quick: true`. A refused creation is shown through the Workspace notice.
    * @param zone - the dedicated zone whose new conversation is requested.
    */
   startZoneSession(zone: ZonePreset): void
@@ -201,9 +202,10 @@ export class DirectoryBrowseError extends Error {
 
 /** Implements Workspace archive and directory UI operations. */
 class UiWorkspaceService extends Service implements UiWorkspace {
-  /** The latest in-flight connection per Workspace; a request joins it only when both name the same preset. */
+  /** The latest in-flight connection per Workspace; a request joins it only when both name the same preset and zone. */
   private readonly connecting = new Map<WorkspaceId, {
     readonly agentPreset: string | undefined
+    readonly zone: ZonePreset | undefined
     readonly attempt: Promise<SessionId>
   }>()
   private readonly lifetime = new AbortController()
@@ -246,7 +248,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }, 'ui-workspace: Workspace navigation policy')
   }
 
-  connectWorkspace(workspaceId: WorkspaceId, options: Pick<StartSessionOptions, 'agentPreset'> = {}): Promise<SessionId> {
+  connectWorkspace(workspaceId: WorkspaceId, options: Pick<StartSessionOptions, 'agentPreset' | 'zone'> = {}): Promise<SessionId> {
     return this.connectBlank(workspaceId, options)
   }
 
@@ -280,11 +282,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   /**
-   * @param reuse - preset for the reused or created blank.
+   * @param reuse - preset and zone for the reused or created blank.
    */
   private async connectBlank(
     workspaceId: WorkspaceId,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
+    reuse: Pick<StartSessionOptions, 'agentPreset' | 'zone'>,
   ): Promise<SessionId> {
     const workspace = this.workspaces.list.getSnapshot().items
       .find(item => item.workspaceId === workspaceId)
@@ -292,30 +294,37 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       throw new Error(`uiWorkspace.connectWorkspace: unknown workspace ${workspaceId}`)
     }
     const inflight = this.connecting.get(workspaceId)
-    if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset) return inflight.attempt
+    if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset && inflight.zone === reuse.zone) {
+      return inflight.attempt
+    }
 
     const attempt = this.createInWorkspace(workspace, reuse).finally(() => {
       if (this.connecting.get(workspaceId)?.attempt === attempt) this.connecting.delete(workspaceId)
     })
-    this.connecting.set(workspaceId, { agentPreset: reuse.agentPreset, attempt })
+    this.connecting.set(workspaceId, { agentPreset: reuse.agentPreset, zone: reuse.zone, attempt })
     return attempt
   }
 
-  /** Name the first reusable member blank; a requested preset also skips blanks listing another preset. */
-  private createInWorkspace(workspace: WorkspaceView, options: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
+  /** Name the first reusable member blank; a requested preset or zone also skips blanks listing another one. */
+  private createInWorkspace(workspace: WorkspaceView, options: Pick<StartSessionOptions, 'agentPreset' | 'zone'>): Promise<SessionId> {
     const archived = this.workspaces.list.getSnapshot().archivedSessionIds
     const sessions = this.sessions.list.getSnapshot()
     const blank = sessions.ids.find((id) => {
       const summary = sessions.byId[id]
-      const listed = summary?.projectionValues?.agentPreset
-      return summary !== undefined && summary.blank && summary.cwd === workspace.path
-        && workspace.sessionIds.includes(id) && !archived.includes(id)
-        && (options.agentPreset === undefined || typeof listed !== 'string' || listed === options.agentPreset)
+      if (summary === undefined || !summary.blank || summary.cwd !== workspace.path) return false
+      if (!workspace.sessionIds.includes(id) || archived.includes(id)) return false
+      if (options.agentPreset !== undefined) {
+        const listed = summary.projectionValues?.agentPreset
+        if (typeof listed === 'string' && listed !== options.agentPreset) return false
+      }
+      if (options.zone !== undefined && zoneOfSession(summary) !== options.zone) return false
+      return true
     })
     return this.createNamed({
       workspaceId: workspace.workspaceId,
       ...(blank === undefined ? {} : { sessionId: blank }),
       ...(options.agentPreset === undefined ? {} : { agentPreset: options.agentPreset }),
+      ...(options.zone === undefined ? {} : { zone: options.zone }),
     })
   }
 
@@ -328,6 +337,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     readonly workspaceId: WorkspaceId
     readonly sessionId?: SessionId
     readonly agentPreset?: string
+    readonly zone?: ZonePreset
   }): Promise<SessionId> {
     const sessionId = await this.sessions.create(request)
     const named = request.sessionId
@@ -373,7 +383,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   openWorkspace(
     workspaceId: WorkspaceId,
     beforeOpen?: (sessionId: SessionId) => void,
-    options: Pick<StartSessionOptions, 'agentPreset'> = {},
+    options: Pick<StartSessionOptions, 'agentPreset' | 'zone'> = {},
   ): Promise<void> {
     return this.openWorkspaceSession(workspaceId, beforeOpen, options)
   }
@@ -381,7 +391,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private async openWorkspaceSession(
     workspaceId: WorkspaceId,
     beforeOpen: ((sessionId: SessionId) => void) | undefined,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
+    reuse: Pick<StartSessionOptions, 'agentPreset' | 'zone'>,
   ): Promise<void> {
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     let sessionId: SessionId
@@ -411,7 +421,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void {
-    const { agentPreset, ...draft } = options ?? {}
+    const { agentPreset, zone, ...draft } = options ?? {}
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
       || (draftOptions.whenDraftExists ?? (draftOptions.clearPreviousDraft === true ? 'replace' : 'keep')) === 'replace')
@@ -437,7 +447,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       const binding = this.sessions.binding(id)
       if (binding === undefined) this.draftPreparationFailed()
       this.prepareDraft(binding, draftOptions)
-    } : undefined, agentPreset === undefined ? {} : { agentPreset })
+    } : undefined, {
+      ...(agentPreset === undefined ? {} : { agentPreset }),
+      ...(zone === undefined ? {} : { zone }),
+    })
     void opening.catch(
       (reason: unknown) => { console.warn('new session failed:', reason) },
     )
@@ -451,32 +464,27 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   private async openZoneSession(zone: ZonePreset): Promise<void> {
-    if (zone === 'quick-qa') {
-      const sessionId = await this.sessions.create({ quick: true, agentPreset: 'quick-qa' })
-      this.openSession(sessionId)
-      return
-    }
-    const workspaceId = this.currentOrRecentWorkspaceId()
-    if (workspaceId === undefined) {
-      const sessionId = await this.sessions.create({ quick: true, agentPreset: 'secure' })
-      this.openSession(sessionId)
-      return
-    }
-    const sessionId = await this.connectBlank(workspaceId, { agentPreset: 'secure' })
+    const sessionId = zone === 'secure'
+      ? await this.openSecureSession()
+      : await this.sessions.create({ quick: true, zone })
     this.openSession(sessionId)
   }
 
-  private currentOrRecentWorkspaceId(): WorkspaceId | undefined {
-    const workspace = this.workspaces.list.getSnapshot()
+  /** Create a secure Session in the current or most recent Workspace, or a quick secure Session when none is ready. */
+  private async openSecureSession(): Promise<SessionId> {
+    const workspaces = this.workspaces.list.getSnapshot()
     const sessions = this.sessions.list.getSnapshot()
     const current = this.mainReference?.sessionId
     const currentWorkspaceId = current === undefined
       ? undefined
-      : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
-    const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
-      ? recentWorkspace(workspace.items, sessions.byId)
+      : workspaces.items.find(item => item.sessionIds.includes(current))?.workspaceId
+    const recent = workspaces.phase === 'ready' && sessions.phase === 'ready'
+      ? recentWorkspace(workspaces.items, sessions.byId)
       : undefined
-    return currentWorkspaceId ?? recent
+    const target = currentWorkspaceId ?? recent
+    return target === undefined
+      ? this.sessions.create({ quick: true, zone: 'secure' })
+      : this.connectWorkspace(target, { zone: 'secure' })
   }
 
   private prepareDraft(binding: SessionBinding, options: DraftInitializationOptions): void {

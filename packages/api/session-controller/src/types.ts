@@ -24,6 +24,11 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
      * it, so a list row would repeat one host-wide fact.
      */
     imageLimits: SessionProjectionSummaryExcluded<ImageAttachmentLimits>
+    /**
+     * Dedicated sidebar zone the Session belongs to, written at creation as a
+     * `session/zone` log record. Null for ordinary and legacy preset Sessions.
+     */
+    zone: SessionZone | null
   }
 }
 
@@ -133,6 +138,8 @@ export interface ModelCatalog {
   readonly routableProviders: readonly string[]
   readonly groups: readonly ModelProviderGroup[]
   readonly failures: readonly ModelCatalogFailure[]
+  /** Secure-zone local allowlist (`provider/model` pairs) used to narrow a secure Session's selector. */
+  readonly secureLocalModels: readonly ModelSelection[]
 }
 
 /** One client-requested mutation of a still-pending queue item. */
@@ -274,6 +281,13 @@ export interface SessionCreateRequest {
   readonly sessionId?: SessionId
   /** Preset the Session runs, replacing a reused Session's recorded preset; the configured default when omitted. */
   readonly agentPreset?: string
+  /**
+   * Dedicated sidebar zone the Session joins, orthogonal to `agentPreset`.
+   * A quick-qa Session requires `quick: true` and never joins a Workspace.
+   * A secure Session runs `quick` or joins the named Workspace; either way the
+   * Host assigns the zone's own project directory as its durable cwd.
+   */
+  readonly zone?: SessionZone
 }
 
 /** Session creation response value. */
@@ -282,6 +296,8 @@ export interface SessionCreateValue {
   readonly sessionId: SessionId
   /** Preset the Session runs, when the deployment composes a preset roster. */
   readonly agentPreset?: string
+  /** Dedicated sidebar zone the Session was created into, when requested. */
+  readonly zone?: SessionZone
   /** Workspace the Session is listed in, or null when none lists it. */
   readonly workspaceId: WorkspaceId | null
 }
@@ -628,6 +644,9 @@ declare module '@deepseek-ai/cordis' {
     'api-session/error'(sessionId: SessionId, message: string): void
   }
 }
+
+/** Dedicated sidebar zone a Session may be created into. */
+export type SessionZone = 'quick-qa' | 'secure'
 
 /** JSON-compatible projection value accepted by list consumers. */
 export type SessionProjectionValue = JsonValue

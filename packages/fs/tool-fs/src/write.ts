@@ -14,6 +14,7 @@ import { computeHunkDiffs, diffsFromMeta, pathFromMeta } from './diff.ts'
 import { remediateFsError } from './error.ts'
 import { mutationResult } from './mutation-result.ts'
 import { sessionResolveOptions } from './session-cwd.ts'
+import { assertSecureZoneTarget } from './secure-zone.ts'
 import type { FsSandboxController } from './sandbox.ts'
 
 /**
@@ -115,7 +116,9 @@ export function applyWriteTool(ctx: Context, sandbox: FsSandboxController): void
       // > backend default, plus the session cwd root) BEFORE anything executes;
       // an escalating call throws its distinct text on any non-grant.
       const sandboxPolicy = await sandbox.resolvePolicy('write', args, exec)
-      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(ctx, exec))
+      const options = await sessionResolveOptions(ctx, exec)
+      const target = await ctx.fs.resolve(input.filePath, options)
+      await assertSecureZoneTarget(ctx, exec, target, options.cwd)
       // Single-slot decision: the policy plugin produces createIfAbsent/
       // replaceIfVersion; the bare default is undefined (unconditional). No stat.
       const intent = await ctx.waterfall('fs/write-intent', target, exec, () => undefined)

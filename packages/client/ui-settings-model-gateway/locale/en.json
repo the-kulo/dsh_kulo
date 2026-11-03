@@ -1,5 +1,6 @@
 {
   "meta": {
-    "title": "ui-settings-model-gateway"
+    "title": "ui-settings-model-gateway",
+    "description": "View and edit the model gateway routing table, expert quota, and token budget."
   }
 }

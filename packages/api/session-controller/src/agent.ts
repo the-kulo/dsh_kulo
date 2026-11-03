@@ -12,6 +12,8 @@ import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-typert-registry'
+import type { SessionZone } from './types.ts'
+import { applySecureToolAllowlist, secureLocalRoutes, type SecureZonePolicy } from './secure-zone.ts'
 
 /** Cold Session identity absent from persistence. */
 export class ApiSessionNotFound extends Error {}
@@ -60,6 +62,8 @@ export interface ApiSessionCreateRequest {
   readonly cwd: string
   /** Preset the Session runs; the configured default when omitted. */
   readonly agentPreset?: string
+  /** Dedicated sidebar zone the Session joins; enforced at the zone layer, independent of the preset. */
+  readonly zone?: SessionZone
   /**
    * Placement rule the caller owns, such as Workspace membership and archive state.
    * @param sessionId - existing Session named by the request.
@@ -129,8 +133,14 @@ export class ApiSessionAgentController {
   private readonly ownedHandles = new Map<SessionId, AgentHandle>()
   private readonly imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
-  /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
-  constructor(private readonly ctx: Context) {}
+  /**
+   * @param ctx - Host context carrying Agent, model, persistence, and Typert services.
+   * @param secure - secure-zone boundary policy for model routes and tools.
+   */
+  constructor(
+    private readonly ctx: Context,
+    private readonly secure: SecureZonePolicy,
+  ) {}
 
   /**
    * Configure Session and Agent lookups for Typert.
@@ -242,7 +252,7 @@ export class ApiSessionAgentController {
    */
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
     const named = request.sessionId
-    if (named === undefined) return this.created(await this.createMinted(request.cwd, await this.composeAgent(request.agentPreset)))
+    if (named === undefined) return this.created(await this.createMinted(request.cwd, await this.composeAgent(request.agentPreset, request.zone), request.zone))
     return this.inOrder(named, async () => this.created(await this.claim(named, request)))
   }
 
@@ -270,21 +280,39 @@ export class ApiSessionAgentController {
   /**
    * Resolve the preset id and pre-publication Agent setup for a create or resume.
    * @param presetId - requested preset or the configured default when omitted.
+   * @param zone - zone supplied by a create request; resume reads the zone from the Session projection instead.
    * @returns the resolved preset identity and Agent setup callback.
    */
-  async composeAgent(presetId: string | undefined): Promise<ApiSessionComposition> {
+  async composeAgent(presetId: string | undefined, zone?: SessionZone): Promise<ApiSessionComposition> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined) {
-      return { setup: (agentCtx) => { installModelSelection(agentCtx) } }
+      return {
+        setup: (agentCtx, agent) => {
+          installModelSelection(agentCtx)
+          this.applyZoneBoundary(agentCtx, zone ?? this.zoneOf(agent.session))
+        },
+      }
     }
     const resolvedId = (await presets.resolve(presetId)).id
     return {
       agentPreset: resolvedId,
-      setup: async (agentCtx) => {
+      setup: async (agentCtx, agent) => {
         installModelSelection(agentCtx)
         await presets.mount(agentCtx, resolvedId)
+        this.applyZoneBoundary(agentCtx, zone ?? this.zoneOf(agent.session))
       },
     }
+  }
+
+  /** Apply the secure-zone tool boundary to an agent scope, if the zone demands it. */
+  private applyZoneBoundary(agentCtx: Context, zone: SessionZone | undefined): void {
+    if (zone !== 'secure') return
+    applySecureToolAllowlist(agentCtx, this.secure.allowedTools)
+  }
+
+  /** Read the current zone from a live Session's projection. */
+  private zoneOf(session: Session): SessionZone | undefined {
+    return this.ctx.sessionProjections.snapshot(session, ['zone']).values.zone ?? undefined
   }
 
   /**
@@ -350,7 +378,8 @@ export class ApiSessionAgentController {
     if (hasApiSessionSubagentOwner(this.ctx, { header: observation.header }, undefined)) {
       throw new ApiSessionSubagentOwnership(sessionId)
     }
-    const composition = await this.composeAgent(this.presetForObservation(observation))
+    const zone = this.zoneForObservation(observation)
+    const composition = await this.composeAgent(this.presetForObservation(observation), zone)
     const published = this.ctx.sessions.get(sessionId)
     const live = this.ctx.agents.get(sessionId)
     if (published !== undefined && hasApiSessionSubagentOwner(this.ctx, published, live)) {
@@ -358,7 +387,7 @@ export class ApiSessionAgentController {
     }
     return this.own(await this.ctx.agents.resume({
       resumeSessionId: sessionId,
-      agentOptions: this.agentOptions(),
+      agentOptions: this.agentOptions(zone),
       setup: composition.setup,
     }))
   }
@@ -385,17 +414,18 @@ export class ApiSessionAgentController {
       if (live.session.header.cwd !== request.cwd) {
         throw new ApiSessionCwdConflict(live.id, request.cwd, live.session.header.cwd)
       }
-      const composition = await this.composeAgent(request.agentPreset)
-      return await this.reuseLive(live, request, composition) ?? this.createMinted(request.cwd, composition)
+      const composition = await this.composeAgent(request.agentPreset, request.zone)
+      return await this.reuseLive(live, request, composition) ?? this.createMinted(request.cwd, composition, request.zone)
     }
     let observation: SessionObservation
     try {
       observation = await this.ctx.sessionQuery.observeSession(sessionId)
     } catch (error: unknown) {
       if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
-      return this.createAgent(sessionId, request.cwd, await this.composeAgent(request.agentPreset))
+      return this.createAgent(sessionId, request.cwd, await this.composeAgent(request.agentPreset, request.zone), request.zone)
     }
     let reusable: boolean
+    let resumeZone = request.zone
     {
       using observed = observation
       if (hasApiSessionSubagentOwner(this.ctx, { header: observed.header }, undefined)) {
@@ -405,22 +435,23 @@ export class ApiSessionAgentController {
         throw new ApiSessionCwdConflict(sessionId, request.cwd, observed.header.cwd)
       }
       reusable = request.reusable(sessionId) && !observed.events.some(event => event.type === 'turn/start')
+      resumeZone ??= this.zoneForObservation(observed)
     }
-    const composition = await this.composeAgent(request.agentPreset)
-    if (!reusable) return this.createMinted(request.cwd, composition)
+    const composition = await this.composeAgent(request.agentPreset, request.zone)
+    if (!reusable) return this.createMinted(request.cwd, composition, request.zone)
     this.assertPresetApplicable(sessionId, request.agentPreset)
     try {
       return this.own(await this.ctx.agents.resume({
         resumeSessionId: sessionId,
-        agentOptions: this.agentOptions(),
+        agentOptions: this.agentOptions(resumeZone),
         setup: this.reuseSetup(composition),
       }))
     } catch (error: unknown) {
-      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition)
+      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition, request.zone)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
       // Another resume in this process may hold the writer for the Agent it published.
       return this.ctx.agents.get(sessionId) === undefined
-        ? this.createMinted(request.cwd, composition)
+        ? this.createMinted(request.cwd, composition, request.zone)
         : this.claim(sessionId, request)
     }
   }
@@ -432,6 +463,9 @@ export class ApiSessionAgentController {
     composition: ApiSessionComposition,
   ): Promise<Agent | undefined> {
     if (!request.reusable(live.id) || !this.isBlank(live.session)) return undefined
+    // A reused live blank must already carry the requested zone; forcing a
+    // fresh create otherwise keeps the secure boundary from being skipped.
+    if (request.zone !== undefined && this.zoneOf(live.session) !== request.zone) return undefined
     this.assertPresetApplicable(live.id, request.agentPreset)
     const current = this.presetForSession(live.session)
     const presets = this.ctx.get('agentPresets')
@@ -475,11 +509,16 @@ export class ApiSessionAgentController {
     return { agent, agentPreset: this.presetForSession(agent.session) }
   }
 
-  private createMinted(cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), cwd, composition)
+  private createMinted(cwd: string, composition: ApiSessionComposition, zone?: SessionZone): Promise<Agent> {
+    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), cwd, composition, zone)
   }
 
-  private async createAgent(sessionId: SessionId, cwd: string, composition: ApiSessionComposition): Promise<Agent> {
+  private async createAgent(
+    sessionId: SessionId,
+    cwd: string,
+    composition: ApiSessionComposition,
+    zone?: SessionZone,
+  ): Promise<Agent> {
     try {
       await mkdir(cwd, { recursive: true })
     } catch (error: unknown) {
@@ -487,7 +526,7 @@ export class ApiSessionAgentController {
     }
     return this.own(await this.ctx.agents.create({
       sessionId,
-      agentOptions: this.agentOptions(),
+      agentOptions: this.agentOptions(zone),
       meta: {
         cwd,
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
@@ -496,13 +535,24 @@ export class ApiSessionAgentController {
     }))
   }
 
-  private agentOptions(): AgentOptions {
+  private agentOptions(zone?: SessionZone): AgentOptions {
     const defaults = this.ctx.agentDefaultModel
-    // A Session that records no selection or request follows default changes.
+    if (zone !== 'secure') {
+      // A Session that records no selection or request follows default changes.
+      return {
+        get provider() { return defaults.currentSelection().provider },
+        get model() { return defaults.currentSelection().model },
+        get reasoningEffort() { return defaults.currentSelection().reasoningEffort },
+      }
+    }
+    const route = secureLocalRoutes(this.ctx, this.secure)[0]
+    if (route === undefined) {
+      throw new Error('secure zone requires at least one local model route; configure the model-gateway secure local route or session-controller secure.localModels')
+    }
     return {
-      get provider() { return defaults.currentSelection().provider },
-      get model() { return defaults.currentSelection().model },
-      get reasoningEffort() { return defaults.currentSelection().reasoningEffort },
+      get provider() { return route.provider },
+      get model() { return route.model },
+      get reasoningEffort() { return undefined },
     }
   }
 
@@ -516,5 +566,15 @@ export class ApiSessionAgentController {
       throw new Error('api-session: Agent activation requires a projected Session observation')
     }
     return observation.projections.values.agentPreset ?? undefined
+  }
+
+  /**
+   * Read the current zone from an all-projections observation.
+   * @param observation - exact Session observation carrying its projection snapshot.
+   * @returns the current zone, or undefined when the Session has none.
+   */
+  private zoneForObservation(observation: SessionObservation): SessionZone | undefined {
+    if (observation.projections === undefined) return undefined
+    return observation.projections.values.zone ?? undefined
   }
 }

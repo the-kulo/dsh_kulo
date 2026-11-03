@@ -140,6 +140,10 @@ export function AgentPresetSeat({
 
   // A refused initial composition still needs its Toast when there is no chip to show.
   if (!main) return null
+  // The dedicated zones own their preset internally (quick-qa / secure); the
+  // composer offers only the roster's switchable modes, so a zone Session
+  // shows no preset chip at all.
+  if (state.current === 'quick-qa' || state.current === 'secure') return null
 
   // One wrapper span: the chip is a flex row with a gap, so loose character
   // spans would each pick up the gap between them.

@@ -27,6 +27,9 @@ import { CodeBlock } from './CodeBlock.tsx'
 import { parseFileLink } from './file-link.ts'
 import { renderTexToReact } from './katex.tsx'
 import { LinkIconMedium, classifyLinkPath } from '../LinkIcon.tsx'
+import { IconDownloadOutlineRegular } from '../icons/index.tsx'
+import { Tooltip } from '../Tooltip.tsx'
+import { downloadTextFile } from '../download.ts'
 import { useMarkdownDelegate } from './MarkdownDelegate.tsx'
 import { HoverCard } from '../HoverCard.tsx'
 import { DraggableImage } from '../DraggableImage.tsx'
@@ -49,6 +52,8 @@ export interface MarkdownCodeLabels {
 export interface MarkdownLabels {
   code: MarkdownCodeLabels
   footnotes: string
+  /** Download-button label for table CSV export; omission hides the button. */
+  tableDownloadLabel?: string | undefined
 }
 
 function sanitizeUrl(url: string): string {
@@ -506,6 +511,39 @@ function renderListItem(
   )
 }
 
+/** Plain text of one table cell, ignoring inline formatting. */
+function tableCellText(cell: Md.TableCell): string {
+  return cell.children.map(tableCellInlineText).join('')
+}
+
+function tableCellInlineText(node: Md.PhrasingContent): string {
+  switch (node.type) {
+    case 'text':
+    case 'inlineCode':
+    case 'html':
+    case 'inlineMath':
+      return node.value
+    case 'image':
+    case 'imageReference':
+      return node.alt ?? ''
+    case 'break':
+      return '\n'
+    default:
+      return 'children' in node ? node.children.map(tableCellInlineText).join('') : ''
+  }
+}
+
+/** Escape one CSV field: quote only cells containing commas, quotes, or line breaks. */
+function csvField(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
+
+/** Serialize a markdown table as RFC-4180 CSV text. */
+function tableCsv(node: Md.Table): string {
+  const rows = node.children.map(row => row.children.map(tableCellText))
+  return `${rows.map(row => row.map(csvField).join(',')).join('\r\n')}\r\n`
+}
+
 function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): ReactNode {
   const align = node.align ?? null
   const [headRow, ...bodyRows] = node.children
@@ -516,6 +554,7 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
   // column. Narrower tables — and any table inside a blockquote — fill the
   // column and wrap instead (deepsuite chat TableWrapper parity).
   const wide = columns >= 4 && context.inBlockquote !== true
+  const downloadLabel = context.labels.tableDownloadLabel
   return (
     // On hover-capable inputs, wide tables rest with overflow-x hidden (the
     // hover-revealed bar in MarkdownText.module.css), dropping Chromium's implicit scroller
@@ -526,6 +565,14 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
       className={clsx(css.tableScroll, wide ? 'md-table-wide' : css.tableFill)}
       tabIndex={wide ? 0 : undefined}
     >
+      {downloadLabel !== undefined && (
+        <Tooltip label={downloadLabel} side="top" portal>
+          <button type="button" className={css.tableDownload} aria-label={downloadLabel}
+            onClick={() => { downloadTextFile('table.csv', tableCsv(node), 'text/csv') }}>
+            <IconDownloadOutlineRegular size={16} />
+          </button>
+        </Tooltip>
+      )}
       <table>
         {headRow !== undefined && <thead>{renderTableRow(headRow, 'th', align, 0, context)}</thead>}
         {bodyRows.length > 0 && (

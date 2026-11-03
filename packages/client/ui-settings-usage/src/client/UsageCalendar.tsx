@@ -101,12 +101,19 @@ export interface UsageCalendarProps {
   readonly onSelectDate?: (date: string) => void
 }
 
+/** Narrow Sunday-first weekday labels in the current locale. */
+function weekdayLabels(locale: string): readonly string[] {
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'Asia/Shanghai' })
+  return Array.from({ length: 7 }, (_, i) => formatter.format(new Date(Date.UTC(2026, 0, 4 + i))))
+}
+
 /** GitHub-style contribution grid over the recorded Shanghai days. */
 export function UsageCalendar({
   snapshot, t, format, formatDate, monthLabel, today, selectedDate, onSelectDate,
 }: UsageCalendarProps): React.ReactElement {
   const calendar = buildUsageCalendar(snapshot, today, monthLabel)
   const gridCells = calendar.weeks.flatMap(week => week.map(cell => cell))
+  const weekday = weekdayLabels(t('locale'))
   return (
     <div className={css.calendarWrap}>
       <div className={css.calendar} role="table" aria-label={t('activity')}>
@@ -115,32 +122,37 @@ export function UsageCalendar({
             <span key={`${month.week}:${month.label}`} className={css.calendarMonth} style={{ gridColumnStart: month.week + 1 }}>{month.label}</span>
           ))}
         </div>
-        <div className={css.calendarGrid} role="rowgroup">
-          {gridCells.map((cell, index) => {
-            if (cell.date === null) {
-              return <span key={`pad-${index}`} className={css.calendarCell} data-empty="true" aria-hidden="true" />
-            }
-            const totals = cell.totals
-            const level = totals === undefined ? 0 : usageDayLevel(totals.totalTokens, calendar.maxTotal)
-            const description = totals === undefined
-              ? `0 ${t('tokens')}`
-              : t('dayTotal', { total: format(totals.totalTokens), requests: format(totals.requests) })
-            const isSelected = selectedDate === cell.date
-            return (
-              <span
-                key={cell.date}
-                className={css.calendarCell}
-                role="gridcell"
-                data-level={level}
-                data-selected={isSelected ? 'true' : undefined}
-                data-testid={`usage-day-${cell.date}`}
-                title={`${formatDate(cell.date)} — ${description}`}
-                aria-label={`${formatDate(cell.date)} — ${description}`}
-                onClick={onSelectDate === undefined ? undefined : () => { onSelectDate(cell.date!) }}
-                style={onSelectDate === undefined ? undefined : { cursor: 'pointer' }}
-              />
-            )
-          })}
+        <div className={css.calendarBody}>
+          <div className={css.calendarWeekdays} aria-hidden="true">
+            {weekday.map((label, index) => <span key={index} className={css.calendarWeekday}>{label}</span>)}
+          </div>
+          <div className={css.calendarGrid} role="rowgroup">
+            {gridCells.map((cell, index) => {
+              if (cell.date === null) {
+                return <span key={`pad-${index}`} className={css.calendarCell} data-empty="true" aria-hidden="true" />
+              }
+              const totals = cell.totals
+              const level = totals === undefined ? 0 : usageDayLevel(totals.totalTokens, calendar.maxTotal)
+              const description = totals === undefined
+                ? `0 ${t('tokens')}`
+                : t('dayTotal', { total: format(totals.totalTokens), requests: format(totals.requests) })
+              const isSelected = selectedDate === cell.date
+              return (
+                <span
+                  key={cell.date}
+                  className={css.calendarCell}
+                  role="gridcell"
+                  data-level={level}
+                  data-selected={isSelected ? 'true' : undefined}
+                  data-testid={`usage-day-${cell.date}`}
+                  title={`${formatDate(cell.date)} — ${description}`}
+                  aria-label={`${formatDate(cell.date)} — ${description}`}
+                  onClick={onSelectDate === undefined ? undefined : () => { onSelectDate(cell.date!) }}
+                  style={onSelectDate === undefined ? undefined : { cursor: 'pointer' }}
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
       <div className={css.legend}>

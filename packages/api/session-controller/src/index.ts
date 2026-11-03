@@ -1,7 +1,7 @@
 /** Session Remote owner: cold reads, explicit Agent commands, and live control state. */
 
-import { hostname } from 'node:os'
-import { resolve } from 'node:path'
+import { homedir, hostname } from 'node:os'
+import { join, resolve } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-fs'
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -20,7 +20,7 @@ import {
   ApiSessionAgentController,
   type ApiSessionAgentResult,
 } from './agent.ts'
-import { SessionCommandController, hasPromptContent } from './commands.ts'
+import { SessionCommandController, hasPromptContent, type ZoneDirectories } from './commands.ts'
 import { SessionControlController } from './control.ts'
 import { SessionHistoryController } from './history.ts'
 import { SessionFileReferences } from './file-references.ts'
@@ -29,6 +29,8 @@ import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
 import { SessionMediaReferences } from './media-references.ts'
 import { ArchivedSessionGate } from './archived-session-gate.ts'
+import { zoneProjectionDefinition } from './zone.ts'
+import { secureLocalRoutes, type SecureZonePolicy } from './secure-zone.ts'
 import type {
   ModelCatalog,
   SessionWorkspacePathApplication,
@@ -114,10 +116,18 @@ export interface Config {
   readonly nativeOpen?: boolean
   /** Positive integral milliseconds of list work before yielding between complete rows. */
   readonly listWorkSliceMs?: number
+  /** Secure-zone data-boundary policy. */
+  readonly secure?: SecureZonePolicy
+  /** Project directories the dedicated sidebar zones own. */
+  readonly zones?: ZoneDirectories
 }
 
 /** Deployment policy after schema defaults have been applied. */
-type ResolvedConfig = Config & { readonly listWorkSliceMs: number }
+type ResolvedConfig = Config & {
+  readonly listWorkSliceMs: number
+  readonly secure: SecureZonePolicy
+  readonly zones: ZoneDirectories
+}
 
 /** Host integrations replaceable by direct unit tests. */
 export interface SessionControllerInternals {
@@ -131,6 +141,13 @@ export interface SessionControllerInternals {
   readonly revealPath?: (path: string, signal: AbortSignal) => Promise<void>
   /** Native handoff availability probe. */
   readonly canOpenPath?: () => boolean
+}
+
+/** Expand a leading `~` to the current user's home directory; other paths pass through unchanged. */
+function expandHome(path: string): string {
+  if (path === '~') return homedir()
+  if (path.startsWith('~/') || path.startsWith('~\\')) return join(homedir(), path.slice(2))
+  return path
 }
 
 /** Host service backing the generated `ctx.remote.session` namespace. */
@@ -153,6 +170,14 @@ export class SessionController extends TypertRemoteService {
   static Config: z<Config, ResolvedConfig> = z.object({
     nativeOpen: z.boolean(),
     listWorkSliceMs: z.natural().min(1).default(16),
+    secure: z.object({
+      localModels: z.array(z.string()).default(['lakala/LKL-GLM-5.2-FP8', 'lakala/LKL-GLM-5.3', 'lakala/LKL-Qwen3.8-27B']),
+      allowedTools: z.array(z.string()).default(['read', 'write', 'edit', 'glob', 'grep']),
+    }).default({}),
+    zones: z.object({
+      quickQaDir: z.string().default('~/.dsh/zones/quick-qa'),
+      secureDir: z.string().default('~/.dsh/zones/secure'),
+    }).default({}),
   })
 
   private agents!: ApiSessionAgentController
@@ -166,6 +191,8 @@ export class SessionController extends TypertRemoteService {
   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
   private readonly listWorkSliceMs: number
+  private readonly securePolicy: SecureZonePolicy
+  private readonly zoneDirs: ZoneDirectories
   private readonly promotions = new Set<Promise<void>>()
   private readonly deleting = new Set<SessionId>()
 
@@ -176,7 +203,13 @@ export class SessionController extends TypertRemoteService {
    */
   constructor(ctx: Context, config: Config, internals: SessionControllerInternals = {}) {
     super(ctx, 'sessionController', { namespace: 'session' })
-    this.listWorkSliceMs = SessionController.Config(config).listWorkSliceMs
+    const resolved = SessionController.Config(config)
+    this.listWorkSliceMs = resolved.listWorkSliceMs
+    this.securePolicy = resolved.secure
+    this.zoneDirs = {
+      quickQaDir: expandHome(resolved.zones.quickQaDir),
+      secureDir: expandHome(resolved.zones.secureDir),
+    }
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
     this.openPath = internals.openPath ?? openNativeAssociatedPath
@@ -188,9 +221,10 @@ export class SessionController extends TypertRemoteService {
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
     ctx.typert.resources.register('session', { resolve: resolveSessionResource })
-    this.agents = new ApiSessionAgentController(ctx)
+    await ctx.sessionProjections.register(zoneProjectionDefinition)
+    this.agents = new ApiSessionAgentController(ctx, this.securePolicy)
     this.agents.initialize()
-    this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.commands = new SessionCommandController(ctx, this.agents, process.cwd(), this.securePolicy, this.zoneDirs)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -343,7 +377,10 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('modelCatalog')
   modelCatalog(): Promise<ModelCatalog> {
-    return buildModelCatalog(this.ctx)
+    return buildModelCatalog(this.ctx, undefined, secureLocalRoutes(this.ctx, this.securePolicy).map(route => ({
+      provider: route.provider,
+      model: route.model,
+    })))
   }
 
   /**

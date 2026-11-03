@@ -7,7 +7,7 @@
 import type { ModelSelectionProjection } from '@deepseek-ai/dsh-agent/types'
 import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
 import type {
-  ModelCatalogFailure, ModelProviderGroup, ModelSelection,
+  ModelCatalog, ModelCatalogFailure, ModelProviderGroup, ModelSelection,
 } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
@@ -47,6 +47,7 @@ export class ModelDirectory {
   private disposed = false
   private readonly unsubscribeCatalog: () => void
   private readonly unsubscribeSelection: () => void
+  private readonly unsubscribeZone: () => void
 
   /**
    * @param sessions - the session wire face (captured from the plugin's root connection).
@@ -54,6 +55,7 @@ export class ModelDirectory {
    * @param available - whether this session may use Agent-bound model RPCs.
    * @param catalog - Host-generation catalog shared by every Session.
    * @param projected - durable model selection projected from Session history.
+   * @param zone - durable dedicated-zone projection narrowing a secure Session's catalog.
    * @param isBlank - whether this Session has no first message yet.
    * @param track - desktop-only callback after a successful user selection.
    */
@@ -63,11 +65,13 @@ export class ModelDirectory {
     private readonly available: () => boolean,
     private readonly catalog: ModelCatalogDirectory,
     private readonly projected: ObservableSnapshot<unknown>,
+    private readonly zone: ObservableSnapshot<unknown>,
     private readonly isBlank: () => boolean,
     private readonly track?: TrackProductEvent,
   ) {
     this.unsubscribeCatalog = catalog.store.subscribe(() => { this.syncInputs() })
     this.unsubscribeSelection = projected.subscribe(() => { this.syncInputs() })
+    this.unsubscribeZone = zone.subscribe(() => { this.syncInputs() })
     this.syncInputs()
   }
 
@@ -147,6 +151,7 @@ export class ModelDirectory {
     this.disposed = true
     this.unsubscribeSelection()
     this.unsubscribeCatalog()
+    this.unsubscribeZone()
   }
 
   private assertAvailable(): void {
@@ -155,9 +160,20 @@ export class ModelDirectory {
     }
   }
 
+  /** Provider groups, narrowed to the secure allowlist for a secure Session. */
+  private availableGroups(value: ModelCatalog | null): readonly ModelProviderGroup[] {
+    if (value === null) return []
+    if (this.zone.getSnapshot() !== 'secure') return value.groups
+    const allowed = new Set(value.secureLocalModels.map(route => `${route.provider}\0${route.model}`))
+    return value.groups
+      .map(group => ({ ...group, models: group.models.filter(model => allowed.has(`${group.id}\0${model.id}`)) }))
+      .filter(group => group.models.length > 0)
+  }
+
   private syncInputs(): void {
     if (this.disposed) return
     const catalog = this.catalog.store.getSnapshot()
+    const groups = this.availableGroups(catalog.value)
     const projected = modelSelectionProjection(this.projected.getSnapshot())
     const intended = projected?.next ?? catalog.value?.default
     const reasoning = intended === undefined ? undefined : this.catalog.reasoningFor(intended)
@@ -169,7 +185,7 @@ export class ModelDirectory {
         current: catalog.value === null ? null : this.store.getSnapshot().current,
         ...retainedEffort === undefined ? {} : { retainedEffort },
         routable: null,
-        groups: catalog.value?.groups ?? [],
+        groups,
         failures: catalog.value?.failures ?? [],
         status: catalog.status === 'error' ? 'error' : 'loading',
         pending: this.store.getSnapshot().pending,
@@ -178,13 +194,13 @@ export class ModelDirectory {
       return
     }
     const selection = projected.next ?? catalog.value.default
-    const routable = catalog.value.groups.some(group => group.id === selection.provider
+    const routable = groups.some(group => group.id === selection.provider
       && group.models.some(model => model.id === selection.model))
     this.store.set({
       current: selection,
       ...retainedEffort === undefined ? {} : { retainedEffort },
       routable,
-      groups: catalog.value.groups,
+      groups,
       failures: catalog.value.failures,
       status: this.store.getSnapshot().status === 'selecting'
         ? 'selecting'

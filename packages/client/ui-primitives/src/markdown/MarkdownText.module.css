@@ -197,9 +197,53 @@
 }
 
 .tableScroll {
+  position: relative;
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+}
+
+/* Floating table CSV export: a small corner control that stays visible on
+   touch inputs and appears on hover/focus for hover-capable inputs. The solid
+   background keeps it over the header's corner padding rather than its text. */
+.tableDownload {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.tableDownload:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .tableDownload {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .tableScroll:hover .tableDownload,
+  .tableScroll:focus-within .tableDownload {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .tableDownload:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 /* Hover-capable inputs reveal a wide table's bar on hover or keyboard focus.

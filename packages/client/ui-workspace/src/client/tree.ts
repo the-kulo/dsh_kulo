@@ -14,39 +14,47 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 
-/**
- * Agent presets whose Sessions belong to dedicated sidebar zones (quick-qa,
- * secure) instead of the Workspace browser. A Session carrying one of these
- * presets is created with `quick: true` and never joins a Workspace, so it is
- * read only by its zone panel and filtered out of every Workspace browser view.
- */
-const ZONE_EXCLUSIVE_PRESETS: ReadonlySet<string> = new Set(['quick-qa', 'secure'])
-
-/**
- * Whether a Session's recorded preset places it in a dedicated sidebar zone
- * instead of the Workspace browser.
- * @param session - Session summary carrying the `agentPreset` projection value.
- * @returns true when the Session belongs to a zone-exclusive preset.
- */
-function isZoneExclusive(session: SessionSummary): boolean {
-  const preset = session.projectionValues?.agentPreset
-  return typeof preset === 'string' && ZONE_EXCLUSIVE_PRESETS.has(preset)
-}
-
-/** One agent preset backed by a dedicated sidebar zone. */
+/** One dedicated sidebar zone. */
 export type ZonePreset = 'quick-qa' | 'secure'
 
 /**
- * Select the Sessions whose recorded preset places them in one dedicated
- * sidebar zone. These are the same Sessions {@link isZoneExclusive} filters
- * out of every Workspace browser view; the zone's own flat list reads them
- * directly.
+ * Read the dedicated sidebar zone a Session belongs to, from the `zone`
+ * projection, with a fallback to the legacy zone-exclusive agent preset
+ * (`quick-qa` / `secure`) for Sessions created before the zone became its own
+ * marker.
+ * @param session - Session summary carrying projection values.
+ * @returns the zone, or null for ordinary and unknown Sessions.
+ */
+export function zoneOfSession(session: SessionSummary): ZonePreset | null {
+  const zone = session.projectionValues?.zone
+  if (zone === 'quick-qa' || zone === 'secure') return zone
+  const preset = session.projectionValues?.agentPreset
+  return preset === 'quick-qa' || preset === 'secure' ? preset : null
+}
+
+/**
+ * Whether a Session's zone places it in a dedicated sidebar zone instead of
+ * the Workspace browser.
+ * @param session - Session summary carrying the `zone` projection value.
+ * @returns true when the Session belongs to a zone-exclusive zone.
+ */
+function isZoneExclusive(session: SessionSummary): boolean {
+  return zoneOfSession(session) !== null
+}
+
+/**
+ * Select the Sessions whose zone places them in one dedicated sidebar zone.
+ * These are the same Sessions {@link isZoneExclusive} filters out of every
+ * Workspace browser view; the zone's own flat list reads them directly.
  * @param list - Session list snapshot.
- * @param preset - the zone's agent preset.
+ * @param zone - the sidebar zone.
  * @returns the zone's Session ids in list order.
  */
-export function zoneSessionIds(list: SessionListState, preset: ZonePreset): SessionId[] {
-  return list.ids.filter((id) => list.byId[id]?.projectionValues?.agentPreset === preset)
+export function zoneSessionIds(list: SessionListState, zone: ZonePreset): SessionId[] {
+  return list.ids.filter((id) => {
+    const session = list.byId[id]
+    return session !== undefined && zoneOfSession(session) === zone
+  })
 }
 
 /** Group key for Sessions outside every Workspace. */
@@ -613,7 +621,9 @@ export function deriveSearchResults(
     if (summary === undefined || summary.blank || !visible(summary)) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
-      || labelOf(summary).toLowerCase().includes(q)
+      // A dedicated zone is independent of Workspaces: its search matches the
+      // session's own title and id, never the owning Workspace's folder name.
+      || (restrictTo === undefined && labelOf(summary).toLowerCase().includes(q))
       || summary.id.toLowerCase().includes(q)
     ) {
       local.push(summary)

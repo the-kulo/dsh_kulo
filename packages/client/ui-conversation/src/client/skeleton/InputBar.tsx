@@ -77,11 +77,15 @@ export const InputBar = memo(function InputBar({
   const planActive = useProjection('plan', plan => plan !== undefined && (plan.pending ? !plan.active : plan.active))
   // Absent (undefined: no frame yet) and cleared (null) both mean no goal.
   const hasGoal = useProjection('goal', goal => goal != null)
-  // A quick-qa Session runs under its own fixed preset and never belongs to a
-  // Workspace, so the composer offers no file intake and no workspace
-  // permission selector. The preset is read as a string here; this package
-  // must not import the quick-qa package's runtime constant.
-  const quickQa = useProjection('agentPreset', preset => preset === 'quick-qa')
+  // A quick-qa Session never belongs to a Workspace, so the composer offers it
+  // no workspace trigger; a secure Session keeps the trigger. Every zone
+  // Session offers no permission selector. The zone and preset are read as
+  // values here; this package must not import the quick-qa package's runtime
+  // constant. Quick answers additionally offer no file intake.
+  const zone = useProjection('zone')
+  const agentPreset = useProjection('agentPreset')
+  const quickQa = zone === 'quick-qa' || agentPreset === 'quick-qa'
+  const zoneSession = zone === 'quick-qa' || zone === 'secure' || agentPreset === 'quick-qa' || agentPreset === 'secure'
   // Session-maybe: the machine faces are absent together while no session is
   // current; the bar renders the same DOM inert instead of a parallel tree.
   const live = input !== undefined && keyboard !== undefined && inputActions !== undefined
@@ -168,7 +172,7 @@ export const InputBar = memo(function InputBar({
   // existing picker trigger. Message controls stay locked until a Session
   // exists; the trigger itself is read-only rather than disabled so pointer
   // and keyboard users can reach the recovery action.
-  const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined
+  const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined && !quickQa
   const editorDisabled = removed || (locked && !workspaceTrigger)
   const editable = live && !locked && !machineBusy
   const steeringAvailable = subagent === null || subagent.address.mode === 'continuable'
@@ -486,7 +490,7 @@ export const InputBar = memo(function InputBar({
               onChange={onPickFiles}
             />
             <div className={css.modes}>
-              {sessionId === undefined || quickQa ? null : renderSlot('conversation.input.permission', { locked })}
+              {sessionId === undefined || zoneSession ? null : renderSlot('conversation.input.permission', { locked })}
               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
             </div>
             {input === undefined || sessionId === undefined

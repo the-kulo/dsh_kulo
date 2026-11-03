@@ -231,9 +231,14 @@ export const InputBar = memo(function InputBar({
   // The host enforces the same image limits at submit for callers that bypass
   // this composer.
   const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): void => {
-    if (uploadDenied || quickQa || locked || machineBusy || (subagent !== null && !continuable)
+    if (uploadDenied || locked || machineBusy || (subagent !== null && !continuable)
       || addFiles === undefined || files.length === 0) return
     const rejected = ((): string | null => {
+      // A quick-answer Session carries no Workspace context: it accepts
+      // images (model input), never generic files.
+      if (quickQa && files.some(file => directories?.has(file) || !isImageMediaType(file.type))) {
+        return t('image.quickQaOnly')
+      }
       // Child prompts support images, but not generic file receipts or the
       // Desktop path-reference fallback. Refuse mixed batches before intake.
       if (continuable && files.some(file => directories?.has(file) || !isImageMediaType(file.type))) {
@@ -260,7 +265,7 @@ export const InputBar = memo(function InputBar({
     if (rejected !== null) showToast(rejected)
   }, [uploadDenied, quickQa, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
 
-  const canAcceptDrop = !uploadDenied && !quickQa && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
+  const canAcceptDrop = !uploadDenied && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const onPickFiles = (e: ChangeEvent<HTMLInputElement>): void => {

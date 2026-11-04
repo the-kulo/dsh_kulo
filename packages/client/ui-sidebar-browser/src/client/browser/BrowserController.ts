@@ -21,7 +21,8 @@ export interface BrowserControllerState {
 export interface BrowserControllerOptions {
   readonly tabId: TabId
   readonly signal: AbortSignal
-  readonly applicationOrigin: string
+  /** Document origin the address parser refuses, or undefined when the Host permits it. */
+  readonly applicationOrigin: string | undefined
   readonly initial: BrowserTabState | undefined
   readonly actions: BoundActions<BrowserStore>
   readonly createPage: BrowserPageFactory
@@ -209,10 +210,11 @@ export interface BrowserInjected {
  * @param actions - persisted view-state writer.
  * @param createPage - composition-selected provider.
  * @param isTabOpen - authoritative layout membership, independent of mounted bodies and plugin lifetime.
+ * @param allowApplicationOrigin - Host policy deciding whether this document's own origin may load.
  * @returns tab callbacks.
  */
 export function createBrowserControllers(actions: BoundActions<BrowserStore>, createPage: BrowserPageFactory,
-  isTabOpen: (tabId: TabId) => boolean): BrowserInjected {
+  isTabOpen: (tabId: TabId) => boolean, allowApplicationOrigin: () => boolean): BrowserInjected {
   let currentActions = actions
   const controllers = new Map<TabId, {
     readonly signal: AbortSignal
@@ -231,7 +233,12 @@ export function createBrowserControllers(actions: BoundActions<BrowserStore>, cr
           held.signal.removeEventListener('abort', held.forget)
           void held.controller.dispose()
         }
-        const created = new BrowserController({ ...request, actions: currentActions, createPage })
+        const created = new BrowserController({
+          ...request,
+          applicationOrigin: allowApplicationOrigin() ? undefined : request.applicationOrigin,
+          actions: currentActions,
+          createPage,
+        })
         const forget = (): void => {
           controllers.delete(tabId)
           // Plugin unload also aborts occurrences; only layout removal deletes saved navigation.

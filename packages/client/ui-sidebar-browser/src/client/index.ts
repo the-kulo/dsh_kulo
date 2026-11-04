@@ -4,6 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { BrowserBody, type BrowserBodyProps } from './view/BrowserBody.tsx'
@@ -12,7 +13,7 @@ import { createBrowserControllers } from './browser/BrowserController.ts'
 import type { BrowserInjected } from './browser/BrowserController.ts'
 import { createIframePage } from './pages.ts'
 import { createElectronPage } from './electron/pages.ts'
-import type { DesktopBrowserBridge } from '../types.ts'
+import type { DesktopBrowserBridge, SidebarBrowserPreferences } from '../types.ts'
 import { browserWorkspace } from './electron/workspace.ts'
 import type { BrowserPageFactory } from './browser/BrowserPage.ts'
 import { BROWSER_ID, browserDefinition } from './definition.tsx'
@@ -39,6 +40,9 @@ declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
 /** Required Browser services. */
 export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs']
 
+/** Profile entry id whose settings form carries {@link SidebarBrowserPreferences}. */
+const SETTINGS_ENTRY = 'ui-sidebar-browser'
+
 /** Register the Browser type, localized guide entry, body, and title. */
 export function apply(ctx: Context): void {
   const namespace = 'sidebarBrowser'
@@ -64,6 +68,16 @@ export function apply(ctx: Context): void {
       /* jscpd:ignore-end */
     }), 'ui-sidebar-browser: shortcut')
   })
+  // Read once per page instance: the Host setting changes a fresh navigation's policy, not a live tab's.
+  const applicationOriginPolicy = { allow: false }
+  ctx.inject(['configForms'], (scope) => {
+    const preferences = scope.configForms.get<SidebarBrowserPreferences>(SETTINGS_ENTRY)
+    const adopt = (): void => {
+      applicationOriginPolicy.allow = preferences.getSnapshot().value?.allowApplicationOrigin === true
+    }
+    adopt()
+    scope.effect(() => preferences.subscribe(adopt), 'ui-sidebar-browser: host preferences')
+  })
   const store = createBrowserStore()
   const openTabs = ctx.sidebarRight.openTabs
   const carrier = (globalThis as typeof globalThis & {
@@ -72,7 +86,8 @@ export function apply(ctx: Context): void {
   const desktop = carrier?.protocolVersion === 1 ? carrier.browser : undefined
   ctx.effect(() => ctx.locale.register(namespace, { zh, en, ja, es, fr, de, ru, pt }), 'ui-sidebar-browser.copy')
   ctx.effect(() => ctx.sidebarRightTabs.register({ ...browserDefinition(t), keepMounted: desktop !== undefined }), 'ui-sidebar-browser.type')
-  const installFrames = (scope: Context, factory: (sessionId: BrowserBodyProps['sessionId']) => BrowserPageFactory): void => {
+  const installFrames = (scope: Context, factory: (sessionId: BrowserBodyProps['sessionId']) => BrowserPageFactory,
+    allowApplicationOrigin: () => boolean): void => {
     const controllers = new Map<BrowserBodyProps['sessionId'], BrowserInjected>()
     scope.effect(() => async () => {
       const pending = [...controllers.values()].map(controller => controller.dispose())
@@ -88,16 +103,17 @@ export function apply(ctx: Context): void {
           return existing
         }
         const controller = createBrowserControllers(actions, factory(sessionId), tabId =>
-          openTabs.getSnapshot().some(tab => tab.sessionId === sessionId && tab.tabId === tabId))
+          openTabs.getSnapshot().some(tab => tab.sessionId === sessionId && tab.tabId === tabId), allowApplicationOrigin)
         controllers.set(sessionId, controller)
         return controller
       },
     }, BrowserBody)), 'ui-sidebar-browser.body')
   }
-  if (desktop === undefined) installFrames(ctx, () => createIframePage)
+  const allowApplicationOrigin = (): boolean => applicationOriginPolicy.allow
+  if (desktop === undefined) installFrames(ctx, () => createIframePage, allowApplicationOrigin)
   else ctx.inject(['workspaces'], (scope) => {
     installFrames(scope, sessionId => options => createElectronPage(options, desktop,
-      signal => browserWorkspace(scope.workspaces.list, sessionId, signal)))
+      signal => browserWorkspace(scope.workspaces.list, sessionId, signal)), allowApplicationOrigin)
   })
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab.title', key: BROWSER_ID, store,

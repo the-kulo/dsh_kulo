@@ -11,6 +11,8 @@
   ],
   "references": [
     { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/schemastery" },
+    { "path": "../../settings/settings" },
     { "path": "../../util/brand" }
   ]
 }

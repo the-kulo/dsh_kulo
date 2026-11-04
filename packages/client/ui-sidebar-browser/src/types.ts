@@ -1,6 +1,12 @@
 /** Type-only Electron bridge declarations shared by the desktop shell and browser provider. */
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
+/** Browser preferences the Host entry projects through its settings form. */
+export interface SidebarBrowserPreferences {
+  /** Whether the Browser tab may open this deployment's own origin. */
+  readonly allowApplicationOrigin: boolean
+}
+
 /** Main-issued identity of one guest reservation. */
 export type DesktopBrowserLeaseId = Branded<'DesktopBrowserLeaseId'>
 

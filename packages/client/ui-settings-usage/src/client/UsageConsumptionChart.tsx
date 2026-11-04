@@ -1,17 +1,72 @@
 /**
  * Stacked bar chart of consumed tokens per model over the selected periods.
+ * Clicking a bar opens a modal with the period's provider/model breakdown.
  * @module @deepseek-ai/dsh-client-ui-settings-usage/client/UsageConsumptionChart
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { UsageDaySummary } from '../types.ts'
 import { aggregateByPeriod, consumedTokens } from './usageAggregate.ts'
+import type { AggregatedPeriod } from './usageAggregate.ts'
 import {
   VIEW_WIDTH, VIEW_HEIGHT, PADDING_LEFT, PADDING_RIGHT, PADDING_TOP, PADDING_BOTTOM,
   LINE_COLORS, ZERO_USAGE, modelLabel, rankTopModels,
 } from './chartShared.ts'
 import type { UsageTranslate } from './chartShared.ts'
 import css from './UsageSection.module.css'
+
+/** Format an axis tick as a whole number of millions. */
+function formatAxisTick(t: UsageTranslate, value: number): string {
+  return value === 0 ? '0' : t('millions', { value: String(Math.round(value / 1_000_000)) })
+}
+
+/** One model row inside the period detail modal. */
+interface BreakdownModel {
+  readonly key: string
+  readonly model: string
+  readonly tokens: number
+}
+
+/** One provider group inside the period detail modal. */
+interface BreakdownGroup {
+  readonly provider: string
+  readonly tokens: number
+  readonly models: readonly BreakdownModel[]
+}
+
+/**
+ * Group one period's `provider/model` totals by provider.
+ * @param period Aggregated period whose models carry provider-prefixed keys.
+ * @returns Provider groups with their model rows, each sorted by consumed tokens descending.
+ */
+function breakdownByProvider(period: AggregatedPeriod): BreakdownGroup[] {
+  const groups = new Map<string, { tokens: number; models: BreakdownModel[] }>()
+  for (const [key, usage] of Object.entries(period.models)) {
+    const tokens = consumedTokens(usage)
+    const slash = key.lastIndexOf('/')
+    const provider = slash === -1 ? '' : key.slice(0, slash)
+    const model = slash === -1 ? key : key.slice(slash + 1)
+    const group = groups.get(provider) ?? { tokens: 0, models: [] }
+    group.tokens += tokens
+    group.models.push({ key, model, tokens })
+    groups.set(provider, group)
+  }
+  return [...groups.entries()]
+    .map(([provider, group]) => ({
+      provider,
+      tokens: group.tokens,
+      models: group.models.sort((a, b) => b.tokens - a.tokens),
+    }))
+    .sort((a, b) => b.tokens - a.tokens)
+}
+
+/** Format a token count in compact k/M units for the modal. */
+function formatTokens(value: number): string {
+  if (value >= 1_000_000) return `${Math.round(value / 1_000_000)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
+  return String(Math.round(value))
+}
 
 /** Props for the consumption distribution chart. */
 export interface UsageConsumptionChartProps {
@@ -24,9 +79,11 @@ export interface UsageConsumptionChartProps {
 
 /** Render per-model stacked bars of consumed tokens. */
 export function UsageConsumptionChart({
-  days, granularity, t, formatCompact, formatAxisDate,
+  days, granularity, t, formatAxisDate,
 }: UsageConsumptionChartProps): React.ReactElement {
   const periods = useMemo(() => aggregateByPeriod(days, granularity), [days, granularity])
+  const [selected, setSelected] = useState<AggregatedPeriod | null>(null)
+  const breakdown = useMemo(() => selected === null ? [] : breakdownByProvider(selected), [selected])
 
   const stacks = useMemo(() => {
     if (periods.length === 0) return [] as { key: string; colorIndex: number; data: number[] }[]
@@ -98,7 +155,7 @@ export function UsageConsumptionChart({
                   <line className={css.trendGridLine} x1={PADDING_LEFT} y1={y}
                     x2={VIEW_WIDTH - PADDING_RIGHT} y2={y} />
                   <text className={css.trendAxisLabel} x={PADDING_LEFT - 8} y={y + 3}
-                    textAnchor="end">{formatCompact.format(Math.round(tick))}</text>
+                    textAnchor="end">{formatAxisTick(t, tick)}</text>
                 </g>
               )
             })}
@@ -109,19 +166,26 @@ export function UsageConsumptionChart({
               return <text key={`xl-${pi}`} className={css.trendAxisLabel} x={x}
                 y={VIEW_HEIGHT - 8} textAnchor={anchor}>{formatAxisDate(p.period)}</text>
             })}
-            {periods.map((_period, pi) => {
+            {periods.map((period, pi) => {
               let cumulative = 0
               const barX = PADDING_LEFT + pi * step + barOffset
-              return stacks.map(stack => {
-                const height = ((stack.data[pi] ?? 0) / maxValue) * chartHeight
-                const y = PADDING_TOP + chartHeight - cumulative - height
-                cumulative += height
-                return height > 0
-                  ? <rect key={`${stack.key}-${pi}`} x={barX} y={y}
-                    width={barWidth} height={height}
-                    fill={LINE_COLORS[stack.colorIndex]} rx={1} />
-                  : null
-              })
+              return (
+                <g key={period.period} className={css.barHit}
+                  onClick={() => { setSelected(period) }}>
+                  <title>{formatAxisDate(period.period)}</title>
+                  {stacks.map(stack => {
+                    const height = ((stack.data[pi] ?? 0) / maxValue) * chartHeight
+                    const y = PADDING_TOP + chartHeight - cumulative - height
+                    cumulative += height
+                    return height > 0
+                      ? <rect key={`${stack.key}-${pi}`} x={barX} y={y}
+                        width={barWidth} height={height}
+                        fill={LINE_COLORS[stack.colorIndex]} rx={1}
+                        className={css.barRect} />
+                      : null
+                  })}
+                </g>
+              )
             })}
           </svg>
         )}
@@ -134,6 +198,30 @@ export function UsageConsumptionChart({
           </span>
         ))}
       </div>
+      <Modal
+        open={selected !== null}
+        onClose={() => { setSelected(null) }}
+        title={selected === null ? '' : formatAxisDate(selected.period)}
+        closeLabel={t('close')}
+        className={css.consumptionDialog as string}
+      >
+        <div className={css.breakdownList}>
+          {breakdown.map(group => (
+            <div key={group.provider} className={css.breakdownGroup}>
+              <div className={css.breakdownProvider}>
+                <span className={css.breakdownProviderName}>{group.provider}</span>
+                <span className={css.breakdownValue}>{formatTokens(group.tokens)}</span>
+              </div>
+              {group.models.map(row => (
+                <div key={row.key} className={css.breakdownModel}>
+                  <span className={css.breakdownModelName}>{row.model}</span>
+                  <span className={css.breakdownValue}>{formatTokens(row.tokens)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }

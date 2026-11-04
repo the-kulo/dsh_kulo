@@ -20,7 +20,7 @@ export type MenuSection = 'add' | 'commands'
  * the Commands section in catalog order.
  */
 const SECTION_ROWS: Readonly<Record<MenuSection, readonly string[]>> = {
-  add: ['file', 'goal', 'plan', 'feedback'],
+  add: ['file', 'goal', 'plan'],
   commands: ['compact', 'permission', 'model', 'export'],
 }
 

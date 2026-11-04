@@ -20,7 +20,7 @@ export type UsageLocaleKey =
   | 'chartTokenTotal' | 'chartRequests' | 'chartTotal' | 'chartCacheHit' | 'chartHitRate'
   | 'tableModel' | 'tableTime' | 'tableInput' | 'tableOutput' | 'tableCached' | 'tableHitRate'
   | 'paginationPrev' | 'paginationNext' | 'paginationInfo'
-  | 'modelFilter' | 'query' | 'totalCount' | 'weekLabel'
+  | 'modelFilter' | 'query' | 'totalCount' | 'weekLabel' | 'close' | 'millions'
 
 /** English strings for every usage dashboard locale key. */
 export const en: Record<UsageLocaleKey, string> = {
@@ -108,6 +108,8 @@ export const en: Record<UsageLocaleKey, string> = {
   query: 'Query',
   totalCount: 'Total: {count}',
   weekLabel: 'W{week}',
+  close: 'Close',
+  millions: '{value} million',
 }
 
 /** Simplified Chinese strings for every usage dashboard locale key. */
@@ -196,6 +198,8 @@ export const zh: Record<UsageLocaleKey, string> = {
   query: '查询',
   totalCount: '总计：{count}',
   weekLabel: '第{week}周',
+  close: '关闭',
+  millions: '{value}百万',
 }
 
 /** Japanese dashboard strings, with untranslated labels inherited from English. */

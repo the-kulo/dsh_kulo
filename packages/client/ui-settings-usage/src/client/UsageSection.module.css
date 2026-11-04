@@ -111,6 +111,13 @@
   gap: 12px;
 }
 
+.rangeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .rangePresets {
   display: flex;
   flex-wrap: wrap;
@@ -127,13 +134,11 @@
   width: 142px;
 }
 
-.actionBar {
+.rangeRight {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
   gap: 12px;
-  margin-left: auto;
 }
 
 .granularityToggle {
@@ -647,6 +652,73 @@
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
+/* Consumption chart detail modal */
+
+.barHit {
+  cursor: pointer;
+}
+
+.barHit:hover .barRect {
+  opacity: 0.85;
+}
+
+.consumptionDialog {
+  max-width: 420px;
+}
+
+.breakdownList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.breakdownGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.breakdownProvider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.breakdownProviderName {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.breakdownModel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.breakdownModelName {
+  color: var(--dsw-alias-label-secondary);
+  word-break: break-all;
+}
+
+.breakdownValue {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdownProvider .breakdownValue {
+  color: var(--dsw-alias-label-primary);
+}
+
 @media (max-width: 720px) {
   .header {
     flex-direction: column;
@@ -678,9 +750,8 @@
     flex-wrap: wrap;
   }
 
-  .actionBar {
+  .rangeRow {
     flex-direction: column;
     align-items: stretch;
-    margin-left: 0;
   }
 }

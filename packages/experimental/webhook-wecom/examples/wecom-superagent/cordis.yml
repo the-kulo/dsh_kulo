@@ -1,0 +1,62 @@
+# WeCom (企业微信) + SuperAgent webhook overlay.
+#
+# Mount this overlay on a running DSH Web profile to connect WeCom
+# corporate chat messages into the webhook runtime. A SuperAgent-style
+# rule evaluates each message, creates a Ticket, and delegates work
+# to a DSH Worker Session.
+#
+# Usage (from the superagent profile):
+#   dsh web --patch ./cordis.wecom.yml
+
+- insert:
+    # ---- WeCom callback adapter ----
+    # Runs in an isolated WebServer realm so exposing the callback port
+    # never exposes the UI API.
+    - id: wecom-webhook-ingress
+      name: cordis:group
+      group: true
+      isolate:
+        webServer: true
+      config:
+        - id: wecom-webhook-server
+          name: '@deepseek-ai/dsh-host-webserver'
+          config:
+            host: '127.0.0.1'
+            port: !!js Number(process.env.DSH_WECOM_WEBHOOK_PORT ?? 3083)
+
+        - id: wecom-webhook-adapter
+          name: '@deepseek-ai/dsh-webhook-wecom'
+          config:
+            # Adapter instance name carried to rules.
+            source: primary-wecom
+            # Exact path the WeCom admin panel calls back to.
+            path: /wecom-callback
+            # Credential references (set in Settings > Credentials).
+            tokenEnv: DSH_WECOM_TOKEN
+            encodingAesKeyEnv: DSH_WECOM_ENCODING_AES_KEY
+            # Your enterprise WeChat CorpId.
+            corpId: !!js process.env.DSH_WECOM_CORP_ID ?? ''
+            # Max XML body size (WeCom messages are typically < 64KB).
+            maxBodyBytes: 65536
+
+    # ---- Webhook runtime (shared by all adapters) ----
+    - id: webhook-runtime
+      name: '@deepseek-ai/dsh-webhook'
+
+    # ---- SuperAgent wecom rule ----
+    # This rule receives normalized WeCom messages, evaluates them
+    # (or delegates evaluation to a SuperAgent Router), and creates
+    # DSH Worker Sessions for accepted requests.
+    - id: wecom-superagent-rule
+      name: './wecom-superagent-rule.mjs'
+      config:
+        source: primary-wecom
+        workspacePath: !!js process.env.DSH_WECOM_WORKSPACE ?? process.cwd()
+        agentPreset: standard
+        permissionPreset: read-only
+        # WeCom bot webhook URL for sending replies back to the chat.
+        webhookUrl: !!js process.env.DSH_WECOM_BOT_WEBHOOK_URL ?? ''
+        # Optional: only process messages from these UserIds (comma-separated).
+        allowedUsers: !!js process.env.DSH_WECOM_ALLOWED_USERS ?? ''
+        # Optional: only process messages from these group ChatIds.
+        allowedChats: !!js process.env.DSH_WECOM_ALLOWED_CHATS ?? ''

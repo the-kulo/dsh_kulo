@@ -69,6 +69,16 @@ export interface DiscussionMessage {
   readonly error?: string
 }
 
+/**
+ * One contribution child in the room's durable parent-catalog listing,
+ * retained in fork-restorable order.
+ */
+export interface DiscussionCatalogChild {
+  readonly childId: SessionId
+  readonly childCreatedAt: number
+  readonly label: string
+}
+
 /** Complete durable room checkpoint shown by Web clients. */
 export interface DiscussionRoom {
   readonly id: DiscussionRoomId
@@ -93,6 +103,22 @@ declare module '@deepseek-ai/dsh-session/types' {
   interface PluginRecordMap {
     /** Whole room checkpoint owned by the experimental discussion-room package. */
     'plugin:discussion-room/state': { readonly version: 1; readonly room: DiscussionRoom }
+    /**
+     * Room-owned parent catalog listing beside the checkpoint: the complete
+     * ordered contribution children as of its commit. Ignored by the room
+     * projection; the service re-emits it as own-suffix `subagent/catalog`
+     * facts when a fork inherits it without the matching catalog facts (the
+     * catalog projection drops inherited facts).
+     */
+    'plugin:discussion-room/catalog': { readonly version: 1; readonly children: readonly DiscussionCatalogChild[] }
+  }
+
+  interface SessionEventMap {
+    /**
+     * Complete parent-catalog record appended with each room checkpoint;
+     * replayed idempotently into own-suffix `subagent/catalog` facts.
+     */
+    'plugin:discussion-room/catalog': { readonly version: 1; readonly children: readonly DiscussionCatalogChild[] }
   }
 }
 

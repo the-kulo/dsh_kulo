@@ -31,16 +31,33 @@ function modelValue(totals: UsageTotals, metric: TrendMetric): number {
   return metric === 'tokens' ? consumedTokens(totals) : totals.requests
 }
 
+function formatM(value: number): string {
+  const millions = Math.round(value) / 1_000_000
+  if (millions === 0) return '0'
+  return Number.isInteger(millions) ? `${millions}M` : `${millions.toFixed(1)}M`
+}
+
+/**
+ * Estimate the rendered width of tooltip text at 12px: CJK glyphs advance a
+ * full em while Latin glyphs average about half an em.
+ * @param text The label or value string to measure.
+ * @returns Width in SVG viewBox units, an upper bound for the 12px tooltip font.
+ */
+function textWidth(text: string): number {
+  let width = 0
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0
+    width += code >= 0x2e80 && code < 0xa000 ? 13 : 7.5
+  }
+  return width
+}
+
 /** Render one line per highest-consumption model plus a folded remainder series. */
 export function UsageTrendChart({
   days, granularity, t, format, formatDate, formatAxisDate,
 }: UsageTrendChartProps): React.ReactElement {
   const [metric, setMetric] = useState<TrendMetric>('tokens')
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
-  const locale = t('locale')
-
-  const formatCompact = useMemo(() =>
-    new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }), [locale])
 
   const periods = useMemo(() => aggregateByPeriod(days, granularity), [days, granularity])
 
@@ -165,7 +182,7 @@ export function UsageTrendChart({
                   <line className={css.trendGridLine} x1={PADDING_LEFT} y1={y}
                     x2={VIEW_WIDTH - PADDING_RIGHT} y2={y} />
                   <text className={css.trendAxisLabel} x={PADDING_LEFT - 8} y={y + 3}
-                    textAnchor="end">{formatCompact.format(Math.round(tick))}</text>
+                    textAnchor="end">{formatM(tick)}</text>
                 </g>
               )
             })}
@@ -228,12 +245,16 @@ function TrendTooltip({ hoverPoints, format, formatDate, period, t }: {
   readonly t: UsageTranslate
 }): React.ReactElement {
   const dateText = formatDate(period.date ?? period.period)
-  const height = 20 + hoverPoints.length * 18
-  const labelWidths = hoverPoints.map(point => {
-    const label = point.key === '__others__' ? t('other') : modelLabel(point.key)
-    return (label.length + format(point.value).length) * 7 + 48
-  })
-  const width = Math.max(dateText.length * 7 + 24, ...labelWidths)
+  const rows = hoverPoints.map(point => ({
+    key: point.key,
+    colorIndex: point.colorIndex,
+    text: `${point.key === '__others__' ? t('other') : modelLabel(point.key)}: ${format(point.value)}`,
+  }))
+  const width = Math.max(
+    16 + textWidth(dateText) + 16,
+    ...rows.map(row => 26 + textWidth(row.text) + 16),
+  )
+  const height = 28 + rows.length * 20
   const anchorX = hoverPoints[0]?.x ?? 0
   const x = Math.max(PADDING_LEFT, Math.min(anchorX - width / 2, VIEW_WIDTH - PADDING_RIGHT - width))
   const y = Math.max(PADDING_TOP, (hoverPoints[0]?.y ?? 0) - height - 12)
@@ -241,13 +262,11 @@ function TrendTooltip({ hoverPoints, format, formatDate, period, t }: {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <rect className={css.trendTooltipBg} width={width} height={height} rx={6} />
-      <text className={css.trendTooltipText} x={12} y={16}>{dateText}</text>
-      {hoverPoints.map((point, index) => (
-        <g key={point.key} transform={`translate(12, ${30 + index * 18})`}>
-          <circle cx={4} cy={-5} r={3} fill={LINE_COLORS[point.colorIndex]} />
-          <text className={css.trendTooltipValue} x={10} y={0}>
-            {point.key === '__others__' ? t('other') : modelLabel(point.key)}: {format(point.value)}
-          </text>
+      <text className={css.trendTooltipText} x={16} y={18}>{dateText}</text>
+      {rows.map((row, index) => (
+        <g key={row.key} transform={`translate(16, ${40 + index * 20})`}>
+          <circle cx={4} cy={-5} r={3} fill={LINE_COLORS[row.colorIndex]} />
+          <text className={css.trendTooltipValue} x={10} y={0}>{row.text}</text>
         </g>
       ))}
     </g>

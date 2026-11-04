@@ -9,7 +9,8 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SubagentActivation, SubagentResult } from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-session-persistence'
-import { appendPluginRecord, SessionId } from '@deepseek-ai/dsh-session'
+import { appendPluginRecord, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { Session } from '@deepseek-ai/dsh-session'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { discussionRoomProjection } from './projection.ts'
@@ -17,6 +18,7 @@ import type { DiscussionRoomProjectionState } from './projection.ts'
 import { moderatorPrompt, opinionPrompt, rebuttalPrompt } from './prompt.ts'
 import type {
   CreateDiscussionRoomRequest,
+  DiscussionCatalogChild,
   DiscussionMessage,
   DiscussionMessageId,
   DiscussionParticipant,
@@ -40,6 +42,8 @@ export interface Config {
   readonly maxTokenLimit?: number
   /** Maximum UTF-8 bytes in one complete generated prompt. */
   readonly maxPromptBytes?: number
+  /** Cadence in milliseconds for live contribution text checkpoints appended to the room while a contribution streams. */
+  readonly liveUpdateIntervalMs?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -53,6 +57,8 @@ export const Config: z<Config> = z.object({
   maxTokenLimit: z.number().step(1).min(1).default(32_768),
   /** Maximum UTF-8 bytes in one complete generated prompt. */
   maxPromptBytes: z.number().step(1).min(1).default(131_072),
+  /** Cadence in milliseconds for live contribution text checkpoints appended to the room while a contribution streams. */
+  liveUpdateIntervalMs: z.number().step(1).min(100).max(60_000).default(1_000),
 })
 
 declare module '@deepseek-ai/cordis' {
@@ -62,9 +68,12 @@ declare module '@deepseek-ai/cordis' {
 }
 
 interface RoomRuntime {
+  readonly agent: Agent
   readonly controller: AbortController
   readonly activations: Set<SubagentActivation>
   operation: Promise<void>
+  /** Pending live contribution text awaiting a throttled room checkpoint. */
+  readonly live: { readonly texts: Map<DiscussionMessageId, string>; timer: NodeJS.Timeout | undefined }
 }
 
 function messageOf(error: unknown): string {
@@ -75,6 +84,30 @@ function outputText(result: SubagentResult): string {
   return result.output.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n').trim()
 }
 
+/**
+ * Join the streamed text of one durable assistant stream (text deltas only),
+ * matching the visible text the child streams so live room checkpoints agree
+ * with the delta accumulation.
+ * @param stream - the durable assistant stream records of a child message.
+ * @returns the joined streamed text, empty when the stream carried no text delta.
+ */
+function joinedStreamText(stream: readonly {
+  readonly type: string
+  readonly texts?: readonly string[]
+  readonly chunk?: { readonly type: string; readonly text?: string }
+}[]): string {
+  let text = ''
+  for (const record of stream) {
+    if (record.type === 'text-chunks' && record.texts !== undefined) {
+      text += record.texts.join('')
+    } else if (record.type === 'chunk' && record.chunk !== undefined
+      && record.chunk.type === 'text-delta' && record.chunk.text !== undefined) {
+      text += record.chunk.text
+    }
+  }
+  return text
+}
+
 function stoppedRoom(room: DiscussionRoom): DiscussionRoom {
   return {
     ...room,
@@ -83,6 +116,39 @@ function stoppedRoom(room: DiscussionRoom): DiscussionRoom {
       ? { ...message, status: 'failed' as const, error: 'contribution stopped' }
       : message),
   }
+}
+
+/**
+ * The complete parent-catalog listing one commit's catalog record carries:
+ * every contribution child the room established, in establishment order,
+ * taken from the Session's own catalog facts, plus the children of any
+ * inherited catalog record (a fork inherits the room checkpoints without the
+ * matching own-suffix facts the catalog projection drops).
+ * @param session - the room Session whose catalog supplies the listing.
+ * @returns the ordered contribution children.
+ */
+function catalogChildren(session: Session): DiscussionCatalogChild[] {
+  const children: DiscussionCatalogChild[] = []
+  const seen = new Set<SessionId>()
+  // oxlint-disable-next-line typescript/no-deprecated -- The room listing folds the Session's own catalog facts.
+  for (const event of session.snapshotEvents(session.inheritedEventCount)) {
+    if (event.type !== 'subagent/catalog') continue
+    const { childId, childCreatedAt, mode, label } = event.data
+    if (mode !== 'continuable' || label === undefined) continue
+    if (seen.has(childId)) continue
+    seen.add(childId)
+    children.push({ childId, childCreatedAt, label })
+  }
+  // oxlint-disable-next-line typescript/no-deprecated -- Inherited records restore a fork's listing without facts.
+  for (const event of session.snapshotEvents(SessionLogOffset(0), session.inheritedEventCount)) {
+    if (event.type !== 'plugin:discussion-room/catalog' || event.data.version !== 1) continue
+    for (const child of event.data.children) {
+      if (seen.has(child.childId)) continue
+      seen.add(child.childId)
+      children.push(child)
+    }
+  }
+  return children
 }
 
 /** Host-owned discussion orchestration, persistence, cancellation, and Remote face. */
@@ -102,6 +168,7 @@ export class DiscussionRoomService extends TypertRemoteService {
       maxRoundLimit: config.maxRoundLimit ?? 5,
       maxTokenLimit: config.maxTokenLimit ?? 32_768,
       maxPromptBytes: config.maxPromptBytes ?? 131_072,
+      liveUpdateIntervalMs: config.liveUpdateIntervalMs ?? 1_000,
     }
   }
 
@@ -156,13 +223,16 @@ export class DiscussionRoomService extends TypertRemoteService {
     if (this.closing || this.ctx.agents.get(agent.id) !== agent) throw new Error('discussion-room service is unavailable')
     const controller = new AbortController()
     const runtime: RoomRuntime = {
+      agent,
       controller,
       activations: new Set(),
       operation: Promise.resolve(),
+      live: { texts: new Map(), timer: undefined },
     }
     const operation = this.run(agent, controller.signal).catch((error: unknown) => {
       this.ctx.logger.warn(`Discussion room "${agent.id}" failed: ${messageOf(error)}`)
     }).finally(() => {
+      if (runtime.live.timer !== undefined) clearTimeout(runtime.live.timer)
       if (this.rooms.get(agent.id) === runtime) this.rooms.delete(agent.id)
     })
     runtime.operation = operation
@@ -227,13 +297,123 @@ export class DiscussionRoomService extends TypertRemoteService {
 
   private async commit(agent: Agent, room: DiscussionRoom): Promise<void> {
     appendPluginRecord(agent.session, 'plugin:discussion-room/state', { version: 1, room })
+    appendPluginRecord(agent.session, 'plugin:discussion-room/catalog', { version: 1, children: catalogChildren(agent.session) })
+    this.reemitCatalogFacts(agent.session)
     await this.ctx.sessions.flush(agent.session)
+  }
+
+  /**
+   * Append own-suffix `subagent/catalog` facts for contribution children whose
+   * facts are absent, so a fork that inherited the room checkpoints (but not
+   * the matching facts the catalog projection drops) regains its listing.
+   * Runs after both records committed, outside any append publication, so the
+   * sequential appends never reenter another append.
+   * @param session - the room Session whose own suffix receives the facts.
+   */
+  private reemitCatalogFacts(session: Session): void {
+    const present = new Set<SessionId>()
+    // oxlint-disable-next-line typescript/no-deprecated -- Replay decides against the durable own suffix.
+    for (const candidate of session.snapshotEvents(session.inheritedEventCount)) {
+      if (candidate.type === 'subagent/catalog') present.add(candidate.data.childId)
+    }
+    for (const child of catalogChildren(session)) {
+      if (present.has(child.childId)) continue
+      session.append('subagent/catalog', {
+        version: 0,
+        childId: child.childId,
+        childCreatedAt: child.childCreatedAt,
+        mode: 'continuable',
+        label: child.label,
+      })
+    }
   }
 
   private async update(agent: Agent, update: (room: DiscussionRoom) => DiscussionRoom): Promise<void> {
     const current = this.room(agent)
     if (current.status !== 'running') return
     await this.commit(agent, update(current))
+  }
+
+  /**
+   * Accumulate streamed text for one running contribution and schedule the
+   * throttled room checkpoint that mirrors it into the message.
+   * @param agent - the room's root Agent.
+   * @param messageId - the running contribution message receiving the text.
+   * @param delta - the next streamed text fragment.
+   */
+  private liveAppend(agent: Agent, messageId: DiscussionMessageId, delta: string): void {
+    if (delta === '') return
+    const runtime = this.rooms.get(agent.id)
+    if (runtime === undefined) return
+    runtime.live.texts.set(messageId, (runtime.live.texts.get(messageId) ?? '') + delta)
+    this.scheduleLiveFlush(runtime)
+  }
+
+  /**
+   * Mirror one committed child message's streamed text into the room message
+   * immediately, replacing any pending delta accumulation.
+   * @param agent - the room's root Agent.
+   * @param messageId - the running contribution message receiving the text.
+   * @param text - the committed streamed text.
+   */
+  private liveCommit(agent: Agent, messageId: DiscussionMessageId, text: string): void {
+    const runtime = this.rooms.get(agent.id)
+    if (runtime === undefined) return
+    if (text === '') {
+      // A committed message without streamed text supersedes any partial
+      // pending accumulation; nothing to display.
+      runtime.live.texts.delete(messageId)
+      return
+    }
+    runtime.live.texts.set(messageId, text)
+    this.flushLiveNow(agent)
+  }
+
+  /** Arm one pending room checkpoint per room; the timer coalesces parallel contributions. */
+  private scheduleLiveFlush(runtime: RoomRuntime): void {
+    if (runtime.live.timer !== undefined) return
+    runtime.live.timer = setTimeout(() => {
+      runtime.live.timer = undefined
+      this.flushLive(runtime)
+    }, this.config.liveUpdateIntervalMs)
+  }
+
+  /** Cancel the pending checkpoint and flush the room's accumulated live text now. */
+  private flushLiveNow(agent: Agent): void {
+    const runtime = this.rooms.get(agent.id)
+    if (runtime === undefined) return
+    if (runtime.live.timer !== undefined) {
+      clearTimeout(runtime.live.timer)
+      runtime.live.timer = undefined
+    }
+    this.flushLive(runtime)
+  }
+
+  /**
+   * Append one non-flushing room checkpoint carrying every pending live text,
+   * so the discussion tab shows the running contributions instead of their
+   * content living only in the child subagent sessions. The terminal commit
+   * later replaces the text with the canonical captured output.
+   * @param runtime - the room whose pending texts are checkpointed.
+   */
+  private flushLive(runtime: RoomRuntime): void {
+    const pending = runtime.live.texts
+    if (pending.size === 0) return
+    const texts = new Map(pending)
+    pending.clear()
+    const projection = this.projection.stateOf(runtime.agent.session)
+    const current = projection.room
+    if (projection.failure !== undefined || current === null || current.status !== 'running') return
+    appendPluginRecord(runtime.agent.session, 'plugin:discussion-room/state', {
+      version: 1,
+      room: {
+        ...current,
+        messages: current.messages.map(candidate => {
+          const text = texts.get(candidate.id)
+          return text === undefined || text === '' ? candidate : { ...candidate, text }
+        }),
+      },
+    })
   }
 
   private async run(agent: Agent, signal: AbortSignal): Promise<void> {
@@ -294,6 +474,7 @@ export class DiscussionRoomService extends TypertRemoteService {
     }))
     await append(current => current)
     let activation: Awaited<ReturnType<typeof this.ctx.subagents.startActivation>> | undefined
+    let disposeLive: (() => void) | undefined
     try {
       if (Buffer.byteLength(prompt, 'utf8') > this.config.maxPromptBytes) {
         throw new Error(`discussion prompt exceeds ${this.config.maxPromptBytes} bytes`)
@@ -319,6 +500,44 @@ export class DiscussionRoomService extends TypertRemoteService {
       runtime?.activations.add(activation)
       if (signal.aborted) await activation.dispose()
       await append(current => ({ ...current, childSessionId }))
+      // Mirror the child's streamed assistant text into the running room
+      // message, so the discussion tab shows the contribution live instead of
+      // the logs living only in the child subagent session. Chunk frames are
+      // coalesced into throttled room checkpoints; committed child messages
+      // replace the pending text immediately.
+      const child = signal.aborted ? undefined : this.ctx.agents.get(childSessionId)
+      if (child !== undefined && runtime?.live !== undefined) {
+        const live = runtime.live
+        const disposeStream = child.ctx.on('agent/assistant-stream', ({ agent: subject, frame }) => {
+          if (subject !== child) return
+          if (frame.type === 'start') {
+            live.texts.delete(message.id)
+          } else if (frame.type === 'chunk') {
+            if (frame.chunk.type === 'text-delta') this.liveAppend(agent, message.id, frame.chunk.text)
+          } else if (frame.type === 'end') {
+            this.flushLiveNow(agent)
+          } else {
+            // 'AssistantStreamFrame' is the closed union 'start' | 'chunk' | 'end'.
+            throw new Error('unexpected assistant-stream frame')
+          }
+        })
+        const disposeSession = child.ctx.on('session/event', (session, event) => {
+          if (session !== child.session) return
+          if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+            this.liveCommit(agent, message.id, joinedStreamText(event.data.stream))
+          }
+        })
+        disposeLive = () => { disposeStream(); disposeSession() }
+        // Catch up a contribution that committed before the listeners attached
+        // (a fast model can finish its turn during activation startup): mirror
+        // the last committed assistant text into the room immediately.
+        // oxlint-disable-next-line typescript/no-deprecated -- Catch-up folds the child's existing committed suffix.
+        for (const event of child.session.snapshotEvents()) {
+          if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+            this.liveCommit(agent, message.id, joinedStreamText(event.data.stream))
+          }
+        }
+      }
       const result = await activation.result
       const text = outputText(result)
       if (result.stopReason === 'completed' && text !== '') {
@@ -334,6 +553,7 @@ export class DiscussionRoomService extends TypertRemoteService {
     } catch (error: unknown) {
       await append(current => ({ ...current, status: 'failed', error: messageOf(error) }))
     } finally {
+      disposeLive?.()
       if (activation !== undefined) {
         this.rooms.get(agent.id)?.activations.delete(activation)
         try {

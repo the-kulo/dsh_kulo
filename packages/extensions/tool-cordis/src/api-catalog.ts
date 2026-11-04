@@ -1727,31 +1727,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
-    key: 'messageFeedback',
-    summary: 'Session-log service; cold operations never construct a Session or Agent.',
-    description: 'Session-log service; cold operations never construct a Session or Agent.',
-    methods: [
-      {
-        signature: '@Remote(\'list\') list(request: MessageFeedbackListRequest): Promise<MessageFeedbackListResult>',
-        description: 'Read current feedback from the canonical log.',
-        parameters: [{ name: 'request', description: 'Session to inspect.' }],
-        returns: 'immutable items or a definite persistence miss.',
-      },
-      {
-        signature: '@Remote(\'put\') put(request: MessageFeedbackPutRequest): Promise<MessageFeedbackPutResult>',
-        description: 'Create or replace feedback after checking its current version. Matching no-ops retain the version and append no event.',
-        parameters: [{ name: 'request', description: 'Target, desired value, and observed item version.' }],
-        returns: 'the durable item or an explicit business failure.',
-      },
-      {
-        signature: '@Remote(\'delete\') delete(request: MessageFeedbackDeleteRequest): Promise<MessageFeedbackDeleteResult>',
-        description: 'Delete one item after checking its version; absence succeeds without an event.',
-        parameters: [{ name: 'request', description: 'Session, message, and observed item version.' }],
-        returns: 'the stable absent postcondition or an explicit failure.',
-      },
-    ],
-  },
-  {
     key: 'officeToPdf',
     summary: 'A provider lifetime owns all converters, queued calls, and temporary files.',
     description: 'A provider lifetime owns all converters, queued calls, and temporary files.',
@@ -2414,19 +2389,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Stream a complete live-control baseline followed by replacement frames.',
         parameters: [{ name: 'signal', description: 'cancellation owned by the Remote stream carrier.' }],
         returns: 'one complete baseline followed by live replacement frames.',
-      },
-    ],
-  },
-  {
-    key: 'sessionFeedback',
-    summary: 'Host Remote through which a product surface records a Session-level remark.',
-    description: 'Host Remote through which a product surface records a Session-level remark.',
-    methods: [
-      {
-        signature: '@Remote(\'record\') record(request: SessionFeedbackRecordRequest): Promise<SessionFeedbackRecordResult>',
-        description: 'Record one remark on a live Session.',
-        parameters: [{ name: 'request', description: 'target Session plus the optional text and category.' }],
-        returns: 'the recorded postcondition, or `session-not-found` when no live Session carries the id.',
       },
     ],
   },
@@ -5884,10 +5846,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EveryScheduleRecord {\n    readonly id: ScheduleId;\n    readonly kind: \'every\';\n    readonly title: string;\n    readonly prompt: string;\n    readonly everySeconds: number;\n    readonly scheduledAt: string;\n}',
   },
   {
-    name: 'FeedbackCategory',
-    declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
-  },
-  {
     name: 'FiberState',
     declaration: 'export const enum FiberState {\n    PENDING,\n    LOADING,\n    ACTIVE,\n    FAILED,\n    DISPOSED,\n    UNLOADING\n}',
   },
@@ -6542,82 +6500,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'Message',
     declaration: 'export type Message = MessageRoleMap[keyof MessageRoleMap];',
-  },
-  {
-    name: 'MessageFeedbackDeleteRequest',
-    declaration: 'export interface MessageFeedbackDeleteRequest {\n    readonly sessionId: SessionId;\n    readonly messageId: MessageId;\n    readonly ifVersion: MessageFeedbackVersion;\n}',
-  },
-  {
-    name: 'MessageFeedbackDeleteResult',
-    declaration: 'export type MessageFeedbackDeleteResult = MessageFeedbackSuccess<MessageFeedbackDeleteValue> | MessageFeedbackRejected<MessageFeedbackSessionNotFound | MessageFeedbackVersionConflict>;',
-  },
-  {
-    name: 'MessageFeedbackDeleteValue',
-    declaration: 'export interface MessageFeedbackDeleteValue {\n    readonly absent: true;\n}',
-  },
-  {
-    name: 'MessageFeedbackFailure',
-    declaration: 'export type MessageFeedbackFailure = MessageFeedbackSessionNotFound | MessageFeedbackTargetNotFound | MessageFeedbackVersionConflict | MessageFeedbackNoteBlank | MessageFeedbackNoteTooLarge;',
-  },
-  {
-    name: 'MessageFeedbackItem',
-    declaration: 'export interface MessageFeedbackItem {\n    readonly messageId: MessageId;\n    readonly rating: MessageFeedbackRating;\n    readonly note?: string;\n    readonly category?: FeedbackCategory;\n    readonly version: MessageFeedbackVersion;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n}',
-  },
-  {
-    name: 'MessageFeedbackListRequest',
-    declaration: 'export interface MessageFeedbackListRequest {\n    readonly sessionId: SessionId;\n}',
-  },
-  {
-    name: 'MessageFeedbackListResult',
-    declaration: 'export type MessageFeedbackListResult = MessageFeedbackSuccess<MessageFeedbackListValue> | MessageFeedbackRejected<MessageFeedbackSessionNotFound>;',
-  },
-  {
-    name: 'MessageFeedbackListValue',
-    declaration: 'export interface MessageFeedbackListValue {\n    readonly items: readonly MessageFeedbackItem[];\n}',
-  },
-  {
-    name: 'MessageFeedbackNoteBlank',
-    declaration: 'export interface MessageFeedbackNoteBlank {\n    readonly code: \'note-blank\';\n}',
-  },
-  {
-    name: 'MessageFeedbackNoteTooLarge',
-    declaration: 'export interface MessageFeedbackNoteTooLarge {\n    readonly code: \'note-too-large\';\n    readonly maxBytes: number;\n    readonly actualBytes: number;\n}',
-  },
-  {
-    name: 'MessageFeedbackPutRequest',
-    declaration: 'export interface MessageFeedbackPutRequest {\n    readonly sessionId: SessionId;\n    readonly messageId: MessageId;\n    readonly rating: MessageFeedbackRating;\n    readonly note?: string;\n    readonly category?: FeedbackCategory;\n    readonly ifVersion: MessageFeedbackVersion | null;\n}',
-  },
-  {
-    name: 'MessageFeedbackPutResult',
-    declaration: 'export type MessageFeedbackPutResult = MessageFeedbackSuccess<MessageFeedbackItem> | MessageFeedbackRejected<MessageFeedbackSessionNotFound | MessageFeedbackTargetNotFound | MessageFeedbackVersionConflict | MessageFeedbackNoteBlank | MessageFeedbackNoteTooLarge>;',
-  },
-  {
-    name: 'MessageFeedbackRating',
-    declaration: 'export type MessageFeedbackRating = \'positive\' | \'negative\';',
-  },
-  {
-    name: 'MessageFeedbackRejected',
-    declaration: 'export interface MessageFeedbackRejected<E extends MessageFeedbackFailure> {\n    readonly ok: false;\n    readonly error: E;\n}',
-  },
-  {
-    name: 'MessageFeedbackSessionNotFound',
-    declaration: 'export interface MessageFeedbackSessionNotFound {\n    readonly code: \'session-not-found\';\n    readonly sessionId: SessionId;\n}',
-  },
-  {
-    name: 'MessageFeedbackSuccess',
-    declaration: 'export interface MessageFeedbackSuccess<T> {\n    readonly ok: true;\n    readonly value: T;\n}',
-  },
-  {
-    name: 'MessageFeedbackTargetNotFound',
-    declaration: 'export interface MessageFeedbackTargetNotFound {\n    readonly code: \'target-not-found\';\n    readonly sessionId: SessionId;\n    readonly messageId: MessageId;\n}',
-  },
-  {
-    name: 'MessageFeedbackVersion',
-    declaration: 'export type MessageFeedbackVersion = Branded<\'MessageFeedbackVersion\'>;',
-  },
-  {
-    name: 'MessageFeedbackVersionConflict',
-    declaration: 'export interface MessageFeedbackVersionConflict {\n    readonly code: \'version-conflict\';\n    readonly current: MessageFeedbackItem | null;\n}',
   },
   {
     name: 'MessageId',
@@ -7634,22 +7516,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionEventWindow',
     declaration: 'export interface SessionEventWindow {\n    session: SessionHeader;\n    inheritedEventCount: SessionLogOffset;\n    target: SessionEvent;\n    events: SessionEvent[];\n    startSeq: SessionSeq;\n    endSeq: SessionSeq;\n}',
-  },
-  {
-    name: 'SessionFeedbackRecordRequest',
-    declaration: 'export interface SessionFeedbackRecordRequest {\n    readonly sessionId: SessionId;\n    readonly text?: string;\n    readonly category?: FeedbackCategory;\n}',
-  },
-  {
-    name: 'SessionFeedbackRecordResult',
-    declaration: 'export type SessionFeedbackRecordResult = {\n    readonly ok: true;\n    readonly value: SessionFeedbackRecordValue;\n} | {\n    readonly ok: false;\n    readonly error: SessionFeedbackSessionNotFound;\n};',
-  },
-  {
-    name: 'SessionFeedbackRecordValue',
-    declaration: 'export interface SessionFeedbackRecordValue {\n    readonly recorded: true;\n}',
-  },
-  {
-    name: 'SessionFeedbackSessionNotFound',
-    declaration: 'export interface SessionFeedbackSessionNotFound {\n    readonly code: \'session-not-found\';\n    readonly sessionId: SessionId;\n}',
   },
   {
     name: 'SessionFollowFrame',

@@ -11,15 +11,10 @@ import { aggregateByPeriod, consumedTokens } from './usageAggregate.ts'
 import type { AggregatedPeriod } from './usageAggregate.ts'
 import {
   VIEW_WIDTH, VIEW_HEIGHT, PADDING_LEFT, PADDING_RIGHT, PADDING_TOP, PADDING_BOTTOM,
-  LINE_COLORS, ZERO_USAGE, modelLabel, rankTopModels,
+  LINE_COLORS, ZERO_USAGE, formatAxisValue, modelLabel, niceAxis, rankTopModels,
 } from './chartShared.ts'
 import type { UsageTranslate } from './chartShared.ts'
 import css from './UsageSection.module.css'
-
-/** Format an axis tick as a whole number of millions. */
-function formatAxisTick(t: UsageTranslate, value: number): string {
-  return value === 0 ? '0' : t('millions', { value: String(Math.round(value / 1_000_000)) })
-}
 
 /** One model row inside the period detail modal. */
 interface BreakdownModel {
@@ -120,14 +115,14 @@ export function UsageConsumptionChart({
     return max
   }, [periods, stacks])
 
+  const axis = useMemo(() => niceAxis(maxValue), [maxValue])
+  const axisMax = axis.max === 0 ? 1 : axis.max
+
   const chartWidth = VIEW_WIDTH - PADDING_LEFT - PADDING_RIGHT
   const chartHeight = VIEW_HEIGHT - PADDING_TOP - PADDING_BOTTOM
   const step = periods.length > 0 ? chartWidth / periods.length : 0
   const barWidth = Math.min(step * 0.6, 56)
   const barOffset = (step - barWidth) / 2
-
-  const yTicks = 4
-  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => (maxValue / yTicks) * i)
 
   const labelIndices = useMemo(() => {
     if (periods.length <= 10) return new Set(periods.map((_, i) => i))
@@ -148,14 +143,14 @@ export function UsageConsumptionChart({
         : (
           <svg className={css.trendSvg} viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
             preserveAspectRatio="none" role="img" aria-label={t('tabConsumption')}>
-            {yTickValues.map((tick, i) => {
-              const y = PADDING_TOP + chartHeight - (tick / maxValue) * chartHeight
+            {axis.ticks.map((tick, i) => {
+              const y = PADDING_TOP + chartHeight - (tick / axisMax) * chartHeight
               return (
                 <g key={i}>
                   <line className={css.trendGridLine} x1={PADDING_LEFT} y1={y}
                     x2={VIEW_WIDTH - PADDING_RIGHT} y2={y} />
                   <text className={css.trendAxisLabel} x={PADDING_LEFT - 8} y={y + 3}
-                    textAnchor="end">{formatAxisTick(t, tick)}</text>
+                    textAnchor="end">{formatAxisValue(tick)}</text>
                 </g>
               )
             })}
@@ -174,7 +169,7 @@ export function UsageConsumptionChart({
                   onClick={() => { setSelected(period) }}>
                   <title>{formatAxisDate(period.period)}</title>
                   {stacks.map(stack => {
-                    const height = ((stack.data[pi] ?? 0) / maxValue) * chartHeight
+                    const height = ((stack.data[pi] ?? 0) / axisMax) * chartHeight
                     const y = PADDING_TOP + chartHeight - cumulative - height
                     cumulative += height
                     return height > 0

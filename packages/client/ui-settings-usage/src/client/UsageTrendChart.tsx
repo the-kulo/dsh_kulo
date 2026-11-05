@@ -10,7 +10,7 @@ import type { UsageDaySummary, UsageTotals } from '../types.ts'
 import { aggregateByPeriod, consumedTokens, type AggregatedPeriod } from './usageAggregate.ts'
 import {
   VIEW_WIDTH, VIEW_HEIGHT, PADDING_LEFT, PADDING_RIGHT, PADDING_TOP, PADDING_BOTTOM,
-  LINE_COLORS, MAX_SERIES, ZERO_USAGE, modelLabel, rankTopModels,
+  LINE_COLORS, MAX_SERIES, ZERO_USAGE, formatAxisValue, modelLabel, niceAxis, rankTopModels,
 } from './chartShared.ts'
 import type { UsageTranslate } from './chartShared.ts'
 import css from './UsageSection.module.css'
@@ -29,12 +29,6 @@ export interface UsageTrendChartProps {
 
 function modelValue(totals: UsageTotals, metric: TrendMetric): number {
   return metric === 'tokens' ? consumedTokens(totals) : totals.requests
-}
-
-function formatM(value: number): string {
-  const millions = Math.round(value) / 1_000_000
-  if (millions === 0) return '0'
-  return Number.isInteger(millions) ? `${millions}M` : `${millions.toFixed(1)}M`
 }
 
 /**
@@ -94,6 +88,9 @@ export function UsageTrendChart({
     return max
   }, [lines])
 
+  const axis = useMemo(() => niceAxis(maxValue), [maxValue])
+  const axisMax = axis.max === 0 ? 1 : axis.max
+
   const chartWidth = VIEW_WIDTH - PADDING_LEFT - PADDING_RIGHT
   const chartHeight = VIEW_HEIGHT - PADDING_TOP - PADDING_BOTTOM
   const xStep = periods.length > 1 ? chartWidth / (periods.length - 1) : 0
@@ -102,17 +99,14 @@ export function UsageTrendChart({
     if (line.data.length === 0) return { area: '', line: '' }
     const pts = line.data.map((value, index) => ({
       x: PADDING_LEFT + index * xStep,
-      y: PADDING_TOP + chartHeight - (value / maxValue) * chartHeight,
+      y: PADDING_TOP + chartHeight - (value / axisMax) * chartHeight,
     }))
     const lineD = pts.map((point, index) =>
       `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
     const baseline = (PADDING_TOP + chartHeight).toFixed(1)
     const areaD = `${lineD} L${pts[pts.length - 1]!.x.toFixed(1)},${baseline} L${pts[0]!.x.toFixed(1)},${baseline} Z`
     return { area: areaD, line: lineD }
-  }), [lines, maxValue, xStep])
-
-  const yTicks = 4
-  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => (maxValue / yTicks) * i)
+  }), [lines, axisMax, xStep])
 
   const labelIndices = useMemo(() => {
     if (periods.length <= 10) return new Set(periods.map((_, i) => i))
@@ -141,11 +135,11 @@ export function UsageTrendChart({
         key: line.key,
         colorIndex: line.colorIndex,
         x: PADDING_LEFT + hoverIndex * xStep,
-        y: PADDING_TOP + chartHeight - (value / maxValue) * chartHeight,
+        y: PADDING_TOP + chartHeight - (value / axisMax) * chartHeight,
         value,
       }
     })
-  }, [hoverIndex, lines, xStep, maxValue])
+  }, [hoverIndex, lines, xStep, axisMax])
 
   const isEmpty = periods.length === 0 || lines.length === 0
 
@@ -175,14 +169,14 @@ export function UsageTrendChart({
                 </linearGradient>
               ))}
             </defs>
-            {yTickValues.map((tick, i) => {
-              const y = PADDING_TOP + chartHeight - (tick / maxValue) * chartHeight
+            {axis.ticks.map((tick, i) => {
+              const y = PADDING_TOP + chartHeight - (tick / axisMax) * chartHeight
               return (
                 <g key={i}>
                   <line className={css.trendGridLine} x1={PADDING_LEFT} y1={y}
                     x2={VIEW_WIDTH - PADDING_RIGHT} y2={y} />
                   <text className={css.trendAxisLabel} x={PADDING_LEFT - 8} y={y + 3}
-                    textAnchor="end">{formatM(tick)}</text>
+                    textAnchor="end">{formatAxisValue(tick)}</text>
                 </g>
               )
             })}

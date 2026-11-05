@@ -41,6 +41,50 @@ export const ZERO_USAGE: UsageTotals = {
   inputTokens: 0, cachedTokens: 0, outputTokens: 0, totalTokens: 0, requests: 0,
 }
 
+/** Preferred step multipliers for readable axis ticks. */
+const NICE_STEPS = [1, 2, 5, 10] as const
+
+/**
+ * Choose a readable axis maximum and evenly spaced ticks for the plotted peak.
+ * The step snaps to 1/2/5/10 times the value's magnitude, so a 34M peak
+ * ticks at 10M and a 480M peak ticks at 100M instead of both sharing an
+ * arbitrary division.
+ * @param maxValue - Largest plotted value.
+ * @param intervals - Preferred steps above zero; the snapped step keeps the axis at or below it.
+ * @returns The axis maximum and its tick values, including zero.
+ */
+export function niceAxis(maxValue: number, intervals = 5): { max: number; ticks: number[] } {
+  if (!Number.isFinite(maxValue) || maxValue <= 0) return { max: 0, ticks: [0] }
+  const rough = maxValue / intervals
+  const magnitude = 10 ** Math.floor(Math.log10(rough))
+  const normalized = rough / magnitude
+  const step = magnitude * (NICE_STEPS.find(candidate => normalized <= candidate) ?? 10)
+  const max = step * Math.ceil(maxValue / step)
+  return {
+    max,
+    ticks: Array.from({ length: Math.round(max / step) + 1 }, (_, index) => step * index),
+  }
+}
+
+/**
+ * Format one axis tick in k/M/B units; sub-thousand values stay literal.
+ * @param value - Tick value in tokens or requests.
+ * @returns The short label, such as `0`, `500`, `20k`, `100M`, or `1.5M`.
+ */
+export function formatAxisValue(value: number): string {
+  const sized = (scaled: number, suffix: string): string => `${trimDecimal(scaled)}${suffix}`
+  const absolute = Math.abs(value)
+  if (absolute >= 1_000_000_000) return sized(value / 1_000_000_000, 'B')
+  if (absolute >= 1_000_000) return sized(value / 1_000_000, 'M')
+  if (absolute >= 1_000) return sized(value / 1_000, 'k')
+  return trimDecimal(value)
+}
+
+function trimDecimal(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
 /**
  * Drop the provider prefix from a `provider/model` key for legend and axis labels.
  * @param key Provider-prefixed model key.

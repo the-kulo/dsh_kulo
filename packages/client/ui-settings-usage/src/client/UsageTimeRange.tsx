@@ -12,9 +12,6 @@ import type { UsageTranslate } from './chartShared.ts'
 import type { UsageRangePreset } from './usageAggregate.ts'
 import css from './UsageSection.module.css'
 
-/** Granularity options for trend charts and breakdown tables. */
-export type UsageGranularity = 'day' | 'week' | 'hour'
-
 /** Props for the time-range filter. */
 export interface UsageTimeRangeProps {
   readonly preset: UsageRangePreset
@@ -24,9 +21,6 @@ export interface UsageTimeRangeProps {
   readonly t: UsageTranslate
   onChange: (preset: UsageRangePreset, customFrom?: string, customTo?: string) => void
 
-  readonly granularity: UsageGranularity
-  readonly onGranularityChange: (granularity: UsageGranularity) => void
-
   readonly selectedModels: ReadonlySet<string>
   readonly allModels: readonly string[]
   readonly onModelsChange: (models: ReadonlySet<string>) => void
@@ -34,13 +28,7 @@ export interface UsageTimeRangeProps {
   readonly onQuery: () => void
 }
 
-const GRANULARITY_OPTIONS: readonly { readonly value: UsageGranularity; readonly labelKey: UsageLocaleKey }[] = [
-  { value: 'day', labelKey: 'granularityDay' },
-  { value: 'week', labelKey: 'granularityWeek' },
-  { value: 'hour', labelKey: 'granularityHour' },
-]
-
-const PRESETS: readonly UsageRangePreset[] = ['today', '7d', 'all', 'custom']
+const PRESETS: readonly UsageRangePreset[] = ['today', '7d', '30d', 'all', 'custom']
 
 const PRESET_KEYS: Record<UsageRangePreset, UsageLocaleKey> = {
   today: 'rangeToday',
@@ -53,7 +41,6 @@ const PRESET_KEYS: Record<UsageRangePreset, UsageLocaleKey> = {
 /** Render the range presets, custom dates, granularity toggle, model filter, and query button. */
 export function UsageTimeRange({
   preset, customFrom, customTo, today, t, onChange,
-  granularity, onGranularityChange,
   selectedModels, allModels, onModelsChange, onQuery,
 }: UsageTimeRangeProps): React.ReactElement {
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
@@ -101,19 +88,6 @@ export function UsageTimeRange({
             </Button>
           ))}
         </div>
-        {GRANULARITY_OPTIONS.map(option => (
-          <button
-            key={option.value}
-            type="button"
-            className={css.trendBtn}
-            data-active={granularity === option.value ? 'true' : undefined}
-            disabled={option.value === 'hour'}
-            title={option.value === 'hour' ? t('granularityHourHint') : undefined}
-            onClick={() => { onGranularityChange(option.value) }}
-          >
-            {t(option.labelKey)}
-          </button>
-        ))}
         <div className={css.rangeRight}>
           <Menu
             align="end"

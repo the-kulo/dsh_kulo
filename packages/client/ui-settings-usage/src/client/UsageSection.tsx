@@ -41,14 +41,11 @@ type LoadState =
 
 type UsageTab = 'consumption' | 'trend' | 'requests' | 'rank' | 'cache'
 
-type UsagePeriod = 'day' | 'week'
-
 /** Filter values the query button commits to every chart and table. */
 interface UsageFilters {
   readonly preset: UsageRangePreset
   readonly customFrom: string
   readonly customTo: string
-  readonly period: UsagePeriod
   readonly models: ReadonlySet<string>
 }
 
@@ -63,7 +60,7 @@ const TABS: readonly { readonly id: UsageTab; readonly labelKey: UsageLocaleKey 
 const NO_MODELS: ReadonlySet<string> = new Set<string>()
 
 const INITIAL_FILTERS: UsageFilters = {
-  preset: '30d', customFrom: '', customTo: '', period: 'day', models: NO_MODELS,
+  preset: '30d', customFrom: '', customTo: '', models: NO_MODELS,
 }
 
 /** Centered light empty/loading/error surface: an icon plus one line of copy. */
@@ -135,6 +132,9 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
     [snapshot, range, applied.models],
   )
   const totals = useMemo(() => sumDays(scopedDays), [scopedDays])
+  // Bucketing follows the data volume the range actually holds: long histories
+  // grow unreadable as daily bars, while short ones do not need weekly grouping.
+  const granularity: 'day' | 'week' = scopedDays.length > 60 ? 'week' : 'day'
 
   const formatRowTime = useCallback(
     (period: string, date?: string): string => formatAxisDate(date ?? period),
@@ -168,11 +168,6 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
         today={today}
         t={t}
         onChange={handleRangeChange}
-        granularity={draft.period}
-        onGranularityChange={(period) => {
-          if (period === 'hour') return
-          setDraft(previous => ({ ...previous, period }))
-        }}
         selectedModels={draft.models}
         allModels={allModels}
         onModelsChange={(models) => { setDraft(previous => ({ ...previous, models })) }}
@@ -236,7 +231,7 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
                   ? (
                     <UsageConsumptionChart
                       days={scopedDays}
-                      granularity={applied.period}
+                      granularity={granularity}
                       t={t}
                       formatCompact={formatCompact}
                       formatAxisDate={formatAxisDate}
@@ -247,7 +242,7 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
                   ? (
                     <UsageTrendChart
                       days={scopedDays}
-                      granularity={applied.period}
+                      granularity={granularity}
                       t={t}
                       format={format}
                       formatDate={formatDate}
@@ -272,7 +267,7 @@ export function UsageSection({ summary, t }: UsageSectionProps): React.ReactElem
                   ? (
                     <UsageCacheTable
                       days={scopedDays}
-                      granularity={applied.period}
+                      granularity={granularity}
                       t={t}
                       format={format}
                       formatPercent={formatPercent}

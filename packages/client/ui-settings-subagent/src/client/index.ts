@@ -17,13 +17,16 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: the ctx.remote Context merge and the forwarded-event key face.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: the generated usageDashboard Remote namespace merge; the loader
+// stays optional because a deployment may leave that Remote unmounted.
+import type {} from '@deepseek-ai/dsh-client-ui-settings-usage/remote'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { ModelPoolSection } from './ModelPoolSection.tsx'
 import { SubagentCard } from './SubagentCard.tsx'
 import { subagentCardFace } from './subagent-card-controller.ts'
 import { SubagentLimitsCardController } from './subagent-limits-card-controller.ts'
 import {
-  SUBAGENT_MODEL_SELECTION_NS, SubagentModelSelectionCardController,
+  SUBAGENT_MODEL_SELECTION_NS, SubagentModelSelectionCardController, shanghaiRangeDays,
 } from './subagent-model-selection-card-controller.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type SubagentSettingsLocaleKey } from './locales.ts'
 
@@ -68,6 +71,15 @@ export function apply(ctx: ClientContext): void {
     ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS),
     ctx,
   )
+  // The usage dashboard Remote is optional: its reader attaches when the
+  // namespace mounts, and an unmounted one leaves the usage row hidden.
+  ctx.inject(['remote.usageDashboard'], (usageCtx) => {
+    models.attachUsageLoader(async () => {
+      const result = await usageCtx.remote.usageDashboard.summary(shanghaiRangeDays(7))
+      if (!result.ok) throw new Error(`usageDashboard.summary failed: ${result.error.code}: ${result.error.message}`)
+      return result.value.days
+    })
+  })
   const limitsFace = limits.inject()
   const modelsFace = models.inject()
   // The model catalogue is not part of any settings section: adapters come and

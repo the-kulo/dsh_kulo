@@ -12,8 +12,19 @@ import css from './SubagentModelSelectionFields.module.css'
 /** Plain model state and callbacks supplied by the owning Subagent card. */
 export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
   & Pick<SubagentModelSelectionCardFace,
-    'toggleEnabled' | 'toggleModel' | 'retryCatalog' | 'toggleAutoSelect' | 'toggleAutoSelectable' | 'setCapabilityTags'>
+    'toggleEnabled' | 'toggleModel' | 'retryCatalog' | 'toggleAutoSelect' | 'toggleAutoSelectable'
+    | 'setCapabilityTags' | 'setCapabilityPriority' | 'setCapabilityCost' | 'setCapabilitySpeed'>
   & { state: SubagentModelSelectionCardState }
+
+/** One line of the read-only automatic-routing rule summary. */
+function RoutingRule(props: { label: string; rule: string }) {
+  return (
+    <div className={css.ruleRow}>
+      <span className={css.ruleCategory}>{props.label}</span>
+      <span className={css.ruleText}>{props.rule}</span>
+    </div>
+  )
+}
 
 /**
  * Render the default-off preference and its exact adapter-route choices.
@@ -42,50 +53,118 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
       group.candidates.push(candidate)
     }
   }
-  const renderCandidate = (candidate: SubagentModelCandidate) => (
-    <div key={candidate.key} className={css.modelEntry}>
-      <label className={css.model}>
-        <input
-          type="checkbox"
-          checked={candidate.selected}
-          disabled={!state.writable || state.saving}
-          onChange={() => { props.toggleModel(candidate.key) }}
-        />
-        <span>
-          <span className={css.modelName}>{candidate.modelName}</span>
-          <span className={css.route}>{`${candidate.providerName} · ${candidate.provider}/${candidate.model}`}</span>
-        </span>
-        {!candidate.available
-          ? <span className={css.unavailable}>{t('subagentModelSelectionUnavailable')}</span>
+  const renderCandidate = (candidate: SubagentModelCandidate) => {
+    const usage = state.usage === undefined ? undefined : state.usage?.get(candidate.key)
+    return (
+      <div key={candidate.key} className={css.modelEntry}>
+        <label className={css.model}>
+          <input
+            type="checkbox"
+            checked={candidate.selected}
+            disabled={!state.writable || state.saving}
+            onChange={() => { props.toggleModel(candidate.key) }}
+          />
+          <span>
+            <span className={css.modelName}>{candidate.modelName}</span>
+            <span className={css.route}>{`${candidate.providerName} · ${candidate.provider}/${candidate.model}`}</span>
+          </span>
+          {!candidate.available
+            ? <span className={css.unavailable}>{t('subagentModelSelectionUnavailable')}</span>
+            : null}
+        </label>
+        {candidate.selected && state.autoSelect
+          ? (
+            <div className={css.capability}>
+              <label className={css.capabilityToggle}>
+                <input
+                  type="checkbox"
+                  aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityAutoSelectable')}`}
+                  checked={candidate.capability?.autoSelectable ?? false}
+                  disabled={!state.writable || state.saving}
+                  onChange={() => { props.toggleAutoSelectable(candidate.key) }}
+                />
+                <span>{t('subagentModelSelectionCapabilityAutoSelectable')}</span>
+              </label>
+              <div className={css.capabilityFields}>
+                <label className={css.capabilityField}>
+                  <span className={css.capabilityLabel}>{t('subagentModelSelectionCapabilityTags')}</span>
+                  <input
+                    className={css.capabilityTags}
+                    type="text"
+                    aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityTags')}`}
+                    placeholder={t('subagentModelSelectionCapabilityTagsHint')}
+                    value={candidate.capability?.tags.join(', ') ?? ''}
+                    disabled={!state.writable || state.saving}
+                    onChange={(event) => { props.setCapabilityTags(candidate.key, event.target.value) }}
+                  />
+                  <span className={css.hint}>{t('subagentModelSelectionCapabilityTagsValues')}</span>
+                </label>
+                <label className={css.capabilityField}>
+                  <span className={css.capabilityLabel}>{t('subagentModelSelectionCapabilityPriority')}</span>
+                  <input
+                    className={css.capabilityNumber}
+                    type="number"
+                    step={1}
+                    aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityPriority')}`}
+                    value={candidate.capability?.priority ?? 0}
+                    disabled={!state.writable || state.saving}
+                    onChange={(event) => { props.setCapabilityPriority(candidate.key, event.target.value) }}
+                  />
+                  <span className={css.hint}>{t('subagentModelSelectionCapabilityPriorityHint')}</span>
+                </label>
+                <label className={css.capabilityField}>
+                  <span className={css.capabilityLabel}>{t('subagentModelSelectionCapabilityCost')}</span>
+                  <select
+                    className={css.capabilitySelect}
+                    aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityCost')}`}
+                    value={candidate.capability?.cost ?? ''}
+                    disabled={!state.writable || state.saving}
+                    onChange={(event) => { props.setCapabilityCost(candidate.key, event.target.value) }}
+                  >
+                    <option value="">{t('subagentModelSelectionCapabilityTierUndeclared')}</option>
+                    <option value="free">{t('subagentModelSelectionCapabilityCostFree')}</option>
+                    <option value="low">{t('subagentModelSelectionCapabilityCostLow')}</option>
+                    <option value="standard">{t('subagentModelSelectionCapabilityCostStandard')}</option>
+                    <option value="high">{t('subagentModelSelectionCapabilityCostHigh')}</option>
+                  </select>
+                </label>
+                <label className={css.capabilityField}>
+                  <span className={css.capabilityLabel}>{t('subagentModelSelectionCapabilitySpeed')}</span>
+                  <select
+                    className={css.capabilitySelect}
+                    aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilitySpeed')}`}
+                    value={candidate.capability?.speed ?? ''}
+                    disabled={!state.writable || state.saving}
+                    onChange={(event) => { props.setCapabilitySpeed(candidate.key, event.target.value) }}
+                  >
+                    <option value="">{t('subagentModelSelectionCapabilityTierUndeclared')}</option>
+                    <option value="fast">{t('subagentModelSelectionCapabilitySpeedFast')}</option>
+                    <option value="balanced">{t('subagentModelSelectionCapabilitySpeedBalanced')}</option>
+                    <option value="slow">{t('subagentModelSelectionCapabilitySpeedSlow')}</option>
+                  </select>
+                </label>
+                {state.usage !== undefined
+                  ? (
+                    <div className={css.usageRow}>
+                      <span className={css.capabilityLabel}>{t('subagentModelSelectionUsage')}</span>
+                      <span className={css.usageValue}>
+                        {usage === undefined || usage === null
+                          ? t('subagentModelSelectionUsageUnavailable')
+                          : t('subagentModelSelectionUsageValue', {
+                            requests: usage.requests,
+                            tokens: usage.totalTokens,
+                          })}
+                      </span>
+                    </div>
+                  )
+                  : null}
+              </div>
+            </div>
+          )
           : null}
-      </label>
-      {candidate.selected && state.autoSelect
-        ? (
-          <div className={css.capability}>
-            <label className={css.capabilityToggle}>
-              <input
-                type="checkbox"
-                aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityAutoSelectable')}`}
-                checked={candidate.capability?.autoSelectable ?? false}
-                disabled={!state.writable || state.saving}
-                onChange={() => { props.toggleAutoSelectable(candidate.key) }}
-              />
-              <span>{t('subagentModelSelectionCapabilityAutoSelectable')}</span>
-            </label>
-            <input
-              className={css.capabilityTags}
-              type="text"
-              aria-label={`${candidate.provider}/${candidate.model} ${t('subagentModelSelectionCapabilityTags')}`}
-              placeholder={t('subagentModelSelectionCapabilityTagsHint')}
-              value={candidate.capability?.tags.join(', ') ?? ''}
-              disabled={!state.writable || state.saving}
-              onChange={(event) => { props.setCapabilityTags(candidate.key, event.target.value) }}
-            />
-          </div>
-        )
-        : null}
-    </div>
-  )
+      </div>
+    )
+  }
   return (
     <>
       <div className={css.permission}>
@@ -161,6 +240,30 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
                 ? <p className={css.notice}>{t('subagentModelSelectionEmpty')}</p>
                 : null}
             {state.invalid ? <p className={css.invalid}>{t('subagentModelSelectionRequired')}</p> : null}
+            {state.autoSelect
+              ? (
+                <div className={css.rules}>
+                  <div className={css.rulesTitle}>{t('subagentModelSelectionRoutingRules')}</div>
+                  <RoutingRule
+                    label={t('subagentModelSelectionRuleSensitive')}
+                    rule={t('subagentModelSelectionRuleSensitiveText')}
+                  />
+                  <RoutingRule
+                    label={t('subagentModelSelectionRuleCode')}
+                    rule={t('subagentModelSelectionRuleCodeText')}
+                  />
+                  <RoutingRule
+                    label={t('subagentModelSelectionRuleReasoning')}
+                    rule={t('subagentModelSelectionRuleReasoningText')}
+                  />
+                  <RoutingRule
+                    label={t('subagentModelSelectionRuleSimple')}
+                    rule={t('subagentModelSelectionRuleSimpleText')}
+                  />
+                  <p className={css.hint}>{t('subagentModelSelectionRoutingSort')}</p>
+                </div>
+              )
+              : null}
           </div>
         )
         : null}

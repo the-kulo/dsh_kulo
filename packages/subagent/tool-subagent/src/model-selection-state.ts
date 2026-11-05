@@ -56,6 +56,11 @@ const modelSelectionPolicySchema: zod.ZodType<ModelSelectionPolicy | null> = zod
     model: zod.string().min(1),
     tags: zod.array(zod.string().min(1)),
     autoSelectable: zod.boolean(),
+    // Declared metadata is optional: policies recorded before these fields
+    // existed stay readable, and an undeclared field means "no preference".
+    priority: zod.number().int().safe().optional(),
+    cost: zod.enum(['free', 'low', 'standard', 'high']).optional(),
+    speed: zod.enum(['fast', 'balanced', 'slow']).optional(),
   })),
 }).nullable()
 

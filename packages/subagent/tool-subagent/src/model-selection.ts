@@ -22,14 +22,29 @@ export const AllowedModelRouteSchema: z<AllowedModelRoute> = z.object({
 /** Task kind that guides automatic child LLM assignment. */
 export type TaskCategory = 'sensitive' | 'code' | 'reasoning' | 'simple'
 
-/** Specialties and automatic availability for one exact child route. */
+/** Declared relative price tier of one route; a deployment fact, not a monetary amount. */
+export type ModelCostTier = 'free' | 'low' | 'standard' | 'high'
+
+/** Declared relative speed tier of one route; a deployment fact, not a latency measurement. */
+export type ModelSpeedTier = 'fast' | 'balanced' | 'slow'
+
+/** Specialties, declared cost/speed, and automatic availability for one exact child route. */
 export interface ModelCapabilityTag {
   readonly provider: string
   readonly model: string
-  /** Supported routing tags are `flash`, `code`, and `reasoning`. */
+  /**
+   * Declared specialties. Routing matches `flash`, `code`, and `reasoning`
+   * case-insensitively; sensitive tasks are handled by a dedicated rule.
+   */
   readonly tags: string[]
   /** Whether automatic routing may use this route; manual selection is unaffected. */
   readonly autoSelectable: boolean
+  /** Explicit precedence among candidates sharing a specialty; higher wins, defaults to 0. */
+  readonly priority?: number | undefined
+  /** Declared relative price tier; undeclared sorts after every declared tier. */
+  readonly cost?: ModelCostTier | undefined
+  /** Declared relative speed tier; undeclared sorts after every declared tier. */
+  readonly speed?: ModelSpeedTier | undefined
 }
 
 /** Schema for capability-tagged provider/model entries. */
@@ -38,6 +53,16 @@ export const ModelCapabilityTagSchema: z<ModelCapabilityTag> = z.object({
   model: z.string().min(1).required(),
   tags: z.array(z.string().min(1)).default([]),
   autoSelectable: z.boolean().default(true),
+  // Declared metadata stays absent when omitted; a default would materialize a
+  // preference the deployment never stated.
+  priority: z.number().step(1).min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER) as z<number | undefined>,
+  cost: z.union([
+    z.const('free' as const), z.const('low' as const),
+    z.const('standard' as const), z.const('high' as const),
+  ]) as z<ModelCostTier | undefined>,
+  speed: z.union([
+    z.const('fast' as const), z.const('balanced' as const), z.const('slow' as const),
+  ]) as z<ModelSpeedTier | undefined>,
 })
 
 /** Exact routes and automatic-routing metadata authorized for one Session. */
@@ -107,6 +132,19 @@ export function assertModelCapabilities(capabilities: unknown): asserts capabili
       || !candidate.tags.every(tag => typeof tag === 'string' && tag.length > 0)
       || !('autoSelectable' in candidate) || typeof candidate.autoSelectable !== 'boolean') {
       throw new Error('subagent model capabilities require non-empty tags and a boolean autoSelectable field')
+    }
+    if ('priority' in candidate && candidate.priority !== undefined
+      && (typeof candidate.priority !== 'number'
+        || !Number.isSafeInteger(candidate.priority))) {
+      throw new Error('subagent model capabilities require priority to be a safe integer when declared')
+    }
+    if ('cost' in candidate && candidate.cost !== undefined
+      && (typeof candidate.cost !== 'string' || !MODEL_COST_TIERS.has(candidate.cost))) {
+      throw new Error('subagent model capabilities require cost to be free, low, standard, or high when declared')
+    }
+    if ('speed' in candidate && candidate.speed !== undefined
+      && (typeof candidate.speed !== 'string' || !MODEL_SPEED_TIERS.has(candidate.speed))) {
+      throw new Error('subagent model capabilities require speed to be fast, balanced, or slow when declared')
     }
     const key = modelRouteKey(route)
     if (seen.has(key)) {
@@ -257,7 +295,34 @@ export async function preflightChildLlmRoute(
 }
 
 const SENSITIVE_MODEL = 'LKL-GLM-5.2-FP8'
+// Deployment-external fact: automatic routing must skip this route while its
+// endpoint returns 400; declared metadata cannot make it usable.
 const UNAVAILABLE_AUTO_MODEL = 'TC-gpt-5.3-codex'
+
+const MODEL_COST_TIERS: ReadonlySet<string> = new Set(['free', 'low', 'standard', 'high'])
+const MODEL_SPEED_TIERS: ReadonlySet<string> = new Set(['fast', 'balanced', 'slow'])
+const COST_RANK: Readonly<Record<ModelCostTier, number>> = { free: 0, low: 1, standard: 2, high: 3 }
+const SPEED_RANK: Readonly<Record<ModelSpeedTier, number>> = { fast: 0, balanced: 1, slow: 2 }
+
+/**
+ * Automatic-routing precedence: priority descending, then cost cheap first,
+ * then speed fast first, then provider/model id order. Undeclared cost or
+ * speed sorts after every declared tier; with no declared metadata the order
+ * reduces to the historical provider/model id order.
+ */
+export function compareModelCapabilities(left: ModelCapabilityTag, right: ModelCapabilityTag): number {
+  const priority = (right.priority ?? 0) - (left.priority ?? 0)
+  if (priority !== 0) return priority
+  const cost = (left.cost === undefined ? COST_RANK.high + 1 : COST_RANK[left.cost])
+    - (right.cost === undefined ? COST_RANK.high + 1 : COST_RANK[right.cost])
+  if (cost !== 0) return cost
+  const speed = (left.speed === undefined ? SPEED_RANK.slow + 1 : SPEED_RANK[left.speed])
+    - (right.speed === undefined ? SPEED_RANK.slow + 1 : SPEED_RANK[right.speed])
+  if (speed !== 0) return speed
+  return left.provider === right.provider
+    ? left.model < right.model ? -1 : left.model > right.model ? 1 : 0
+    : left.provider < right.provider ? -1 : 1
+}
 const SENSITIVE_PATTERN = new RegExp(
   '\\b(?:sensitive|secrets?|credentials?|api[- ]?keys?|tokens?|passwords?|authentication|authorization)\\b'
   + '|敏感|密钥|凭据|密码|令牌|认证|鉴权', 'iu')
@@ -284,10 +349,15 @@ export function classifyTask(description: string, prompt: string): TaskCategory 
 }
 
 /**
- * Select an allowed, auto-selectable route by task category in provider/model id order.
+ * Select an allowed, auto-selectable route by task category.
  * Sensitive tasks accept only `LKL-GLM-5.2-FP8`. Other categories require their
- * matching `flash`, `code`, or `reasoning` tag and never fall back to another specialty.
- * `TC-gpt-5.3-codex` is excluded from automatic routing while its endpoint returns 400.
+ * matching `flash`, `code`, or `reasoning` tag (case-insensitive) and never
+ * fall back to another specialty. Candidates sort by
+ * {@link compareModelCapabilities}: priority descending, cost cheap first,
+ * speed fast first (undeclared tiers sort last), then provider/model id order,
+ * so an all-undeclared configuration keeps the historical id-order behavior.
+ * `TC-gpt-5.3-codex` is excluded from automatic routing while its endpoint
+ * returns 400 — an endpoint-availability fact external to this configuration.
  * @param category - Task category from {@link classifyTask}.
  * @param routes - Session-authorized routes.
  * @param capabilities - Configured specialty and availability metadata.
@@ -304,9 +374,7 @@ export function selectModelForTask(
     .filter(capability => capability.autoSelectable
       && capability.model !== UNAVAILABLE_AUTO_MODEL
       && allowed.has(modelRouteKey(capability)))
-    .sort((left, right) => left.provider === right.provider
-      ? left.model < right.model ? -1 : left.model > right.model ? 1 : 0
-      : left.provider < right.provider ? -1 : 1)
+    .sort(compareModelCapabilities)
 
   if (category === 'sensitive') {
     const sensitive = candidates.find(capability => capability.model === SENSITIVE_MODEL)

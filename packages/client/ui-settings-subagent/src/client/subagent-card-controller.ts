@@ -17,6 +17,9 @@ export interface SubagentCardFace {
   toggleAutoSelect: SubagentModelSelectionCardFace['toggleAutoSelect']
   toggleAutoSelectable: SubagentModelSelectionCardFace['toggleAutoSelectable']
   setCapabilityTags: SubagentModelSelectionCardFace['setCapabilityTags']
+  setCapabilityPriority: SubagentModelSelectionCardFace['setCapabilityPriority']
+  setCapabilityCost: SubagentModelSelectionCardFace['setCapabilityCost']
+  setCapabilitySpeed: SubagentModelSelectionCardFace['setCapabilitySpeed']
   /** Save valid drafts through their owning namespace controllers. */
   save: () => void
   /** Discard both drafts without changing persisted settings. */
@@ -65,6 +68,9 @@ export function subagentCardFace(
     toggleAutoSelect: models.toggleAutoSelect,
     toggleAutoSelectable: models.toggleAutoSelectable,
     setCapabilityTags: models.setCapabilityTags,
+    setCapabilityPriority: models.setCapabilityPriority,
+    setCapabilityCost: models.setCapabilityCost,
+    setCapabilitySpeed: models.setCapabilitySpeed,
     save: () => {
       const limitState = limits.hooks.subagentLimitsCard.getSnapshot()
       const modelState = models.hooks.subagentModelSelectionCard.getSnapshot()

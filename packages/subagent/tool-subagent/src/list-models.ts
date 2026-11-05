@@ -7,7 +7,8 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { parentAgentOptionsForDelegation } from '@deepseek-ai/dsh-subagent'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type { ModelSelectionPolicy } from './model-selection.ts'
+import type { ModelCapabilityTag, ModelSelectionPolicy } from './model-selection.ts'
+import { modelRouteKey } from './model-selection.ts'
 import { subagentModelSelectionPolicy } from './model-selection-state.ts'
 
 interface ListSubagentModelsRequest {
@@ -31,9 +32,21 @@ function registeredProvider(
   throw new Error(`LLM provider "${providerId}" is not registered; available providers: ${available}`)
 }
 
-/** Render one advertised or resolved model. */
-function modelLine(provider: string, model: { id: string; name: string; description?: string }): string {
-  return `${provider}/${model.id} — ${model.name}${model.description === undefined ? '' : `: ${model.description}`}`
+/** Render one advertised or resolved model with its model-pool annotations. */
+function modelLine(
+  provider: string,
+  model: { id: string; name: string; description?: string },
+  capability: ModelCapabilityTag | undefined,
+): string {
+  const base = `${provider}/${model.id} — ${model.name}${model.description === undefined ? '' : `: ${model.description}`}`
+  if (capability === undefined) return base
+  const annotations: string[] = []
+  if (capability.tags.length > 0) annotations.push(`tags: ${capability.tags.join(', ')}`)
+  if (capability.priority !== undefined) annotations.push(`priority: ${capability.priority}`)
+  if (capability.cost !== undefined) annotations.push(`cost: ${capability.cost}`)
+  if (capability.speed !== undefined) annotations.push(`speed: ${capability.speed}`)
+  annotations.push(`auto: ${capability.autoSelectable ? 'on' : 'off'}`)
+  return `${base} [${annotations.join('; ')}]`
 }
 
 /** Read the requested provider, allowed models, or exact-model efforts. */
@@ -75,6 +88,9 @@ async function listSubagentModels(
     throw new Error(`LLM provider "${request.provider}" is not allowed for this Session`)
   }
   const provider = registeredProvider(llm, policy, request.provider)
+  const capabilityByKey = new Map(policy.modelCapabilities.map(capability => [modelRouteKey(capability), capability]))
+  const capabilityOf = (modelId: string): ModelCapabilityTag | undefined =>
+    capabilityByKey.get(`${provider.id}\0${modelId}`)
   if (request.model === undefined) {
     const models = selectionEnabled
       ? (await llm.listModels(provider.id)).filter(model => allowedRoutes.some(route => route.model === model.id))
@@ -82,7 +98,7 @@ async function listSubagentModels(
     signal.throwIfAborted()
     return models.length === 0
       ? `(no advertised models for ${provider.id})`
-      : models.map(model => modelLine(provider.id, model)).join('\n')
+      : models.map(model => modelLine(provider.id, model, capabilityOf(model.id))).join('\n')
   }
   if (request.model.length === 0) throw new Error('`model` must be non-empty')
   if (!allowedRoutes.some(route => route.model === request.model)) {
@@ -93,7 +109,7 @@ async function listSubagentModels(
     `${effort.id}${model.reasoning?.defaultEffort === effort.id ? ' (default)' : ''} — ${effort.name}`
     + (effort.description === undefined ? '' : `: ${effort.description}`)
   )).join('\n') || '(no advertised reasoning efforts)'
-  return `${modelLine(provider.id, model)}\nReasoning efforts:\n${efforts}`
+  return `${modelLine(provider.id, model, capabilityOf(model.id))}\nReasoning efforts:\n${efforts}`
 }
 
 /**
@@ -110,7 +126,9 @@ export function registerListSubagentModels(
     description:
       'Inspect subagent models without changing the current Agent. No arguments: providers; '
       + '`provider`: allowed models; `provider` + `model`: that model and its reasoning efforts. '
-      + 'Inspect options here before selecting a child provider and model; use returned ids for delegation.',
+      + 'Inspect options here before selecting a child provider and model; use returned ids for delegation. '
+      + 'Model lines append this Session\'s model-pool annotations — specialty tags, priority, '
+      + 'declared cost/speed tiers, and automatic-selection availability — to guide the choice.',
     parameters: {
       provider: {
         type: 'string',

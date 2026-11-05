@@ -14,12 +14,49 @@ export interface AllowedSubagentModel {
   model: string
 }
 
-/** Specialties and automatic availability for one exact route. */
+/** Specialties, declared cost/speed, and automatic availability for one exact route. */
 export interface ModelCapabilityTag {
   provider: string
   model: string
+  /** Declared specialties; routing matches flash, code, and reasoning case-insensitively. */
   tags: string[]
   autoSelectable: boolean
+  /** Explicit precedence among same-specialty candidates; higher wins, defaults to 0. */
+  priority?: number | undefined
+  /** Declared relative price tier; undeclared sorts after every declared tier. */
+  cost?: 'free' | 'low' | 'standard' | 'high' | undefined
+  /** Declared relative speed tier; undeclared sorts after every declared tier. */
+  speed?: 'fast' | 'balanced' | 'slow' | undefined
+}
+
+/** Aggregated seven-day requests and tokens for one exact route. */
+export interface ModelUsageSummary {
+  requests: number
+  totalTokens: number
+}
+
+/** Daily provider/model usage rows read from the Host usage dashboard. */
+interface UsageDayLike {
+  providers: readonly {
+    models: readonly {
+      provider: string
+      model: string
+      requests: number
+      totalTokens: number
+    }[]
+  }[]
+}
+
+/** Optional loader for the usage dashboard; undefined when the Remote is not mounted. */
+export type ModelUsageLoader = () => Promise<readonly UsageDayLike[]>
+
+/** Inclusive Asia/Shanghai YYYY-MM-DD range ending today, spanning `days` days. */
+export function shanghaiRangeDays(days: number): { from: string; to: string } {
+  const day = 24 * 60 * 60 * 1000
+  const format = (time: number): string =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(time)
+  const to = format(Date.now())
+  return { from: format(new Date(`${to}T00:00:00+08:00`).getTime() - (days - 1) * day), to }
 }
 
 /** Settings fields stored for subagent model selection. */
@@ -64,6 +101,11 @@ export interface SubagentModelSelectionCardState extends SettingsFormShell {
   conflicted: boolean
   /** Whether automatic model assignment by capabilities is active. */
   autoSelect: boolean
+  /**
+   * Seven-day usage per route, or null while loading or when loading failed.
+   * Undefined means the Host usage dashboard is not mounted; the row is hidden.
+   */
+  usage: ReadonlyMap<string, ModelUsageSummary> | null | undefined
 }
 
 /** Registration-side face for the subagent model-selection card. */
@@ -82,6 +124,12 @@ export interface SubagentModelSelectionCardFace {
   toggleAutoSelectable: (key: string) => void
   /** Replace the capability tags for one allowed route. */
   setCapabilityTags: (key: string, tags: string) => void
+  /** Replace the routing priority for one allowed route. */
+  setCapabilityPriority: (key: string, priority: string) => void
+  /** Replace the declared price tier; an empty value undeclares it. */
+  setCapabilityCost: (key: string, cost: string) => void
+  /** Replace the declared speed tier; an empty value undeclares it. */
+  setCapabilitySpeed: (key: string, speed: string) => void
   /** Retry the adapter directory. */
   retryCatalog: () => void
   /** Persist the switch, routes, and capability metadata as one revision-fenced mutation. */
@@ -154,8 +202,25 @@ function sameRoutes(left: readonly AllowedSubagentModel[], right: readonly Allow
 
 function sameCapabilities(left: readonly ModelCapabilityTag[], right: readonly ModelCapabilityTag[]): boolean {
   if (left.length !== right.length) return false
-  const rightKeys = new Set(right.map(cap => `${cap.provider}\0${cap.model}\0${cap.tags.join(',')}\0${cap.autoSelectable}`))
-  return left.every(cap => rightKeys.has(`${cap.provider}\0${cap.model}\0${cap.tags.join(',')}\0${cap.autoSelectable}`))
+  const capabilityKey = (cap: ModelCapabilityTag): string =>
+    `${cap.provider}\0${cap.model}\0${cap.tags.join(',')}\0${cap.autoSelectable}`
+    + `\0${String(cap.priority)}\0${String(cap.cost)}\0${String(cap.speed)}`
+  const rightKeys = new Set(right.map(capabilityKey))
+  return left.every(cap => rightKeys.has(capabilityKey(cap)))
+}
+
+/** Normalize a declared cost tier edit; an empty string undeclares it. */
+function parseCapabilityCost(value: string): ModelCapabilityTag['cost'] | undefined {
+  return value === 'free' || value === 'low' || value === 'standard' || value === 'high'
+    ? value
+    : undefined
+}
+
+/** Normalize a declared speed tier edit; an empty string undeclares it. */
+function parseCapabilitySpeed(value: string): ModelCapabilityTag['speed'] | undefined {
+  return value === 'fast' || value === 'balanced' || value === 'slow'
+    ? value
+    : undefined
 }
 
 /** Bridges one configuration form and the live adapter directory onto a staged card. */
@@ -174,8 +239,12 @@ export class SubagentModelSelectionCardController {
   private disposed = false
   private saveGeneration = 0
   private catalogGeneration = 0
+  private usage: ReadonlyMap<string, ModelUsageSummary> | null = null
+  private usageGeneration = 0
+  private usageLoading = false
   private readonly store: SnapshotStore<SubagentModelSelectionCardState>
   private readonly unsubscribe: () => void
+  private loadUsage: ModelUsageLoader | undefined
 
   /**
    * @param scope - bound `subagent-model-selection` configuration form.
@@ -200,6 +269,19 @@ export class SubagentModelSelectionCardController {
       this.publish()
     })
     if (this.enabled() && this.catalogStatus === 'idle') void this.loadCatalog()
+    // Usage is only meaningful for a pool that can auto-select; loading it
+    // scans the Session store, so a disabled pool defers that work.
+    if (this.enabled()) void this.refreshUsage()
+  }
+
+  /**
+   * Attach the usage reader once its Remote namespace mounts, then load.
+   * @param loader - reader of the Host usage dashboard.
+   */
+  attachUsageLoader(loader: ModelUsageLoader): void {
+    if (this.disposed) return
+    this.loadUsage = loader
+    void this.refreshUsage()
   }
 
   /** Stop observing settings and suppress late directory/write settlements. */
@@ -207,6 +289,7 @@ export class SubagentModelSelectionCardController {
     this.disposed = true
     this.saveGeneration += 1
     this.catalogGeneration += 1
+    this.usageGeneration += 1
     this.unsubscribe()
   }
 
@@ -225,6 +308,9 @@ export class SubagentModelSelectionCardController {
       toggleAutoSelect: () => { this.toggleAutoSelect() },
       toggleAutoSelectable: (key) => { this.toggleAutoSelectable(key) },
       setCapabilityTags: (key, tags) => { this.setCapabilityTags(key, tags) },
+      setCapabilityPriority: (key, priority) => { this.setCapabilityPriority(key, priority) },
+      setCapabilityCost: (key, cost) => { this.setCapabilityCost(key, cost) },
+      setCapabilitySpeed: (key, speed) => { this.setCapabilitySpeed(key, speed) },
     }
   }
 
@@ -270,6 +356,7 @@ export class SubagentModelSelectionCardController {
     this.draftEnabled = !this.draftEnabled
     this.failed = false
     if (this.draftEnabled && this.catalogStatus === 'idle') void this.loadCatalog()
+    if (this.draftEnabled) void this.refreshUsage()
     this.publish()
   }
 
@@ -293,37 +380,46 @@ export class SubagentModelSelectionCardController {
     this.publish()
   }
 
-  private toggleAutoSelectable(key: string): void {
+  /** Stage one capability edit; guard checks stay in the calling action. */
+  private editCapability(key: string, edit: (capability: ModelCapabilityTag) => ModelCapabilityTag): void {
     if (this.disposed || this.saving || !this.scope.getSnapshot().writable) return
     const candidate = this.candidates().find(candidate => candidate.key === key)
     const routes = this.beginDraft()
     if (candidate === undefined || !routes.has(key)) return
     const current = this.draftModelCapabilities?.get(key)
-    this.draftModelCapabilities?.set(key, {
+    this.draftModelCapabilities?.set(key, edit({
+      ...current === undefined ? {} : current,
       provider: candidate.provider,
       model: candidate.model,
       tags: [...current?.tags ?? []],
-      autoSelectable: !current?.autoSelectable,
-    })
+      autoSelectable: current?.autoSelectable ?? true,
+    }))
     this.failed = false
     this.publish()
   }
 
+  private toggleAutoSelectable(key: string): void {
+    this.editCapability(key, capability => ({ ...capability, autoSelectable: !capability.autoSelectable }))
+  }
+
   private setCapabilityTags(key: string, tags: string): void {
-    if (this.disposed || this.saving || !this.scope.getSnapshot().writable) return
-    const candidate = this.candidates().find(candidate => candidate.key === key)
-    const routes = this.beginDraft()
-    if (candidate === undefined || !routes.has(key)) return
     const parsed = tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-    const current = this.draftModelCapabilities?.get(key)
-    this.draftModelCapabilities?.set(key, {
-      provider: candidate.provider,
-      model: candidate.model,
-      tags: parsed,
-      autoSelectable: current?.autoSelectable ?? true,
-    })
-    this.failed = false
-    this.publish()
+    this.editCapability(key, capability => ({ ...capability, tags: parsed }))
+  }
+
+  private setCapabilityPriority(key: string, priority: string): void {
+    if (priority.trim() !== '' && !/^-?\d+$/.test(priority.trim())) return
+    const parsed = priority.trim() === '' ? undefined : Number(priority.trim())
+    if (parsed !== undefined && !Number.isSafeInteger(parsed)) return
+    this.editCapability(key, capability => ({ ...capability, priority: parsed }))
+  }
+
+  private setCapabilityCost(key: string, cost: string): void {
+    this.editCapability(key, capability => ({ ...capability, cost: parseCapabilityCost(cost) }))
+  }
+
+  private setCapabilitySpeed(key: string, speed: string): void {
+    this.editCapability(key, capability => ({ ...capability, speed: parseCapabilitySpeed(speed) }))
   }
 
   private clearDraft(): void {
@@ -413,6 +509,9 @@ export class SubagentModelSelectionCardController {
           model: cap.model,
           tags: [...cap.tags],
           autoSelectable: cap.autoSelectable,
+          ...cap.priority === undefined ? {} : { priority: cap.priority },
+          ...cap.cost === undefined ? {} : { cost: cap.cost },
+          ...cap.speed === undefined ? {} : { speed: cap.speed },
         })),
       },
     ], this.draftRevision)
@@ -445,6 +544,40 @@ export class SubagentModelSelectionCardController {
     this.clearDraft()
     this.catalogGroups = []
     this.refreshCatalog()
+  }
+
+  /** Load seven-day usage through the optional dashboard loader. */
+  private async refreshUsage(): Promise<void> {
+    if (this.loadUsage === undefined || this.usageLoading) return
+    const generation = this.usageGeneration
+    this.usageLoading = true
+    this.usage = null
+    this.publish()
+    try {
+      const days = await this.loadUsage()
+      if (this.disposed || generation !== this.usageGeneration) return
+      const usage = new Map<string, ModelUsageSummary>()
+      for (const day of days) {
+        for (const provider of day.providers) {
+          for (const model of provider.models) {
+            const key = `${model.provider}\0${model.model}`
+            const totals = usage.get(key) ?? { requests: 0, totalTokens: 0 }
+            totals.requests += model.requests
+            totals.totalTokens += model.totalTokens
+            usage.set(key, totals)
+          }
+        }
+      }
+      this.usage = usage
+    } catch {
+      if (this.disposed || generation !== this.usageGeneration) return
+      this.usage = null
+    } finally {
+      if (generation === this.usageGeneration) {
+        this.usageLoading = false
+        this.publish()
+      }
+    }
   }
 
   private async loadCatalog(): Promise<void> {
@@ -487,6 +620,7 @@ export class SubagentModelSelectionCardController {
       catalogPartial: this.catalogPartial,
       conflicted: this.conflicted,
       autoSelect: desiredAuto,
+      usage: this.loadUsage === undefined ? undefined : this.usage,
     }
   }
 

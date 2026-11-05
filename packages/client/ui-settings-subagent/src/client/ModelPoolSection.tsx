@@ -10,7 +10,8 @@ import css from './ModelPoolSection.module.css'
 /** Registration-side face for the standalone Model Pool settings section. */
 export type ModelPoolSectionFace = Pick<SubagentModelSelectionCardFace,
   'hooks' | 'toggleEnabled' | 'toggleModel' | 'retryCatalog'
-  | 'toggleAutoSelect' | 'toggleAutoSelectable' | 'setCapabilityTags' | 'save' | 'discard'>
+  | 'toggleAutoSelect' | 'toggleAutoSelectable' | 'setCapabilityTags'
+  | 'setCapabilityPriority' | 'setCapabilityCost' | 'setCapabilitySpeed' | 'save' | 'discard'>
 
 /** Framework-derived props for the standalone Model Pool settings section. */
 export type ModelPoolSectionProps = PropsRuntime<'settings.section'>
@@ -53,7 +54,8 @@ export function ModelPoolSection(props: ModelPoolSectionProps) {
             <SubagentModelSelectionFields t={t} state={{ ...models, saving: state.saving }}
               toggleEnabled={props.toggleEnabled} toggleModel={props.toggleModel} retryCatalog={props.retryCatalog}
               toggleAutoSelect={props.toggleAutoSelect} toggleAutoSelectable={props.toggleAutoSelectable}
-              setCapabilityTags={props.setCapabilityTags} />
+              setCapabilityTags={props.setCapabilityTags} setCapabilityPriority={props.setCapabilityPriority}
+              setCapabilityCost={props.setCapabilityCost} setCapabilitySpeed={props.setCapabilitySpeed} />
           </SettingsForm>
         )
         : <p className={css.unavailable}>{t('modelPoolUnavailable')}</p>}

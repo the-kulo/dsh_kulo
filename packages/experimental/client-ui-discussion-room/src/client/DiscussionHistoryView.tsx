@@ -61,16 +61,22 @@ export function DiscussionRoomContent({ room, t, history = false }: {
   readonly t: TranslateNS<typeof NS>
   readonly history?: boolean
 }) {
+  const participantCount = room.participants.length + 1 // the roster lists the moderator after the participants
   return (
     <div className={css.room} {...history ? { 'data-discussion-room-history': '' } : {}}>
       <section className={css.summary}>
         <h3>{room.topic}</h3>
         <div className={css.status}><StateDot state={roomDot(room.status)} /><span>{t(STATUS_KEYS[room.status])}</span>
           <span>{t('roundProgress', { current: room.currentRound, total: room.roundLimit })}</span></div>
-        {room.failure !== undefined && <p role="alert" className={css.error}>{room.failure}</p>}
+        {room.failure !== undefined && (
+          <div className={css.notice} role="alert">
+            <StateDot state="error" />
+            <span className={css.error}>{room.failure}</span>
+          </div>
+        )}
       </section>
       <section className={css.section}>
-        <h3>{t('participants')}</h3>
+        <h3>{t('participants')}<span className={css.count}>{participantCount}</span></h3>
         <ul className={css.roster}>
           {room.participants.map(participant => <li key={participant.id}>
             <strong>{participant.name}</strong><span>{participant.provider}/{participant.model}</span><small>{participant.role}</small>
@@ -79,14 +85,19 @@ export function DiscussionRoomContent({ room, t, history = false }: {
         </ul>
       </section>
       <section className={css.section}>
-        <h3>{t('messages')}</h3>
-        {room.messages.length === 0 && <p className={css.notice}>{t('emptyMessages')}</p>}
+        <h3>{t('messages')}<span className={css.count}>{room.messages.length}</span></h3>
+        {room.messages.length === 0 && (
+          <div className={`${css.notice} ${css.insetNotice}`} role="status">
+            <StateDot state="idle" />
+            {t('emptyMessages')}
+          </div>
+        )}
         <div className={css.messages}>
           {room.messages.map(message => <article className={css.message} key={message.id} data-kind={message.kind}>
             <header><strong>{message.participantName}</strong><span>{t(message.kind === 'opinion' ? 'kindOpinion' : message.kind === 'rebuttal' ? 'kindRebuttal' : 'kindSummary', { round: message.round })}</span>
               <span className={css.messageStatus}><StateDot state={messageDot(message)} />{t(message.status === 'running' ? 'messageRunning' : message.status === 'failed' ? 'messageFailed' : 'statusCompleted')}</span></header>
             {message.text !== undefined && <p className={css.messageText}>{message.text}</p>}
-            {message.error !== undefined && <p role="alert" className={css.error}>{message.error}</p>}
+            {message.error !== undefined && <p role="alert" className={css.messageError}>{message.error}</p>}
           </article>)}
         </div>
       </section>

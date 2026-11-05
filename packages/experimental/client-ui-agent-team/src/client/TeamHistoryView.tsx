@@ -52,12 +52,15 @@ export function TeamHistoryView({ sessionId, useSession, useSessions, useSession
   return (
     <div className={css.body} data-agent-team-history="">
       {team.failure !== undefined && (
-        <div className={css.error} role="alert">{t('failure', { message: team.failure })}</div>
+        <div className={css.notice} role="alert">
+          <StateDot state="error" />
+          <span className={css.error}>{t('failure', { message: team.failure })}</span>
+        </div>
       )}
       <section>
         <h3>
           {t('roster')}
-          {team.members.length > 1 && <span className={css.count}>{team.members.length}</span>}
+          <span className={css.count}>{team.members.length}</span>
         </h3>
         <div className={css.roster}>
           {team.members.map(member => (
@@ -76,7 +79,12 @@ export function TeamHistoryView({ sessionId, useSession, useSessions, useSession
       </section>
       <section>
         {team.tasks.length === 0
-          ? <p className={css.emptyNotice}>{t('empty')}</p>
+          ? (
+            <div className={`${css.notice} ${css.insetNotice}`} role="status">
+              <StateDot state="idle" />
+              {t('empty')}
+            </div>
+          )
           : (
             <>
               <h3>{t('tasks')}<span className={css.count}>{team.tasks.length}</span></h3>

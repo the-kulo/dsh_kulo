@@ -45,20 +45,28 @@ export function SubagentHistoryView({ sessionId, useSessions, useSessionStatus, 
     )
   }
   return (
-    <ul className={css.list} data-subagent-history="">
-      {catalog.map((entry) => {
-        const running = (statuses.get(entry.id)?.running ?? summaries[entry.id]?.running) === true
-        const mode = entry.mode === 'external' ? t('mode.external')
-          : entry.mode === 'unknown' ? t('mode.unknown')
-            : entry.mode === 'one-shot' ? t('mode.oneShot') : t('mode.continuable')
-        return (
-          <li key={entry.id} className={css.row}>
-            <StateDot state={running ? 'ongoing' : 'idle'} />
-            <span className={css.label}>{entry.label ?? entry.id}</span>
-            <span className={css.meta}>{mode}</span>
-          </li>
-        )
-      })}
-    </ul>
+    <div className={css.view} data-subagent-history="">
+      <section>
+        <h3 className={css.heading}>
+          {t('tab.label')}
+          <span className={css.count}>{catalog.length}</span>
+        </h3>
+        <ul className={css.list}>
+          {catalog.map((entry) => {
+            const running = (statuses.get(entry.id)?.running ?? summaries[entry.id]?.running) === true
+            const mode = entry.mode === 'external' ? t('mode.external')
+              : entry.mode === 'unknown' ? t('mode.unknown')
+                : entry.mode === 'one-shot' ? t('mode.oneShot') : t('mode.continuable')
+            return (
+              <li key={entry.id} className={css.row}>
+                <StateDot state={running ? 'ongoing' : 'idle'} />
+                <span className={css.label}>{entry.label ?? entry.id}</span>
+                <span className={css.meta}>{mode}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    </div>
   )
 }

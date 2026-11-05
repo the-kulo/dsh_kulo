@@ -103,11 +103,19 @@
 .body {
   --dsh-scrollbar-track-margin: 8px;
 
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
   min-height: 0;
   padding: 0 9px 16px 14px;
   overflow-y: auto;
   scrollbar-gutter: stable;
+}
+
+/* History tab: this container owns the tab's 16px page inset and scrolling. */
+.body[data-agent-team-history] {
+  padding: 16px;
 }
 
 .taskTitle {
@@ -121,20 +129,20 @@
   font-weight: 500;
 }
 
-.panel h3 {
+.body h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 16px 0 8px 4px;
+  margin: 0 0 8px;
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   font-weight: 500;
 }
 
-/* Without a toolbar the first heading sits 16px under the panel edge: 8px
-   panel padding plus this trimmed margin. */
-.body section:first-of-type h3 {
-  margin-top: 8px;
+/* The panel's horizontal inset used to live in the heading margin. */
+.panel h3 {
+  margin-left: 4px;
+  margin-right: 4px;
 }
 
 .roster {
@@ -152,7 +160,7 @@
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   box-shadow: var(--dsw-elevation-stroke);
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   text-align: left;
@@ -261,19 +269,11 @@
 .tasks {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-}
-
-/* Empty task board: a plain description in place of the section heading,
-   flush with the body's bottom padding. */
-.emptyNotice {
-  margin: 16px 0 0 4px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  gap: 8px;
 }
 
 .task {
-  padding: 11px 13px;
+  padding: 10px 12px;
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 9px;
   background: var(--dsw-alias-bg-layer-2);
@@ -347,13 +347,18 @@
   margin-right: 10px;
 }
 
-.notice,
-.error {
+.notice {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 9px;
+  padding: 16px;
+  color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
+}
+
+/* Section-embedded notices sit under a heading inside the page inset. */
+.insetNotice {
+  padding: 0;
 }
 
 @media (hover: none) {

@@ -76,6 +76,16 @@
   overflow-y: auto;
 }
 
+/* Pinned rows above the scroll region (search field); l2 hairline mirrors .footer. */
+.header {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 3px;
+  padding-bottom: 3px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
 /* Pinned rows below the scroll region; l2 hairline (l1 is near-invisible on
  * the menu surface) mirrors the .separator spacing. */
 .footer {

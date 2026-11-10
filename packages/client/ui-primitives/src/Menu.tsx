@@ -170,13 +170,17 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * document.body outside the owner's DOM subtree.
  * @returns anchor wrapper with the conditional list.
  */
-export function Menu({ open, anchor, items = [], children, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', getAnchorRect, minWidthFromAnchor = false, footer, className, listClassName }: {
+export function Menu({ open, anchor, items = [], children, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', getAnchorRect, minWidthFromAnchor = false, footer, header, maxHeight, className, listClassName }: {
   open: boolean
   autoFocus?: boolean
   anchor: ReactNode
   items?: readonly MenuEntry[]
   children?: ReactNode
   footer?: readonly MenuEntry[]
+  /** Pinned content above the scrolling rows, such as a search field. */
+  header?: ReactNode
+  /** Cap the list height; the rows scroll inside the cap. */
+  maxHeight?: CSSProperties['maxHeight']
   selectedId?: string | undefined
   selectedIds?: readonly string[] | undefined
   onSelect?: (id: string) => void
@@ -529,7 +533,9 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
     <MenuSurface compact={compact}
       ref={listRef}
       className={clsx(css.list, listClassName, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
-      style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
+      style={portal
+        ? { ...(fixedPos ?? MEASURE_STYLE), ...(maxHeight !== undefined ? { maxHeight } : null) }
+        : maxHeight !== undefined ? { maxHeight } : undefined}
       role="menu"
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
@@ -545,11 +551,11 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       onMouseOver={collapseSubmenuFrom}
       onFocus={collapseSubmenuFrom}
     >
+      {header !== undefined && <div className={css.header} role="presentation">{header}</div>}
       <div className={css.viewport} role="presentation">
         {items.map(renderEntry)}
         {children}
-      </div>
-      {footer !== undefined && footer.length > 0 && (
+      </div>      {footer !== undefined && footer.length > 0 && (
         <div className={css.footer} role="presentation">
           {footer.map(renderEntry)}
         </div>

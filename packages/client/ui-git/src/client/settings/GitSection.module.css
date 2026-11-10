@@ -1,0 +1,104 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsw-spacing-md, 12px);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--dsw-font-size-lg, 16px);
+  font-weight: 500;
+}
+
+.intro {
+  margin: 0;
+  color: var(--dsw-color-text-secondary);
+  font-size: var(--dsw-font-size-sm, 13px);
+  line-height: 1.5;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsw-spacing-xs, 4px);
+}
+
+.label {
+  font-size: var(--dsw-font-size-sm, 13px);
+  font-weight: 500;
+}
+
+.select {
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-color-border);
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: var(--dsw-color-surface);
+  color: var(--dsw-color-text);
+  font-size: var(--dsw-font-size-sm, 13px);
+  max-width: 320px;
+}
+
+.textInput {
+  max-width: 400px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--dsw-color-text-tertiary);
+  font-size: var(--dsw-font-size-xs, 11px);
+  line-height: 1.4;
+}
+
+.workspacePath {
+  margin: 0;
+  color: var(--dsw-color-text-tertiary);
+  font-size: var(--dsw-font-size-xs, 11px);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.error {
+  margin: 0;
+  color: var(--dsw-color-text-danger);
+  font-size: var(--dsw-font-size-sm, 13px);
+  line-height: 1.4;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsw-spacing-md, 12px);
+}
+
+.formActions {
+  display: flex;
+  gap: var(--dsw-spacing-sm, 8px);
+  align-items: center;
+}
+
+.bindingDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsw-spacing-sm, 8px);
+  padding: var(--dsw-spacing-sm, 8px) var(--dsw-spacing-md, 12px);
+  border: 1px solid var(--dsw-color-border);
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: var(--dsw-color-surface-hover);
+}
+
+.bindingText {
+  margin: 0;
+  font-size: var(--dsw-font-size-sm, 13px);
+  word-break: break-all;
+}
+
+.bindingMeta {
+  margin: 0;
+  font-size: var(--dsw-font-size-xs, 11px);
+  color: var(--dsw-color-text-tertiary);
+}
+
+.bindingActions {
+  display: flex;
+  gap: var(--dsw-spacing-sm, 8px);
+}

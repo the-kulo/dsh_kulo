@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 控制接口",
+    "description": "向客户端提供工作区 Git 绑定、提交和状态流。"
+  }
+}

@@ -30,6 +30,9 @@
       "path": "../fs"
     },
     {
+      "path": "../fs-zones"
+    },
+    {
       "path": "../fs-observation-policy"
     },
     {

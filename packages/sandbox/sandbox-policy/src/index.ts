@@ -2,10 +2,10 @@
  * The sandbox POLICY home (`ctx.sandboxPolicy`): the single owner of the
  * deployment's sandbox fallbacks plus per-session resolution: the file-effect
  * {@link SandboxMode}, the `workspace-write` root, the explicit extra writable
- * directories, and the override kit (the `sandbox/mode` event, its fold, and
- * its write path; the fold is the `sandboxMode` session-projection unit
- * registered here, while the event and write path come from
- * `./session-mode.ts`).
+ * directories, the directories excluded from every writable root whatever the
+ * mode, and the override kit (the `sandbox/mode` event, its fold, and its write
+ * path; the fold is the `sandboxMode` session-projection unit registered here,
+ * while the event and write path come from `./session-mode.ts`).
  * Before each agent request, the owner also contributes the resolved policy to
  * the cache-safe runtime-context snapshot. The agent loop logs that snapshot as
  * model history, so replay reconstructs the same mode and root the enforcing
@@ -18,11 +18,16 @@
  * reads session state once at each operation boundary; executors and providers
  * remain session-free.
  *
+ * The excluded roots are subtracted from every writable root whatever the mode,
+ * so a secure-zone deployment keeps its directory out of reach even under
+ * `danger-full-access`, without narrowing the mode or its other grants.
+ *
  * @module @deepseek-ai/dsh-sandbox-policy
  */
 
 import { isAbsolute } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
+import { expandHomePath } from '@deepseek-ai/dsh-home-paths'
 import { z as zod } from 'zod'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent'
@@ -56,20 +61,41 @@ function resolveAdditionalWritableRoots(roots: readonly string[] | undefined): r
   return Object.freeze([...new Set(roots)])
 }
 
+/**
+ * Validate and detach the configured excluded directories, expanding a leading
+ * `~` before the absoluteness check. They stay in their execution-world spelling
+ * for the same reason as `additionalWritableRoots`.
+ * @param roots - the configured excluded roots, or the empty schema default.
+ * @returns a frozen copy, or `undefined` when nothing is excluded.
+ */
+function resolveExcludedRoots(roots: readonly string[] | undefined): readonly string[] | undefined {
+  if (roots === undefined || roots.length === 0) return undefined
+  const expanded = roots.map((root) => expandHomePath(root))
+  for (const root of expanded) {
+    if (!isAbsolute(root) || root.includes('\0')) {
+      throw new Error('sandbox-policy: excludedRoots entries must be absolute execution-world paths')
+    }
+  }
+  return Object.freeze([...new Set(expanded)])
+}
+
 /** Render the policy without claiming which capabilities are mounted. */
 function renderPolicyContext(policy: SandboxExecutionPolicy): string {
+  const excluded = policy.excludedRoots === undefined
+    ? ''
+    : ` Excluded from every writable root in every mode: ${JSON.stringify(policy.excludedRoots)}; operations on these directories are denied.`
   switch (policy.mode) {
     case 'read-only':
-      return 'Current DSH file policy: read-only. Any available operation enforced by the DSH file sandbox cannot modify files in the standing mode. Do not refuse a required modification from this policy alone: try an available tool normally and follow any denial and escalation guidance it returns.'
+      return `Current DSH file policy: read-only. Any available operation enforced by the DSH file sandbox cannot modify files in the standing mode. Do not refuse a required modification from this policy alone: try an available tool normally and follow any denial and escalation guidance it returns.${excluded}`
     case 'workspace-write': {
       const additional = policy.additionalWritableRoots
       const extra = additional === undefined
         ? ''
         : ` Additional writable directories: ${JSON.stringify(additional)}.`
-      return `Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: ${JSON.stringify(policy.workspaceRoot)}.${extra} Some platform temporary areas may also be writable.`
+      return `Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: ${JSON.stringify(policy.workspaceRoot)}.${extra} Some platform temporary areas may also be writable.${excluded}`
     }
     case 'danger-full-access':
-      return 'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.'
+      return `Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.${excluded}`
     /* v8 ignore next 4 -- SandboxMode is a typed same-process closed union; this branch is only the static exhaustiveness guard. */
     default: {
       const mode: never = policy.mode
@@ -108,6 +134,12 @@ export interface Config {
    * `read-only`.
    */
   additionalWritableRoots?: string[]
+  /**
+   * Absolute directories subtracted from every writable root of the resolved
+   * policy, whatever its mode (default: none). A leading `~` expands against the
+   * home directory. The secure-zone directory is the deployment consumer.
+   */
+  excludedRoots?: string[]
 }
 
 /** Inputs that select the sandbox policy for one capability call. */
@@ -139,6 +171,7 @@ export class SandboxPolicyService extends Service {
     // stored root is always absolute regardless of how it was supplied.
     workspaceRoot: z.string(),
     additionalWritableRoots: z.array(z.string()).default([]),
+    excludedRoots: z.array(z.string()).default([]),
   })
 
   static inject = ['sessionProjections']
@@ -149,6 +182,8 @@ export class SandboxPolicyService extends Service {
   readonly workspaceRoot: string
   /** The frozen extra writable directories shared by every resolved policy, or `undefined` for none. */
   readonly additionalWritableRoots: readonly string[] | undefined
+  /** The frozen excluded directories shared by every resolved policy, or `undefined` for none. */
+  readonly excludedRoots: readonly string[] | undefined
   private sandboxModeProjectionHandle!: ProjectionHandle<SandboxMode | null>
 
   constructor(ctx: Context, config: Config) {
@@ -159,6 +194,7 @@ export class SandboxPolicyService extends Service {
     this.defaultMode = config.mode as SandboxMode
     this.workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot ?? process.cwd())
     this.additionalWritableRoots = resolveAdditionalWritableRoots(config.additionalWritableRoots)
+    this.excludedRoots = resolveExcludedRoots(config.excludedRoots)
   }
 
   protected async [Service.init](): Promise<void> {
@@ -190,7 +226,8 @@ export class SandboxPolicyService extends Service {
    * mode outranks the session's last `sandbox/mode` event, which outranks the
    * deployment default. A session cwd is its workspace-write boundary; the
    * configured root is the fallback for agentless calls and sessions without a
-   * cwd.
+   * cwd. Excluded directories travel with every mode, because the read path is
+   * part of the isolation a deployment asks for.
    * @param request - optional session and approved mode override.
    * @returns the fully resolved per-call mode and absolute workspace root.
    */
@@ -200,6 +237,7 @@ export class SandboxPolicyService extends Service {
       mode: request.mode ?? (session === undefined ? undefined : this.overrideOf(session)) ?? this.defaultMode,
       workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),
       ...this.additionalWritableRoots === undefined ? {} : { additionalWritableRoots: this.additionalWritableRoots },
+      ...this.excludedRoots === undefined ? {} : { excludedRoots: this.excludedRoots },
       ...session === undefined ? {} : { sessionId: session.id },
     }
   }

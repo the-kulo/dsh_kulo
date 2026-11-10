@@ -111,6 +111,9 @@
     # Session commands, cold reads, and live control over Typert Remote.
     - id: session-controller
       name: '@deepseek-ai/dsh-api-session-controller'
+      config:
+        zones:
+          secureDir: !!js "process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure'"
 
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.

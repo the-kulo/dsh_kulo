@@ -19,7 +19,13 @@ export {
   validateEscalationArgs,
 } from './escalation.ts'
 export type { EscalationApproval, EscalationApprover, EscalationOutcome, EscalationRequest } from './escalation.ts'
-export { canonicalPath, workspaceWritableRoots, writableRoots, SandboxInvalidRootError } from './roots.ts'
+export {
+  canonicalPath,
+  excludedRootsOf,
+  workspaceWritableRoots,
+  writableRoots,
+  SandboxInvalidRootError,
+} from './roots.ts'
 
 /**
  * File-effect policy for confined processes. `read-only` permits only required
@@ -49,6 +55,13 @@ export interface SandboxExecutionPolicy {
    * These grant nothing under `read-only` or `danger-full-access`.
    */
   additionalWritableRoots?: readonly string[]
+  /**
+   * Absolute directories no caller may reach through this policy, whatever the
+   * mode. They are subtracted from every writable root and from confinement
+   * allow-lists; unlike `additionalWritableRoots` they grant nothing and apply
+   * under `danger-full-access` too, so the zone boundary survives a fully open mode.
+   */
+  excludedRoots?: readonly string[]
   /**
    * Opaque identity of the calling session (the branded `dsh-session`
    * SessionId). Backends key per-session state off it (e.g. windows-acl gives

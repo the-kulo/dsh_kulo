@@ -4,6 +4,7 @@ import { homedir, hostname } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-fs'
+import type {} from '@deepseek-ai/dsh-fs-zones'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { errorChain, ReasoningEffortId, type MessageSource } from '@deepseek-ai/dsh-llm'
@@ -177,6 +178,7 @@ export class SessionController extends TypertRemoteService {
     zones: z.object({
       quickQaDir: z.string().default('~/.dsh/zones/quick-qa'),
       secureDir: z.string().default('~/.dsh/zones/secure'),
+      secureAdditionalDirs: z.array(z.string()).default([]),
     }).default({}),
   })
 
@@ -208,7 +210,10 @@ export class SessionController extends TypertRemoteService {
     this.securePolicy = resolved.secure
     this.zoneDirs = {
       quickQaDir: expandHome(resolved.zones.quickQaDir),
-      secureDir: expandHome(resolved.zones.secureDir),
+      secureDir: ctx.get('fsZones')?.secureRoot ?? expandHome(resolved.zones.secureDir),
+      secureAdditionalDirs: (ctx.get('fsZones')?.secureRoots ?? [])
+        .filter((root) => root !== (ctx.get('fsZones')?.secureRoot ?? expandHome(resolved.zones.secureDir)))
+        .map((root) => root),
     }
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
@@ -429,6 +434,22 @@ export class SessionController extends TypertRemoteService {
         { cause: error },
       )
     }
+  }
+
+  /**
+   * Register one additional directory a secure-zone Session may access beside
+   * its zone directory. The directory must already exist; the registration is
+   * live for the running Host (and persisted in the fs-zones service roots).
+   * @param request - absolute or tilde-prefixed directory path.
+   * @returns acknowledgement.
+   * @throws RemoteError when the path is missing.
+   */
+  @Remote('registerSecureDir')
+  registerSecureDir(request: { readonly path: string }): { ok: true } {
+    const fsZones = this.ctx.get('fsZones')
+    if (fsZones === undefined) throw new RemoteError('gateway/internal', 'fs-zones service is not loaded', {})
+    fsZones.addSecureDir(request.path)
+    return { ok: true }
   }
 
   /**

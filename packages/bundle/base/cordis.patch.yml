@@ -225,6 +225,7 @@
       config:
         mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
         workspaceRoot: !!js process.cwd()
+        excludedRoots: !!js "[process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure']"
 
     - id: bash-sandbox
       name: '@deepseek-ai/dsh-bash-sandbox'
@@ -491,6 +492,13 @@
       name: '@deepseek-ai/dsh-agent-loop'
       config:
         agents: []
+
+    # Secure/work zone split: `secureDir` is the exclusive secure root; secure
+    # sessions stay inside it and every other session is denied it.
+    - id: fs-zones
+      name: '@deepseek-ai/dsh-fs-zones'
+      config:
+        secureDir: !!js "process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure'"
 
     # The sandboxed filesystem provider. `cwd` defaults to `process.cwd()`; an
     # overlay can pin another workspace.

@@ -10,12 +10,20 @@
  * ephemeral `/tmp` mount, launcher-owned flags) — the honest per-runner
  * differences recorded in the sandbox RFC — with parity pinned by test.
  *
+ * The policy's `excludedRoots` are subtracted from the result: a root that
+ * lies entirely inside an excluded directory never enters the allow-list, and
+ * the workspace root is kept even when it contains one, because a grant
+ * grammar that can only add paths cannot express "everything except this
+ * subtree". Callers therefore enforce the leftover hole themselves — the fs
+ * fence rejects a target inside an exclusion regardless of mode, which is what
+ * keeps the zone boundary intact under `danger-full-access`.
+ *
  * @module dsh-sandbox/roots
  */
 
 import { realpathSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import type { SandboxExecutionPolicy } from './index.ts'
 
@@ -68,20 +76,55 @@ export function canonicalPath(path: string): string {
 }
 
 /**
+ * The policy's excluded directories as canonical paths, deduplicated. Unlike an
+ * extra grant from {@link workspaceWritableRoots} an exclusion need not exist
+ * yet and may be spelled through a symlink: it only ever takes access away, so
+ * a spelling that resolves to nothing matches nothing.
+ * @param policy - the file-effect policy to read the exclusions from.
+ * @returns the canonical excluded roots; empty when the policy excludes nothing.
+ */
+export function excludedRootsOf(policy: SandboxExecutionPolicy): string[] {
+  return [...new Set((policy.excludedRoots ?? []).map(canonicalPath))]
+}
+
+/**
+ * Remove allow-list roots that lie entirely inside an exclusion. The workspace
+ * root survives its own exclusion: a grant grammar that only adds paths cannot
+ * express "everything except this subtree", so the leftover hole is the fs
+ * fence's to enforce.
+ * @param policy - the policy whose workspace root is never removed.
+ * @param roots - canonical allow-list roots to filter.
+ * @returns the roots that survive the exclusions.
+ */
+function withoutExcluded(policy: SandboxExecutionPolicy, roots: string[]): string[] {
+  const excluded = excludedRootsOf(policy)
+  if (excluded.length === 0) return roots
+  const workspace = canonicalPath(policy.workspaceRoot)
+  return roots.filter((root) => {
+    if (root === workspace) return true
+    for (const exclusion of excluded) {
+      const rel = relative(exclusion, root)
+      if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) return false
+    }
+    return true
+  })
+}
+
+/**
  * The workspace-owned writable roots — the policy's workspace root plus its
  * explicit extra directories, as a canonical, deduplicated allow-list. Both
  * the workspace and every extra root must be granted together by every
  * backend; this is the one derivation of that set, kept separate from the
  * platform temp policy each backend documents for itself (Seatbelt and the fs
  * fence use {@link writableRoots}; bwrap and Landlock add their own temp
- * grants).
+ * grants). Roots inside an excluded directory are removed; none are added.
  * @param policy - the file-effect policy to derive the allow-list from.
  * @returns the canonical workspace-owned roots; empty under `read-only`.
  * @throws {SandboxInvalidRootError} An extra root is missing, is not a directory, or uses a symlink.
  */
 export function workspaceWritableRoots(policy: SandboxExecutionPolicy): string[] {
   if (policy.mode !== 'workspace-write') return []
-  return [...new Set([canonicalPath(policy.workspaceRoot), ...(policy.additionalWritableRoots ?? []).map(additionalRoot)])]
+  return withoutExcluded(policy, [...new Set([canonicalPath(policy.workspaceRoot), ...(policy.additionalWritableRoots ?? []).map(additionalRoot)])])
 }
 
 /**
@@ -90,11 +133,13 @@ export function workspaceWritableRoots(policy: SandboxExecutionPolicy): string[]
  * `workspace-write` allows the policy's workspace root, its explicit extra
  * directories, the host `/tmp`, and the per-user platform temp dir
  * (`os.tmpdir()` — the real temp area for mkstemp-family tools; omitting it
- * would deny what the mode promises).
+ * would deny what the mode promises). Roots inside an excluded directory are
+ * removed from the temp grants too, so a secure zone placed under a temp area
+ * takes that whole grant with it.
  * @param policy - the file-effect policy to derive the allow-list from.
  * @returns the canonical writable roots; empty exactly under `read-only`.
  */
 export function writableRoots(policy: SandboxExecutionPolicy): string[] {
   if (policy.mode !== 'workspace-write') return []
-  return [...new Set([...workspaceWritableRoots(policy), canonicalPath('/tmp'), canonicalPath(tmpdir())])]
+  return withoutExcluded(policy, [...new Set([...workspaceWritableRoots(policy), canonicalPath('/tmp'), canonicalPath(tmpdir())])])
 }

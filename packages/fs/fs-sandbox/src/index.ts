@@ -23,6 +23,12 @@
  * shared `writableRoots` policy; `danger-full-access` delegates unfenced. A
  * denial throws the structured `FS_SANDBOX_DENIED`.
  *
+ * Zone exclusion is independent of that mode. The policy's `excludedRoots` are
+ * subtracted from every writable root, so `danger-full-access` grants no
+ * broader reach into them than `workspace-write` does; and a session whose
+ * workspace root is itself an excluded root is a secure-zone session, which may
+ * write only inside that subtree. A zone refusal throws `FS_ZONE_DENIED`.
+ *
  * @module @deepseek-ai/dsh-fs-sandbox
  */
 
@@ -31,7 +37,7 @@ import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
 import type { Config as LocalConfig } from '@deepseek-ai/dsh-fs-local'
 import { FsError } from '@deepseek-ai/dsh-fs'
 import type { FsEditOutcome, FsEditRequest, FsTarget, FsVersion, FsWriteIntent, FsWriteOutcome } from '@deepseek-ai/dsh-fs'
-import { writableRoots } from '@deepseek-ai/dsh-sandbox'
+import { canonicalPath, excludedRootsOf, writableRoots } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
 import { isPathUnder } from './containment.ts'
@@ -115,14 +121,18 @@ export class SandboxedFileSystem extends LocalFileSystem {
    * re-canonicalizes NOW (`resolve` realpaths the deepest existing ancestor,
    * reflecting a concurrently swapped symlink), requires containment under a
    * writable root, and returns THAT fresh target; `danger-full-access` returns
-   * the caller's target unfenced. Throws the structured `FS_SANDBOX_DENIED` on
-   * refusal — the tool layer maps it to the model-facing `[sandbox: …]` marker
-   * and the escalation hint.
+   * the caller's target unfenced. Zone exclusion is checked in every mode,
+   * including `danger-full-access`; the tool layer maps `FS_SANDBOX_DENIED` to
+   * the model-facing `[sandbox: …]` marker and the escalation hint.
    */
   private async checkedTarget(target: FsTarget, sandboxPolicy?: SandboxExecutionPolicy): Promise<FsTarget> {
     const policy = sandboxPolicy ?? this.ctx.sandboxPolicy.resolve()
     const { mode } = policy
-    if (mode === 'danger-full-access') return target
+    const excluded = excludedRootsOf(policy)
+    if (mode === 'danger-full-access') {
+      if (excluded.length > 0) await this.assertZones(policy, excluded, target.targetKey, target.displayPath)
+      return target
+    }
     if (mode === 'read-only') {
       throw new FsError(`cannot write "${target.displayPath}": file access denied under read-only mode`, 'FS_SANDBOX_DENIED')
     }
@@ -140,7 +150,43 @@ export class SandboxedFileSystem extends LocalFileSystem {
     if (!contained) {
       throw new FsError(`cannot write "${target.displayPath}": file access denied under workspace-write mode`, 'FS_SANDBOX_DENIED')
     }
+    if (excluded.length > 0) await this.assertZones(policy, excluded, fresh.targetKey, target.displayPath)
     return fresh
+  }
+
+  /**
+   * Reject a mutation that would cross the zone boundary between a workspace
+   * session and a secure-zone session. The workspace root decides the side: a
+   * policy whose root IS an excluded root belongs to a secure-zone session and
+   * may write only inside that subtree, while every other policy belongs to the
+   * workspace and may not enter it. Callers pass the canonical target key the
+   * mutation will use.
+   * @param policy - the per-call policy naming the workspace root.
+   * @param excluded - the canonical excluded roots from {@link excludedRootsOf}.
+   * @param key - the canonical target key the mutation will use.
+   * @param displayPath - the target path as reported to the model.
+   * @returns nothing when the target stays on the session's side of the boundary.
+   */
+  private async assertZones(
+    policy: SandboxExecutionPolicy,
+    excluded: readonly string[],
+    key: string,
+    displayPath: string,
+  ): Promise<void> {
+    const secureSide = excluded.includes(canonicalPath(policy.workspaceRoot))
+    const inside = (await Promise.all(excluded.map((root) => isPathUnder(key, root)))).some(Boolean)
+    if (secureSide && !inside) {
+      throw new FsError(
+        `cannot write "${displayPath}": a secure-zone session may write only inside the secure zone directory`,
+        'FS_ZONE_DENIED',
+      )
+    }
+    if (!secureSide && inside) {
+      throw new FsError(
+        `cannot write "${displayPath}": the secure zone directory is not accessible from a workspace session`,
+        'FS_ZONE_DENIED',
+      )
+    }
   }
 }
 

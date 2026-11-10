@@ -67,6 +67,9 @@
       "path": "../../fs/fs"
     },
     {
+      "path": "../../fs/fs-zones"
+    },
+    {
       "path": "../../llm/llm"
     },
     {

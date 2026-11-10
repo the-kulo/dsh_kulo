@@ -328,7 +328,8 @@ export class InMemoryExecution {
     if (kernel && !kernel.closed && (kernel.policy.mode !== spec.sandboxPolicy.mode
       || kernel.policy.workspaceRoot !== spec.sandboxPolicy.workspaceRoot
       || kernel.policy.sessionId !== spec.sandboxPolicy.sessionId
-      || !sameAdditionalRoots(kernel.policy.additionalWritableRoots, spec.sandboxPolicy.additionalWritableRoots))) {
+      || !sameAdditionalRoots(kernel.policy.additionalWritableRoots, spec.sandboxPolicy.additionalWritableRoots)
+      || !sameAdditionalRoots(kernel.policy.excludedRoots, spec.sandboxPolicy.excludedRoots))) {
       throw new Error('persistent PTC: release the retained environment before changing its sandbox policy')
     }
     let code: string
@@ -350,6 +351,9 @@ export class InMemoryExecution {
         ...spec.sandboxPolicy.additionalWritableRoots === undefined
           ? {}
           : { additionalWritableRoots: [...spec.sandboxPolicy.additionalWritableRoots] },
+        ...spec.sandboxPolicy.excludedRoots === undefined
+          ? {}
+          : { excludedRoots: [...spec.sandboxPolicy.excludedRoots] },
       }, this.processes)
       this.kernels.add(kernel)
       if (spec.stateOwner !== undefined) this.owners.set(spec.stateOwner, kernel)

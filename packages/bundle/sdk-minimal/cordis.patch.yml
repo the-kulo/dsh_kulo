@@ -38,6 +38,11 @@
     - id: filesystem
       name: '@deepseek-ai/dsh-fs-local'
 
+    - id: fs-zones
+      name: '@deepseek-ai/dsh-fs-zones'
+      config:
+        secureDir: !!js "process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure'"
+
     - id: attachment-local
       name: '@deepseek-ai/dsh-attachment-local'
 
@@ -72,6 +77,7 @@
       config:
         mode: danger-full-access
         workspaceRoot: !!js process.cwd()
+        excludedRoots: !!js "[process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure']"
 
     - id: subprocess
       name: '@deepseek-ai/dsh-subprocess-local'

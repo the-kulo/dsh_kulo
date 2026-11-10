@@ -65,6 +65,8 @@ export interface ZoneDirectories {
   readonly quickQaDir: string
   /** Secure zone project directory. */
   readonly secureDir: string
+  /** Additional directories a secure-zone Session may access beside its zone directory. */
+  readonly secureAdditionalDirs?: string[]
 }
 
 type PromptContentCandidate =

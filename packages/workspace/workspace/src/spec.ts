@@ -17,9 +17,24 @@ const workspaceId = z.string().transform(value => value as WorkspaceId)
 const sessionId = z.string().transform(value => brandString<SessionId>(value))
 
 /**
+ * Durable git binding stored on a workspace record. Optional on the record
+ * so records written before the field was added parse without a migration:
+ * the `single`-layout domain does not support `compatibleVersions`, and the
+ * zod `.optional()` field accepts absent git bindings from version-2 records.
+ */
+const workspaceGitBinding = z.object({
+  remote: z.string(),
+  branch: z.string(),
+  autoCommit: z.boolean(),
+  boundAt: z.string(),
+})
+
+/**
  * Durable shape of one workspace record. `path` is the `fs.realpath` canon
  * stamped at create; `sessionIds` is the ordered ownership account (array
- * order is display order); timestamps are ISO-8601 strings.
+ * order is display order); timestamps are ISO-8601 strings. `git` is an
+ * optional git binding — absent when the workspace is not bound to a
+ * repository.
  */
 export const workspaceRecord = z.object({
   path: z.string(),
@@ -27,6 +42,7 @@ export const workspaceRecord = z.object({
   sessionIds: z.array(sessionId),
   createdAt: z.string(),
   updatedAt: z.string(),
+  git: workspaceGitBinding.optional(),
 })
 
 /** One stored workspace record, inferred from {@link workspaceRecord}. */

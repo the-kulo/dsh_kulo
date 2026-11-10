@@ -12,7 +12,7 @@ import { stat } from 'node:fs/promises'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
-import type { Workspace, WorkspaceId } from './types.ts'
+import type { Workspace, WorkspaceGitBinding, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
@@ -23,6 +23,44 @@ export class WorkspaceMoveInvalidError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'WorkspaceMoveInvalidError'
+  }
+}
+
+/**
+ * A bindGit request carried an invalid remote URL: empty, contains whitespace
+ * or control characters, or otherwise not a usable git remote.
+ */
+export class WorkspaceGitRemoteInvalidError extends Error {
+  /**
+   * @param remote - The rejected remote value.
+   */
+  constructor(readonly remote: string) {
+    super(`invalid git remote '${remote}': must be non-empty with no whitespace or control characters`)
+    this.name = 'WorkspaceGitRemoteInvalidError'
+  }
+}
+
+/**
+ * A bindGit request carried an invalid branch name: contains forbidden git-ref
+ * characters (`..`, leading `-`, spaces, `~^:?*[\\`) or is empty.
+ */
+export class WorkspaceGitBranchInvalidError extends Error {
+  /**
+   * @param branch - The rejected branch value.
+   */
+  constructor(readonly branch: string) {
+    super(`invalid git branch '${branch}': must be a valid git ref without forbidden characters`)
+    this.name = 'WorkspaceGitBranchInvalidError'
+  }
+}
+
+/**
+ * A setGitAutoCommit request targeted a workspace without a git binding.
+ */
+export class WorkspaceGitUnboundError extends Error {
+  constructor() {
+    super('cannot set auto-commit on an unbound workspace; bind a git remote first')
+    this.name = 'WorkspaceGitUnboundError'
   }
 }
 
@@ -195,6 +233,35 @@ export class WorkspaceEntity implements Workspace {
     }
   }
 
+  get git(): WorkspaceGitBinding | undefined {
+    return this.record.git
+  }
+
+  async bindGit(binding: Omit<WorkspaceGitBinding, 'boundAt'>): Promise<WorkspaceGitBinding> {
+    validateGitRemote(binding.remote)
+    validateGitBranch(binding.branch)
+    const boundAt = new Date().toISOString()
+    const stored: WorkspaceGitBinding = { ...binding, boundAt }
+    await this.mutate(record => ({ ...record, git: stored }))
+    return stored
+  }
+
+  async unbindGit(): Promise<void> {
+    if (this.record.git === undefined) return
+    await this.mutate(record => {
+      const { git: _removed, ...rest } = record
+      return rest as WorkspaceRecord
+    })
+  }
+
+  async setGitAutoCommit(autoCommit: boolean): Promise<void> {
+    if (this.record.git === undefined) throw new WorkspaceGitUnboundError()
+    await this.mutate(record => ({
+      ...record,
+      git: { ...(record.git as WorkspaceGitBinding), autoCommit },
+    }))
+  }
+
   /**
    * The single write path: run `fn` on the domain write chain via
    * `table.update`, stamping `updatedAt` and pruning candidates that no
@@ -225,5 +292,23 @@ export class WorkspaceEntity implements Workspace {
       throw error
     }
     this.record = next
+  }
+}
+
+/** Reject a remote with whitespace, control characters, or empty. */
+function validateGitRemote(remote: string): void {
+  if (remote.length === 0 || /\s/.test(remote) || /[\x00-\x1f\x7f]/.test(remote)) {
+    throw new WorkspaceGitRemoteInvalidError(remote)
+  }
+}
+
+/** Reject a branch with forbidden git-ref characters or empty. */
+function validateGitBranch(branch: string): void {
+  if (branch.length === 0) {
+    throw new WorkspaceGitBranchInvalidError(branch)
+  }
+  // Forbidden in git refs: .., leading -, spaces, ~^:?*[\ and ASCII control characters.
+  if (branch.includes('..') || branch.startsWith('-') || /[\s~^:?*[\\\x00-\x1f\x7f]/.test(branch)) {
+    throw new WorkspaceGitBranchInvalidError(branch)
   }
 }

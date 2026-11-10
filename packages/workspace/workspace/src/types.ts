@@ -28,6 +28,22 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 
 /**
+ * The durable git binding recorded on a workspace: remote URL, target branch,
+ * and auto-commit policy. Stored as an optional field on the workspace record;
+ * absent means the workspace is not bound to a repository.
+ */
+export interface WorkspaceGitBinding {
+  /** Remote URL recorded for this workspace, e.g. `git@github.com:org/repo.git`. */
+  readonly remote: string
+  /** Branch that auto-commits target. */
+  readonly branch: string
+  /** When true, the git consumer commits after each agent turn that changed files. */
+  readonly autoCommit: boolean
+  /** ISO-8601 instant the binding was recorded. */
+  readonly boundAt: string
+}
+
+/**
  * Activity families a `workspace/session-activity` listener may report. This
  * package declares none: each provider merges its own key from a module both
  * its Host and Client faces import, so a consumer that renders the families
@@ -105,6 +121,27 @@ export interface Workspace {
    * @returns resolution after durability.
    */
   setTitle(title: string): Promise<void>
+
+  /** Durable git binding, or undefined when this workspace is not bound to a repository. */
+  readonly git: WorkspaceGitBinding | undefined
+
+  /**
+   * Record or replace the git binding; returns the stored binding.
+   * @param binding - Remote URL, branch, and auto-commit policy. `boundAt` is
+   * stamped by the method.
+   * @returns the stored binding with the stamped timestamp.
+   */
+  bindGit(binding: Omit<WorkspaceGitBinding, 'boundAt'>): Promise<WorkspaceGitBinding>
+
+  /** Remove the git binding; idempotent. */
+  unbindGit(): Promise<void>
+
+  /**
+   * Update only the auto-commit policy of an existing binding; rejects when
+   * the workspace is unbound.
+   * @param autoCommit - New auto-commit policy.
+   */
+  setGitAutoCommit(autoCommit: boolean): Promise<void>
 
   /**
    * Prepend a session to this workspace's candidate account. An already

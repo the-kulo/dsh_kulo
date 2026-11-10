@@ -15,6 +15,11 @@ import { WorkspaceEntity } from './entity.ts'
 import type { WorkspaceEntityHost } from './entity.ts'
 
 export { WorkspaceMoveInvalidError } from './entity.ts'
+export {
+  WorkspaceGitRemoteInvalidError,
+  WorkspaceGitBranchInvalidError,
+  WorkspaceGitUnboundError,
+} from './entity.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
@@ -22,6 +27,7 @@ import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from
 
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
+  WorkspaceGitBinding,
 } from './types.ts'
 export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
 export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'

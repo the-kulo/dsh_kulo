@@ -130,6 +130,12 @@ export function apply(ctx: ClientContext): void {
     follow: async (workspaceId) => {
       await ctx.gitPanel.follow(workspaceId)
     },
+    promote: async () => {
+      await ctx.gitPanel.promote()
+    },
+    checkoutBranch: async (_workspaceId, branch) => {
+      await ctx.gitPanel.checkoutBranch(branch)
+    },
   })
 
   ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({

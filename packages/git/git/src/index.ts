@@ -18,11 +18,13 @@ import { LocalGitService, resolveGitExecutable } from './local.ts'
 // Re-export the types for consumers.
 export type {
   GitBindRequest,
+  GitCheckoutRequest,
   GitCommit,
   GitCommitRequest,
   GitCommitResult,
   GitFileChange,
   GitFileState,
+  GitPromoteRequest,
   GitRepository,
   GitStatus,
 } from './types.ts'
@@ -31,6 +33,7 @@ export {
   GitArgumentError,
   GitCommandError,
   GitNotRepositoryError,
+  GitPromotionConflictError,
   GitUnavailableError,
 } from './types.ts'
 

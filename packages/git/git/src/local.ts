@@ -11,12 +11,15 @@ import {
   GitArgumentError,
   GitCommandError,
   GitNotRepositoryError,
+  GitPromotionConflictError,
   GitUnavailableError,
 } from './types.ts'
 import type {
   GitBindRequest,
+  GitCheckoutRequest,
   GitCommitRequest,
   GitCommitResult,
+  GitPromoteRequest,
   GitRepository,
   GitStatus,
 } from './types.ts'
@@ -422,6 +425,86 @@ export class LocalGitService extends GitService {
     if (result.stderr.includes('does not have any commits yet')) return []
 
     throw new GitCommandError([...args], result.exitCode, result.stderr)
+  }
+
+  /** @inheritdoc */
+  async listBranches(directory: string, signal?: AbortSignal): Promise<readonly string[]> {
+    const exe = this.#requireExecutable()
+    const args = ['branch', '--format=%(refname:short)']
+    const result = await runGit(
+      this.#subprocess, exe, args,
+      directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+      this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+    )
+    if (result.exitCode !== 0) {
+      // Empty repository: git branch exits 128 before the first commit.
+      if (result.stderr.includes('does not have any commits yet')) return []
+      throw new GitCommandError(args, result.exitCode, result.stderr)
+    }
+    return result.stdout.split('\n').map(line => line.trim()).filter(line => line !== '')
+  }
+
+  /** @inheritdoc */
+  async checkout(request: GitCheckoutRequest, signal?: AbortSignal): Promise<GitRepository> {
+    const exe = this.#requireExecutable()
+    const branches = await this.listBranches(request.directory, signal)
+    const args = branches.includes(request.branch)
+      ? ['checkout', request.branch]
+      : ['checkout', '-b', request.branch]
+    await gitOrThrow(
+      this.#subprocess, exe, args,
+      request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+      this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+    )
+    this.ctx.emit('git/changed', { directory: request.directory })
+    const repository = await this.discover(request.directory, signal)
+    if (repository === undefined) throw new GitNotRepositoryError(request.directory)
+    return repository
+  }
+
+  /** @inheritdoc */
+  async promote(request: GitPromoteRequest, signal?: AbortSignal): Promise<GitRepository> {
+    const exe = this.#requireExecutable()
+    const branches = await this.listBranches(request.directory, signal)
+    if (branches.includes(request.to)) {
+      await gitOrThrow(
+        this.#subprocess, exe, ['checkout', request.to],
+        request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+        this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+      )
+    } else {
+      // Create the target at the source's commit, then the merge below is a no-op.
+      await gitOrThrow(
+        this.#subprocess, exe, ['checkout', '-b', request.to, request.from],
+        request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+        this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+      )
+    }
+    try {
+      await gitOrThrow(
+        this.#subprocess, exe, ['merge', '--no-edit', request.from],
+        request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+        this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+      )
+    } catch (error) {
+      // The merge conflicted: restore the pre-promotion branch and report.
+      await runGit(
+        this.#subprocess, exe, ['merge', '--abort'],
+        request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+        this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+      )
+      await runGit(
+        this.#subprocess, exe, ['checkout', request.from],
+        request.directory, this.#config.timeoutMs, this.#config.outputMaxBytes,
+        this.#config.stderrTailBytes, this.#config.terminateGraceMs, signal,
+      )
+      const stderr = error instanceof GitCommandError ? error.stderr : String(error)
+      throw new GitPromotionConflictError(request, stderr)
+    }
+    this.ctx.emit('git/changed', { directory: request.directory })
+    const repository = await this.discover(request.directory, signal)
+    if (repository === undefined) throw new GitNotRepositoryError(request.directory)
+    return repository
   }
 
   #parseLogOutput(output: string): GitCommit[] {

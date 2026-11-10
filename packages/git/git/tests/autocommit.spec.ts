@@ -71,12 +71,25 @@ class StubGitService extends GitService {
   async log(): Promise<readonly GitCommit[]> {
     return []
   }
+
+  async listBranches(): Promise<readonly string[]> {
+    return []
+  }
+
+  async checkout(): Promise<GitRepository> {
+    throw new Error('checkout is not stubbed')
+  }
+
+  async promote(): Promise<GitRepository> {
+    throw new Error('promote is not stubbed')
+  }
 }
 
 function makeBinding(autoCommit: boolean): WorkspaceGitBinding {
   return {
     remote: 'git@github.com:org/repo.git',
-    branch: 'main',
+    branches: ['main'],
+    activeBranch: 'main',
     autoCommit,
     boundAt: '2026-01-01T00:00:00.000Z',
   }

@@ -24,7 +24,8 @@ const sessionId = z.string().transform(value => brandString<SessionId>(value))
  */
 const workspaceGitBinding = z.object({
   remote: z.string(),
-  branch: z.string(),
+  branches: z.array(z.string()).readonly(),
+  activeBranch: z.string(),
   autoCommit: z.boolean(),
   boundAt: z.string(),
 })

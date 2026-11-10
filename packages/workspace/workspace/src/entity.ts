@@ -239,11 +239,49 @@ export class WorkspaceEntity implements Workspace {
 
   async bindGit(binding: Omit<WorkspaceGitBinding, 'boundAt'>): Promise<WorkspaceGitBinding> {
     validateGitRemote(binding.remote)
-    validateGitBranch(binding.branch)
+    validateGitBranches(binding.branches, binding.activeBranch)
     const boundAt = new Date().toISOString()
-    const stored: WorkspaceGitBinding = { ...binding, boundAt }
+    const stored: WorkspaceGitBinding = { ...binding, branches: [...binding.branches], boundAt }
     await this.mutate(record => ({ ...record, git: stored }))
     return stored
+  }
+
+  /**
+   * Replace the promotion chain. The active branch is kept when it remains a
+   * member of the new chain, otherwise it falls back to the first entry.
+   * @param branches - ordered promotion chain.
+   * @param activeBranch - explicit active branch, or the kept/fallback entry.
+   */
+  async setGitBranches(branches: readonly string[], activeBranch?: string): Promise<void> {
+    if (this.record.git === undefined) throw new WorkspaceGitUnboundError()
+    if (branches.length === 0) throw new WorkspaceGitBranchInvalidError(activeBranch ?? '')
+    const fallback = branches[0]
+    if (fallback === undefined) throw new WorkspaceGitBranchInvalidError(activeBranch ?? '')
+    const current = this.record.git.activeBranch
+    const next = activeBranch ?? (branches.includes(current) ? current : fallback)
+    validateGitBranches(branches, next)
+    await this.mutate(record => ({
+      ...record,
+      git: {
+        ...(record.git as WorkspaceGitBinding),
+        branches: [...branches],
+        activeBranch: next,
+      },
+    }))
+  }
+
+  /**
+   * Switch the active branch to another member of the chain.
+   * @param branch - a branch already on the chain.
+   */
+  async setActiveBranch(branch: string): Promise<void> {
+    if (this.record.git === undefined) throw new WorkspaceGitUnboundError()
+    validateGitBranch(branch)
+    if (!this.record.git.branches.includes(branch)) throw new WorkspaceGitBranchInvalidError(branch)
+    await this.mutate(record => ({
+      ...record,
+      git: { ...(record.git as WorkspaceGitBinding), activeBranch: branch },
+    }))
   }
 
   async unbindGit(): Promise<void> {
@@ -310,5 +348,19 @@ function validateGitBranch(branch: string): void {
   // Forbidden in git refs: .., leading -, spaces, ~^:?*[\ and ASCII control characters.
   if (branch.includes('..') || branch.startsWith('-') || /[\s~^:?*[\\\x00-\x1f\x7f]/.test(branch)) {
     throw new WorkspaceGitBranchInvalidError(branch)
+  }
+}
+
+/** Reject an empty, duplicated, or non-member active branch chain. */
+function validateGitBranches(branches: readonly string[], activeBranch: string): void {
+  if (branches.length === 0) {
+    throw new WorkspaceGitBranchInvalidError(activeBranch)
+  }
+  for (const branch of branches) validateGitBranch(branch)
+  if (new Set(branches).size !== branches.length) {
+    throw new WorkspaceGitBranchInvalidError(activeBranch)
+  }
+  if (!branches.includes(activeBranch)) {
+    throw new WorkspaceGitBranchInvalidError(activeBranch)
   }
 }

@@ -10,6 +10,7 @@ import {
   GitArgumentError,
   GitCommandError,
   GitNotRepositoryError,
+  GitPromotionConflictError,
   GitUnavailableError,
 } from '@deepseek-ai/dsh-git'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -21,6 +22,7 @@ import type {
   GitCommitView,
   GitFileView,
   GitRepositoryView,
+  GitSetBranchesInput,
   GitStatusView,
 } from './types.ts'
 
@@ -120,7 +122,12 @@ export class GitController extends TypertRemoteService {
     } catch (error: unknown) {
       throw mapGitError(error)
     }
-    await workspace.bindGit({ remote: input.remote, branch: input.branch, autoCommit: input.autoCommit })
+    await workspace.bindGit({
+      remote: input.remote,
+      branches: input.branches ?? [input.branch],
+      activeBranch: (input.branches ?? [input.branch])[0] ?? input.branch,
+      autoCommit: input.autoCommit,
+    })
     return await this.buildStatus(workspace, signal)
   }
 
@@ -176,6 +183,70 @@ export class GitController extends TypertRemoteService {
   }
 
   /**
+   * Promote the active branch into the next branch of the promotion chain.
+   * Merges the active branch into the next entry and advances the active
+   * branch. A conflict aborts the merge, restores the active branch, and
+   * throws `git/promotion-conflict`.
+   * @param workspaceId - target workspace identity.
+   * @param signal - caller cancellation.
+   * @returns the status view after the promotion.
+   */
+  @Remote
+  async promote(workspaceId: WorkspaceId, signal: AbortSignal): Promise<GitStatusView> {
+    const workspace = this.getWorkspace(workspaceId)
+    const binding = this.requireBinding(workspace)
+    const next = binding.branches[binding.branches.indexOf(binding.activeBranch) + 1]
+    if (next === undefined) {
+      throw new RemoteError('git/no-promotion-target', `${binding.activeBranch} is the last branch of the chain`, {})
+    }
+    try {
+      await this.ctx.git.promote({ directory: workspace.path, from: binding.activeBranch, to: next }, signal)
+    } catch (error: unknown) {
+      throw mapGitError(error)
+    }
+    await workspace.setActiveBranch(next)
+    return await this.buildStatus(workspace, signal)
+  }
+
+  /**
+   * Check out another branch of the promotion chain.
+   * @param workspaceId - target workspace identity.
+   * @param branch - a branch on the chain.
+   * @param signal - caller cancellation.
+   * @returns the status view after the checkout.
+   */
+  @Remote
+  async checkoutBranch(workspaceId: WorkspaceId, branch: string, signal: AbortSignal): Promise<GitStatusView> {
+    const workspace = this.getWorkspace(workspaceId)
+    const binding = this.requireBinding(workspace)
+    if (!binding.branches.includes(branch)) {
+      throw new RemoteError('git/invalid-branch', `${branch} is not on the chain`, { branch })
+    }
+    try {
+      await this.ctx.git.checkout({ directory: workspace.path, branch }, signal)
+    } catch (error: unknown) {
+      throw mapGitError(error)
+    }
+    await workspace.setActiveBranch(branch)
+    return await this.buildStatus(workspace, signal)
+  }
+
+  /**
+   * Replace the promotion chain, keeping the active branch when it stays.
+   * @param workspaceId - target workspace identity.
+   * @param input - the new chain and the active branch to keep.
+   * @param signal - caller cancellation.
+   * @returns the status view after the update.
+   */
+  @Remote
+  async setBranches(workspaceId: WorkspaceId, input: GitSetBranchesInput, signal: AbortSignal): Promise<GitStatusView> {
+    const workspace = this.getWorkspace(workspaceId)
+    this.requireBinding(workspace)
+    await workspace.setGitBranches(input.branches, input.activeBranch)
+    return await this.buildStatus(workspace, signal)
+  }
+
+  /**
    * Stream a baseline GitStatusView immediately, then a fresh view whenever
    * the working tree changes or a commit is created in that directory. The
    * stream ends when the caller cancels or the fiber is disposed.
@@ -209,6 +280,15 @@ export class GitController extends TypertRemoteService {
       throw new RemoteError('git/workspace-unknown', `workspace ${workspaceId} not found`, { workspaceId })
     }
     return workspace
+  }
+
+  /** Resolve a workspace's binding, throwing a typed RemoteError when unbound. */
+  private requireBinding(workspace: Workspace): WorkspaceGitBinding {
+    const binding = workspace.git
+    if (binding === undefined) {
+      throw new RemoteError('git/not-bound', 'workspace has no git binding', {})
+    }
+    return binding
   }
 
   /**
@@ -291,7 +371,8 @@ function repositoryView(status: GitStatus): GitRepositoryView {
 function bindingView(binding: WorkspaceGitBinding): GitBindingView {
   return {
     remote: binding.remote,
-    branch: binding.branch,
+    branches: binding.branches,
+    activeBranch: binding.activeBranch,
     autoCommit: binding.autoCommit,
     boundAt: binding.boundAt,
   }
@@ -306,6 +387,9 @@ function mapGitError(error: unknown): never {
   }
   if (error instanceof GitNotRepositoryError) {
     throw new RemoteError('git/not-a-repository', error.message, {})
+  }
+  if (error instanceof GitPromotionConflictError) {
+    throw new RemoteError('git/promotion-conflict', error.message, {})
   }
   if (error instanceof GitCommandError) {
     throw new RemoteError(

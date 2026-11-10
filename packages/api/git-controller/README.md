@@ -23,6 +23,9 @@ demand, and stream live status changes over Typert Remote.
 | `unbind(workspaceId, signal)` | unary | Clear the recorded binding without deleting the repo. |
 | `setAutoCommit(workspaceId, autoCommit, signal)` | unary | Update only the auto-commit policy. |
 | `commit(workspaceId, message, signal)` | unary | Stage all changes and commit. Throws `git/nothing-to-commit` when the tree has no changes. |
+| `promote(workspaceId, signal)` | unary | Merge the active branch into the next chain entry and advance. Throws `git/no-promotion-target` at the end of the chain and `git/promotion-conflict` on a merge conflict. |
+| `checkoutBranch(workspaceId, branch, signal)` | unary | Check out another branch of the chain. Throws `git/invalid-branch` when it is not on the chain. |
+| `setBranches(workspaceId, input, signal)` | unary | Replace the promotion chain, keeping the active branch when it stays. |
 | `watch(workspaceId, signal)` | stream | Baseline status view, then a fresh view on each `git/changed` or `git/committed` event. |
 
 ## Client service
@@ -39,6 +42,9 @@ interface IGitPanel {
   unbind(): Promise<void>
   setAutoCommit(autoCommit: boolean): Promise<void>
   commit(message: string): Promise<void>
+  promote(): Promise<void>
+  checkoutBranch(branch: string): Promise<void>
+  setBranches(input: GitSetBranchesInput): Promise<void>
 }
 ```
 
@@ -48,8 +54,9 @@ opens a new stream. The stream is driven asynchronously so `follow()` returns
 without waiting for the first frame; the model transitions through `loading`
 until the baseline arrives.
 
-Unary commands (`bind`, `unbind`, `setAutoCommit`, `commit`, `refresh`) call
-through `ctx.remote.git.<method>()` and install the returned `GitStatusView`
+Unary commands (`bind`, `unbind`, `setAutoCommit`, `commit`, `promote`,
+`checkoutBranch`, `setBranches`, `refresh`) call through
+`ctx.remote.git.<method>()` and install the returned `GitStatusView`
 on success. On `ok: false` the model transitions to `error` with a readable
 message and the caller receives a thrown `Error`.
 

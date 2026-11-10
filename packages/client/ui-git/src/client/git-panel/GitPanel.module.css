@@ -62,11 +62,11 @@
 }
 
 .badgeAhead {
-  color: var(--dsw-alias-accent-primary);
+  color: var(--dsw-alias-state-business-primary);
 }
 
 .badgeBehind {
-  color: var(--dsw-alias-accent-warning);
+  color: var(--dsw-alias-state-warn-label);
 }
 
 .tool {
@@ -177,14 +177,14 @@
   font: inherit;
   font-size: 13px;
   color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-input-bg);
+  background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-sm);
   outline: none;
 }
 
 .fieldInput:focus {
-  border-color: var(--dsw-alias-accent-primary);
+  border-color: var(--dsw-alias-state-business-primary);
 }
 
 .checkboxRow {
@@ -231,14 +231,14 @@
 
 .buttonPrimary {
   color: var(--dsw-alias-label-primary-foreground);
-  background: var(--dsw-alias-accent-primary);
-  border-color: var(--dsw-alias-accent-primary);
+  background: var(--dsw-alias-button-primary-fill);
+  border-color: var(--dsw-alias-button-primary-fill);
 }
 
 @media (hover: hover) {
   .buttonPrimary:not(:disabled):hover {
     opacity: 0.85;
-    background: var(--dsw-alias-accent-primary);
+    background: var(--dsw-alias-button-primary-hover);
   }
 }
 
@@ -246,7 +246,7 @@
   margin: 0;
   padding: 4px 10px;
   font-size: 12px;
-  color: var(--dsw-alias-accent-danger);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .tree {
@@ -353,7 +353,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--dsw-alias-accent-primary);
+  background: var(--dsw-alias-state-business-primary);
 }
 
 .commitRow {

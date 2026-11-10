@@ -28,15 +28,21 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 
 /**
- * The durable git binding recorded on a workspace: remote URL, target branch,
- * and auto-commit policy. Stored as an optional field on the workspace record;
- * absent means the workspace is not bound to a repository.
+ * The durable git binding recorded on a workspace: remote URL, an ordered
+ * promotion chain, the active branch, and the auto-commit policy. Stored as an
+ * optional field on the workspace record; absent means the workspace is not
+ * bound to a repository.
  */
 export interface WorkspaceGitBinding {
   /** Remote URL recorded for this workspace, e.g. `git@github.com:org/repo.git`. */
   readonly remote: string
-  /** Branch that auto-commits target. */
-  readonly branch: string
+  /**
+   * Ordered promotion chain of user-defined branch names. The first entry is
+   * the entry branch; `promote` merges the active branch into the next entry.
+   */
+  readonly branches: readonly string[]
+  /** Currently checked-out branch; always a member of {@link branches}. */
+  readonly activeBranch: string
   /** When true, the git consumer commits after each agent turn that changed files. */
   readonly autoCommit: boolean
   /** ISO-8601 instant the binding was recorded. */
@@ -127,8 +133,8 @@ export interface Workspace {
 
   /**
    * Record or replace the git binding; returns the stored binding.
-   * @param binding - Remote URL, branch, and auto-commit policy. `boundAt` is
-   * stamped by the method.
+   * @param binding - Remote URL, promotion chain, active branch, and
+   * auto-commit policy. `boundAt` is stamped by the method.
    * @returns the stored binding with the stamped timestamp.
    */
   bindGit(binding: Omit<WorkspaceGitBinding, 'boundAt'>): Promise<WorkspaceGitBinding>
@@ -142,6 +148,21 @@ export interface Workspace {
    * @param autoCommit - New auto-commit policy.
    */
   setGitAutoCommit(autoCommit: boolean): Promise<void>
+
+  /**
+   * Replace the promotion chain; rejects when the workspace is unbound. The
+   * active branch is kept when it remains on the chain, else the first entry.
+   * @param branches - ordered promotion chain.
+   * @param activeBranch - explicit active branch, or the kept/fallback entry.
+   */
+  setGitBranches(branches: readonly string[], activeBranch?: string): Promise<void>
+
+  /**
+   * Switch the active branch to another member of the chain; rejects when the
+   * workspace is unbound or the branch is not on the chain.
+   * @param branch - a branch already on the chain.
+   */
+  setActiveBranch(branch: string): Promise<void>
 
   /**
    * Prepend a session to this workspace's candidate account. An already

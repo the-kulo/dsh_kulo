@@ -7,9 +7,11 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import type {
   GitBindRequest,
+  GitCheckoutRequest,
   GitCommit,
   GitCommitRequest,
   GitCommitResult,
+  GitPromoteRequest,
   GitRepository,
   GitStatus,
 } from './types.ts'
@@ -98,6 +100,33 @@ export abstract class GitService extends Service {
    * @returns commits newest-first, or an empty array for an empty repository.
    */
   abstract log(directory: string, limit: number, signal?: AbortSignal): Promise<readonly GitCommit[]>
+
+  /**
+   * List the local branch names of a repository.
+   * @param directory - Absolute path inside the repository.
+   * @param signal - Cancels the listing.
+   * @returns branch names, or an empty array before the first commit.
+   */
+  abstract listBranches(directory: string, signal?: AbortSignal): Promise<readonly string[]>
+
+  /**
+   * Check out a branch, creating it from the current HEAD when it is absent.
+   * @param request - The repository directory and branch to check out.
+   * @param signal - Cancels the checkout.
+   * @returns the resolved repository after the checkout.
+   */
+  abstract checkout(request: GitCheckoutRequest, signal?: AbortSignal): Promise<GitRepository>
+
+  /**
+   * Promote one branch into another: check out the target (creating it from
+   * the source when absent) and merge the source into it. A conflict aborts
+   * the merge, restores the source branch, and throws
+   * {@link GitPromotionConflictError}.
+   * @param request - The source and target branches.
+   * @param signal - Cancels the promotion.
+   * @returns the resolved repository after the promotion.
+   */
+  abstract promote(request: GitPromoteRequest, signal?: AbortSignal): Promise<GitRepository>
 }
 
 export default GitService

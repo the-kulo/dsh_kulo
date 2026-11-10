@@ -25,6 +25,9 @@ The package bundles three roles in one:
 | `status(directory, signal?)` | Report the complete working-tree status through `git status --porcelain=v2 --branch -z`. |
 | `commit(request, signal?)` | Stage all changes and commit with identity overrides; returns `{ committed: false }` when clean. |
 | `log(directory, limit, signal?)` | List the `limit` most recent commits, newest first. |
+| `listBranches(directory, signal?)` | List local branch names, or `[]` before the first commit. |
+| `checkout(request, signal?)` | Check out a branch, creating it from HEAD when absent. |
+| `promote(request, signal?)` | Merge `from` into `to` (creating `to` from `from` when absent); a conflict restores `from` and throws `GitPromotionConflictError`. |
 
 ## Events
 

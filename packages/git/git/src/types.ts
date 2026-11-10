@@ -77,6 +77,24 @@ export interface GitCommitRequest {
   readonly message: string
 }
 
+/** A request to promote one branch into another. */
+export interface GitPromoteRequest {
+  /** Absolute directory of the repository. */
+  readonly directory: string
+  /** Branch that carries the changes. */
+  readonly from: string
+  /** Branch that receives them; created from `from` when absent. */
+  readonly to: string
+}
+
+/** A request to check out a branch, creating it when absent. */
+export interface GitCheckoutRequest {
+  /** Absolute directory of the repository. */
+  readonly directory: string
+  /** Branch to check out. */
+  readonly branch: string
+}
+
 /** The result of a commit attempt. */
 export interface GitCommitResult {
   /** True when a commit was created. */
@@ -132,5 +150,20 @@ export class GitArgumentError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'GitArgumentError'
+  }
+}
+
+/**
+ * A promotion merge conflicted. The working tree was restored to the source
+ * branch; the caller reports the conflict and the user resolves it manually.
+ */
+export class GitPromotionConflictError extends Error {
+  /**
+   * @param request - The promotion that conflicted.
+   * @param stderr - Captured stderr from the failed merge.
+   */
+  constructor(request: GitPromoteRequest, stderr: string) {
+    super(`git merge ${request.from} into ${request.to} conflicted: ${stderr.trim()}`)
+    this.name = 'GitPromotionConflictError'
   }
 }

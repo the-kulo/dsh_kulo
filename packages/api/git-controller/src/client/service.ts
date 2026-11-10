@@ -7,7 +7,7 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
 import { RemoteStream, RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import type { GitBindInput, GitStatusView } from '../types.ts'
+import type { GitBindInput, GitSetBranchesInput, GitStatusView } from '../types.ts'
 import { GitPanelModel } from './model.ts'
 import type { GitPanelSnapshot } from './model.ts'
 
@@ -31,6 +31,12 @@ export interface IGitPanel {
   setAutoCommit(autoCommit: boolean): Promise<void>
   /** Stage all changes and commit with the given message. */
   commit(message: string): Promise<void>
+  /** Promote the active branch into the next branch of the chain. */
+  promote(): Promise<void>
+  /** Check out another branch of the chain. */
+  checkoutBranch(branch: string): Promise<void>
+  /** Replace the promotion chain. */
+  setBranches(input: GitSetBranchesInput): Promise<void>
 }
 
 /**
@@ -132,6 +138,39 @@ export class GitPanel extends Service implements IGitPanel {
       this.model.installView(result.value)
     } else {
       throw this.model.handleRemoteFailure(result.error, 'commit')
+    }
+  }
+
+  async promote(): Promise<void> {
+    const workspaceId = this.requireWorkspace('promote')
+    this.model.setLoading()
+    const result = await this.ctx.remote.git.promote(workspaceId)
+    if (result.ok) {
+      this.model.installView(result.value)
+    } else {
+      throw this.model.handleRemoteFailure(result.error, 'promote')
+    }
+  }
+
+  async checkoutBranch(branch: string): Promise<void> {
+    const workspaceId = this.requireWorkspace('checkoutBranch')
+    this.model.setLoading()
+    const result = await this.ctx.remote.git.checkoutBranch(workspaceId, branch)
+    if (result.ok) {
+      this.model.installView(result.value)
+    } else {
+      throw this.model.handleRemoteFailure(result.error, 'checkoutBranch')
+    }
+  }
+
+  async setBranches(input: GitSetBranchesInput): Promise<void> {
+    const workspaceId = this.requireWorkspace('setBranches')
+    this.model.setLoading()
+    const result = await this.ctx.remote.git.setBranches(workspaceId, input)
+    if (result.ok) {
+      this.model.installView(result.value)
+    } else {
+      throw this.model.handleRemoteFailure(result.error, 'setBranches')
     }
   }
 

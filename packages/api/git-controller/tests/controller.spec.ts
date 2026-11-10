@@ -5,13 +5,15 @@ import { Context } from '@deepseek-ai/cordis'
 import { GitService } from '@deepseek-ai/dsh-git'
 import type {
   GitBindRequest,
+  GitCheckoutRequest,
   GitCommit,
   GitCommitRequest,
   GitCommitResult,
+  GitPromoteRequest,
   GitRepository,
   GitStatus,
 } from '@deepseek-ai/dsh-git'
-import { GitCommandError, GitNotRepositoryError, GitArgumentError, GitUnavailableError } from '@deepseek-ai/dsh-git'
+import { GitCommandError, GitNotRepositoryError, GitArgumentError, GitPromotionConflictError, GitUnavailableError } from '@deepseek-ai/dsh-git'
 import type { Workspace, WorkspaceGitBinding, WorkspaceRegistry } from '@deepseek-ai/dsh-workspace'
 import { WorkspaceId } from '@deepseek-ai/dsh-workspace'
 import { GitController } from '../src/index.ts'
@@ -23,7 +25,8 @@ const signal = new AbortController().signal
 function binding(autoCommit = true): WorkspaceGitBinding {
   return {
     remote: 'git@github.com:org/repo.git',
-    branch: 'main',
+    branches: ['main'],
+    activeBranch: 'main',
     autoCommit,
     boundAt: '2026-01-01T00:00:00.000Z',
   }
@@ -57,6 +60,18 @@ function makeWorkspace(git: WorkspaceGitBinding | undefined, calls: string[]): W
       calls.push('setGitAutoCommit')
       if (workspace.git !== undefined) workspace.git = { ...workspace.git, autoCommit }
     },
+    async setGitBranches(branches: readonly string[], activeBranch?: string): Promise<void> {
+      calls.push('setGitBranches')
+      if (workspace.git !== undefined) {
+        const current = workspace.git.activeBranch
+        const fallback = branches[0]
+        workspace.git = { ...workspace.git, branches: [...branches], activeBranch: activeBranch ?? (fallback ?? current) }
+      }
+    },
+    async setActiveBranch(branch: string): Promise<void> {
+      calls.push('setActiveBranch')
+      if (workspace.git !== undefined) workspace.git = { ...workspace.git, activeBranch: branch }
+    },
   } as Workspace
   return workspace
 }
@@ -71,6 +86,7 @@ class StubGitService extends GitService {
   statusResult: GitStatus | undefined = undefined
   statusError: Error | undefined = undefined
   bindError: Error | undefined = undefined
+  promoteError: Error | undefined = undefined
   logResult: readonly GitCommit[] = []
   commitResult: GitCommitResult = {
     committed: true,
@@ -85,6 +101,8 @@ class StubGitService extends GitService {
 
   readonly binds: GitBindRequest[] = []
   readonly commits: GitCommitRequest[] = []
+  readonly promotes: GitPromoteRequest[] = []
+  readonly checkouts: GitCheckoutRequest[] = []
 
   constructor(ctx: Context) {
     super(ctx)
@@ -117,6 +135,31 @@ class StubGitService extends GitService {
   async status(): Promise<GitStatus | undefined> {
     if (this.statusError !== undefined) throw this.statusError
     return this.statusResult
+  }
+
+  async listBranches(): Promise<readonly string[]> {
+    return []
+  }
+
+  async checkout(request: GitCheckoutRequest): Promise<GitRepository> {
+    this.checkouts.push(request)
+    return {
+      root: request.directory,
+      gitDir: `${request.directory}/.git`,
+      branch: request.branch,
+      remote: 'git@github.com:org/repo.git',
+    }
+  }
+
+  async promote(request: GitPromoteRequest): Promise<GitRepository> {
+    if (this.promoteError !== undefined) throw this.promoteError
+    this.promotes.push(request)
+    return {
+      root: request.directory,
+      gitDir: `${request.directory}/.git`,
+      branch: request.to,
+      remote: 'git@github.com:org/repo.git',
+    }
   }
 }
 
@@ -314,5 +357,73 @@ describe('GitController', () => {
     await expect(iterator.next())
       .rejects.toMatchObject({ isDSHRemoteError: true, code: 'git/workspace-unknown' })
     await iterator.return?.(undefined)
+  })
+
+  it('promote merges the active branch into the next chain entry', async () => {
+    const { git, controller } = makeController(makeWorkspace({
+      ...binding(),
+      branches: ['feature', 'verify', 'stable'],
+      activeBranch: 'feature',
+    }, []))
+    git.statusResult = status([])
+
+    const view = await controller.promote(workspaceId, signal)
+
+    expect(git.promotes).toEqual([{ directory: cwd, from: 'feature', to: 'verify' }])
+    expect(view.binding?.activeBranch).toBe('verify')
+  })
+
+  it('promote throws git/no-promotion-target at the end of the chain', async () => {
+    const { controller } = makeController(makeWorkspace({
+      ...binding(),
+      branches: ['feature', 'verify'],
+      activeBranch: 'verify',
+    }, []))
+
+    await expect(controller.promote(workspaceId, signal))
+      .rejects.toMatchObject({ isDSHRemoteError: true, code: 'git/no-promotion-target' })
+  })
+
+  it('promote maps a conflict to git/promotion-conflict', async () => {
+    const { git, controller } = makeController(makeWorkspace({
+      ...binding(),
+      branches: ['feature', 'verify'],
+      activeBranch: 'feature',
+    }, []))
+    git.promoteError = new GitPromotionConflictError({ directory: cwd, from: 'feature', to: 'verify' }, 'conflict')
+
+    await expect(controller.promote(workspaceId, signal))
+      .rejects.toMatchObject({ isDSHRemoteError: true, code: 'git/promotion-conflict' })
+  })
+
+  it('checkoutBranch switches within the chain', async () => {
+    const { git, controller } = makeController(makeWorkspace({
+      ...binding(),
+      branches: ['feature', 'verify'],
+      activeBranch: 'feature',
+    }, []))
+    git.statusResult = status([])
+
+    const view = await controller.checkoutBranch(workspaceId, 'verify', signal)
+
+    expect(git.checkouts).toEqual([{ directory: cwd, branch: 'verify' }])
+    expect(view.binding?.activeBranch).toBe('verify')
+  })
+
+  it('checkoutBranch rejects a branch outside the chain', async () => {
+    const { controller } = makeController(makeWorkspace(binding(), []))
+
+    await expect(controller.checkoutBranch(workspaceId, 'other', signal))
+      .rejects.toMatchObject({ isDSHRemoteError: true, code: 'git/invalid-branch' })
+  })
+
+  it('setBranches replaces the promotion chain', async () => {
+    const { git, controller } = makeController(makeWorkspace(binding(), []))
+    git.statusResult = status([])
+
+    const view = await controller.setBranches(workspaceId, { branches: ['main', 'release'], activeBranch: 'main' }, signal)
+
+    expect(view.binding?.branches).toEqual(['main', 'release'])
+    expect(view.binding?.activeBranch).toBe('main')
   })
 })

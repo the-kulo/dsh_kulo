@@ -79,7 +79,8 @@ function makeRecord(overrides: Partial<WorkspaceRecord> = {}): WorkspaceRecord {
 function makeBinding(overrides: Partial<Omit<WorkspaceGitBinding, 'boundAt'>> = {}): Omit<WorkspaceGitBinding, 'boundAt'> {
   return {
     remote: 'git@github.com:org/repo.git',
-    branch: 'main',
+    branches: ['main'],
+    activeBranch: 'main',
     autoCommit: true,
     ...overrides,
   }
@@ -98,12 +99,13 @@ describe('workspaceRecord schema', () => {
   it('parses a record with a git binding', () => {
     const withGit = {
       path: '/p', title: 'T', sessionIds: [], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
-      git: { remote: 'git@github.com:org/repo.git', branch: 'main', autoCommit: true, boundAt: '2026-06-01T00:00:00.000Z' },
+      git: { remote: 'git@github.com:org/repo.git', branches: ['main'], activeBranch: 'main', autoCommit: true, boundAt: '2026-06-01T00:00:00.000Z' },
     }
     const parsed = workspaceRecord.parse(withGit)
     assert.deepEqual(parsed.git, {
       remote: 'git@github.com:org/repo.git',
-      branch: 'main',
+      branches: ['main'],
+      activeBranch: 'main',
       autoCommit: true,
       boundAt: '2026-06-01T00:00:00.000Z',
     })
@@ -124,7 +126,8 @@ describe('WorkspaceEntity git binding', () => {
     const binding = makeBinding()
     const stored = await entity.bindGit(binding)
     assert.equal(stored.remote, binding.remote)
-    assert.equal(stored.branch, binding.branch)
+    assert.deepEqual(stored.branches, [...binding.branches])
+    assert.equal(stored.activeBranch, binding.activeBranch)
     assert.equal(stored.autoCommit, binding.autoCommit)
     assert.ok(typeof stored.boundAt === 'string' && stored.boundAt.length > 0)
 
@@ -198,6 +201,71 @@ describe('WorkspaceEntity git binding', () => {
     await assert.rejects(
       () => entity.setGitAutoCommit(false),
       WorkspaceGitUnboundError,
+    )
+  })
+
+  it('setGitBranches keeps the active branch when it stays on the chain', async () => {
+    const host = mockHost()
+    const id = WorkspaceId(randomUUID())
+    const record = makeRecord()
+    await host.table().put(id, record)
+    const entity = new WorkspaceEntity(host, id, record)
+
+    await entity.bindGit(makeBinding({ branches: ['feature', 'verify', 'stable'], activeBranch: 'feature' }))
+    await entity.setGitBranches(['feature', 'verify', 'release'])
+    assert.deepEqual(entity.git?.branches, ['feature', 'verify', 'release'])
+    assert.equal(entity.git?.activeBranch, 'feature')
+  })
+
+  it('setGitBranches falls back to the first entry when the active branch is removed', async () => {
+    const host = mockHost()
+    const id = WorkspaceId(randomUUID())
+    const record = makeRecord()
+    await host.table().put(id, record)
+    const entity = new WorkspaceEntity(host, id, record)
+
+    await entity.bindGit(makeBinding({ branches: ['feature', 'verify'], activeBranch: 'verify' }))
+    await entity.setGitBranches(['main', 'release'])
+    assert.equal(entity.git?.activeBranch, 'main')
+  })
+
+  it('setGitBranches rejects a chain whose active branch is not a member', async () => {
+    const host = mockHost()
+    const id = WorkspaceId(randomUUID())
+    const record = makeRecord()
+    await host.table().put(id, record)
+    const entity = new WorkspaceEntity(host, id, record)
+
+    await entity.bindGit(makeBinding({ branches: ['feature', 'verify'], activeBranch: 'feature' }))
+    await assert.rejects(
+      () => entity.setGitBranches(['main', 'release'], 'verify'),
+      WorkspaceGitBranchInvalidError,
+    )
+  })
+
+  it('setActiveBranch switches within the chain', async () => {
+    const host = mockHost()
+    const id = WorkspaceId(randomUUID())
+    const record = makeRecord()
+    await host.table().put(id, record)
+    const entity = new WorkspaceEntity(host, id, record)
+
+    await entity.bindGit(makeBinding({ branches: ['feature', 'verify'], activeBranch: 'feature' }))
+    await entity.setActiveBranch('verify')
+    assert.equal(entity.git?.activeBranch, 'verify')
+  })
+
+  it('setActiveBranch rejects a branch outside the chain', async () => {
+    const host = mockHost()
+    const id = WorkspaceId(randomUUID())
+    const record = makeRecord()
+    await host.table().put(id, record)
+    const entity = new WorkspaceEntity(host, id, record)
+
+    await entity.bindGit(makeBinding({ branches: ['feature', 'verify'], activeBranch: 'feature' }))
+    await assert.rejects(
+      () => entity.setActiveBranch('other'),
+      WorkspaceGitBranchInvalidError,
     )
   })
 
@@ -295,7 +363,7 @@ describe('git binding validation', () => {
   it('rejects an empty branch', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: '' })),
+      () => entity.bindGit(makeBinding({ branches: [''], activeBranch: '' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -303,7 +371,7 @@ describe('git binding validation', () => {
   it('rejects a branch with ".."', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'foo..bar' })),
+      () => entity.bindGit(makeBinding({ branches: ['foo..bar'], activeBranch: 'foo..bar' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -311,7 +379,7 @@ describe('git binding validation', () => {
   it('rejects a branch with leading dash', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: '-feature' })),
+      () => entity.bindGit(makeBinding({ branches: ['-feature'], activeBranch: '-feature' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -319,7 +387,7 @@ describe('git binding validation', () => {
   it('rejects a branch with spaces', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat ure'], activeBranch: 'feat ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -327,7 +395,7 @@ describe('git binding validation', () => {
   it('rejects a branch with tilde', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat~ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat~ure'], activeBranch: 'feat~ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -335,7 +403,7 @@ describe('git binding validation', () => {
   it('rejects a branch with caret', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat^ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat^ure'], activeBranch: 'feat^ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -343,7 +411,7 @@ describe('git binding validation', () => {
   it('rejects a branch with colon', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat:ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat:ure'], activeBranch: 'feat:ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -351,7 +419,7 @@ describe('git binding validation', () => {
   it('rejects a branch with question mark', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat?ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat?ure'], activeBranch: 'feat?ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -359,7 +427,7 @@ describe('git binding validation', () => {
   it('rejects a branch with asterisk', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat*ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat*ure'], activeBranch: 'feat*ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -367,7 +435,7 @@ describe('git binding validation', () => {
   it('rejects a branch with backslash', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'fea\\ture' })),
+      () => entity.bindGit(makeBinding({ branches: ['fea\\ture'], activeBranch: 'fea\\ture' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -375,7 +443,7 @@ describe('git binding validation', () => {
   it('rejects a branch with open bracket', async () => {
     const { entity } = makeEntity()
     await assert.rejects(
-      () => entity.bindGit(makeBinding({ branch: 'feat[ure' })),
+      () => entity.bindGit(makeBinding({ branches: ['feat[ure'], activeBranch: 'feat[ure' })),
       WorkspaceGitBranchInvalidError,
     )
   })
@@ -392,8 +460,8 @@ describe('git binding validation', () => {
       'A_B-C.D@{}',
     ]
     for (const branch of validBranches) {
-      const stored = await entity.bindGit(makeBinding({ branch }))
-      assert.equal(stored.branch, branch)
+      const stored = await entity.bindGit(makeBinding({ branches: [branch], activeBranch: branch }))
+      assert.equal(stored.activeBranch, branch)
     }
   })
 })
@@ -409,7 +477,7 @@ describe('git binding persistence round-trip', () => {
     await host.table().put(id, record)
 
     const entity1 = new WorkspaceEntity(host, id, record)
-    const binding = makeBinding({ remote: 'git@github.com:org/repo.git', branch: 'feature/x', autoCommit: false })
+    const binding = makeBinding({ remote: 'git@github.com:org/repo.git', branches: ['feature/x'], activeBranch: 'feature/x', autoCommit: false })
     const stored = await entity1.bindGit(binding)
 
     // Simulate reopening: load the record from the table snapshot
@@ -419,7 +487,7 @@ describe('git binding persistence round-trip', () => {
 
     assert.deepEqual(entity2.git, stored)
     assert.equal(entity2.git?.remote, 'git@github.com:org/repo.git')
-    assert.equal(entity2.git?.branch, 'feature/x')
+    assert.equal(entity2.git?.activeBranch, 'feature/x')
     assert.equal(entity2.git?.autoCommit, false)
     assert.equal(entity2.git?.boundAt, stored.boundAt)
   })

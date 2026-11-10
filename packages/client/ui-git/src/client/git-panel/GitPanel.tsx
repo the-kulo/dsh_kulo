@@ -368,7 +368,7 @@ function BoundView({
       <div className={css.header}>
         <div className={css.headerInfo}>
           <IconBranchOutlineRegular className={css.titleIcon} />
-          <span className={css.branch}>{status.repository?.branch ?? binding?.branch ?? '?'}</span>
+          <span className={css.branch}>{status.repository?.branch ?? binding?.activeBranch ?? '?'}</span>
           {binding !== undefined && (
             <span className={css.remote} title={binding.remote}>{binding.remote}</span>
           )}

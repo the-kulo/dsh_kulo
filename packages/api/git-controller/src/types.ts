@@ -44,8 +44,10 @@ export interface GitCommitView {
 export interface GitBindingView {
   /** Remote URL recorded for this workspace. */
   readonly remote: string
-  /** Branch that auto-commits target. */
-  readonly branch: string
+  /** Ordered promotion chain of user-defined branch names. */
+  readonly branches: readonly string[]
+  /** Currently checked-out branch; a member of `branches`. */
+  readonly activeBranch: string
   /** When true, the git consumer commits after each agent turn that changed files. */
   readonly autoCommit: boolean
   /** ISO-8601 instant the binding was recorded. */
@@ -86,10 +88,20 @@ export interface GitStatusView {
 export interface GitBindInput {
   /** Remote origin URL. */
   readonly remote: string
-  /** Branch to check out or create. */
+  /** Entry branch; used when `branches` is absent. */
   readonly branch: string
+  /** Ordered promotion chain; defaults to `[branch]`. */
+  readonly branches?: readonly string[]
   /** Whether to auto-commit after each agent turn. */
   readonly autoCommit: boolean
+}
+
+/** A request to replace a binding's promotion chain. */
+export interface GitSetBranchesInput {
+  /** Ordered promotion chain. */
+  readonly branches: readonly string[]
+  /** Active branch to keep; the entity falls back when it leaves the chain. */
+  readonly activeBranch: string
 }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -104,6 +116,14 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'git/command-failed': { readonly command: string; readonly exitCode: number | null }
     /** The working tree had no changes to commit. */
     'git/nothing-to-commit': {}
+    /** The requested branch is invalid or outside the promotion chain. */
+    'git/invalid-branch': { readonly branch: string }
+    /** A promotion merge conflicted; the working tree was restored. */
+    'git/promotion-conflict': {}
+    /** The active branch is the last entry of the promotion chain. */
+    'git/no-promotion-target': {}
+    /** The workspace has no recorded git binding. */
+    'git/not-bound': {}
     /** No registration carries that Workspace identity. */
     'git/workspace-unknown': { readonly workspaceId: WorkspaceId }
   }

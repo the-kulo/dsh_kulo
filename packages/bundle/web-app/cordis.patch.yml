@@ -151,6 +151,14 @@
     - id: workspace-controller
       name: '@deepseek-ai/dsh-api-workspace-controller'
 
+    # Git capability seam: the local provider over the subprocess runtime and
+    # the auto-commit consumer behind a workspace's git binding.
+    - id: git
+      name: '@deepseek-ai/dsh-git'
+
+    - id: git-controller
+      name: '@deepseek-ai/dsh-api-git-controller'
+
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'
 
@@ -299,6 +307,9 @@
     # The right Sidebar's workspace file tree tab type.
     - id: ui-sidebar-files
       name: '@deepseek-ai/dsh-client-ui-sidebar-files'
+
+    - id: ui-git
+      name: '@deepseek-ai/dsh-client-ui-git'
 
     - id: ui-settings
       name: '@deepseek-ai/dsh-client-ui-settings'

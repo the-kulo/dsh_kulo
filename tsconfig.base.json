@@ -146,6 +146,9 @@
       "@deepseek-ai/dsh-api-remote-access": ["./packages/api/remote-access/src/index.ts"],
       "@deepseek-ai/dsh-api-remote-access/client": ["./packages/api/remote-access/src/client/index.ts"],
       "@deepseek-ai/dsh-api-remote-access/types": ["./packages/api/remote-access/src/types.ts"],
+      "@deepseek-ai/dsh-api-git-controller": ["./packages/api/git-controller/src/index.ts"],
+      "@deepseek-ai/dsh-api-git-controller/client": ["./packages/api/git-controller/src/client/index.ts"],
+      "@deepseek-ai/dsh-api-git-controller/types": ["./packages/api/git-controller/src/types.ts"],
       "@deepseek-ai/dsh-api-workspace-controller": ["./packages/api/workspace-controller/src/index.ts"],
       "@deepseek-ai/dsh-api-workspace-controller/client": ["./packages/api/workspace-controller/src/client/index.ts"],
       "@deepseek-ai/dsh-api-workspace-controller/default-workspace": ["./packages/api/workspace-controller/src/default-workspace.ts"],
@@ -419,6 +422,7 @@
       "@deepseek-ai/dsh-bash-sandbox": ["./packages/shell/bash-sandbox/src"],
       "@deepseek-ai/dsh-brand": ["./packages/util/brand/src"],
       "@deepseek-ai/dsh-chunked-list": ["./packages/util/chunked-list/src"],
+      "@deepseek-ai/dsh-client-ui-git": ["./packages/client/ui-git/src"],
       "@deepseek-ai/dsh-cmdline": ["./packages/boot/cmdline/src"],
       "@deepseek-ai/dsh-command-compact": ["./packages/compaction/command-compact/src"],
       "@deepseek-ai/dsh-command-goal": ["./packages/goal/command-goal/src"],
@@ -592,6 +596,7 @@
       "@deepseek-ai/dsh-workflow-ptc": ["./packages/workflow/workflow-ptc/src"],
       "@deepseek-ai/dsh-working-directory": ["./packages/session/working-directory/src"],
       "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"],
+      "@deepseek-ai/dsh-git": ["./packages/git/git/src"],
       "@deepseek-ai/dsh-workspace-changes": ["./packages/deliverables/workspace-changes/src"]
       // END generated package aliases
     }

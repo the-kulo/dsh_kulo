@@ -114,6 +114,9 @@
       config:
         zones:
           secureDir: !!js "process.env.DSH_SECURE_ZONE_DIR ?? '~/.dsh/zones/secure'"
+          # Quick-answer history: keep a closed quick-qa Session for 7 days
+          # after its last activity, then remove it automatically.
+          quickQaRetentionDays: 7
 
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.

@@ -18,6 +18,7 @@
     "src/history.ts",
     "src/list.ts",
     "src/media-references.ts",
+    "src/quick-qa-retention.ts",
     "src/archived-session-gate.ts",
     "src/skill-catalog.ts",
     "src/zone.ts",

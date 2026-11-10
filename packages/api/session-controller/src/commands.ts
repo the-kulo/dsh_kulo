@@ -67,6 +67,8 @@ export interface ZoneDirectories {
   readonly secureDir: string
   /** Additional directories a secure-zone Session may access beside its zone directory. */
   readonly secureAdditionalDirs?: string[]
+  /** Whole days a cold quick-answer Session is kept before automatic removal. */
+  readonly quickQaRetentionDays: number
 }
 
 type PromptContentCandidate =

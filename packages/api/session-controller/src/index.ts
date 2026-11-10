@@ -29,6 +29,7 @@ import { ApiSessionList } from './list.ts'
 import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
 import { SessionMediaReferences } from './media-references.ts'
+import { QuickQaRetention } from './quick-qa-retention.ts'
 import { ArchivedSessionGate } from './archived-session-gate.ts'
 import { zoneProjectionDefinition } from './zone.ts'
 import { secureLocalRoutes, type SecureZonePolicy } from './secure-zone.ts'
@@ -179,6 +180,7 @@ export class SessionController extends TypertRemoteService {
       quickQaDir: z.string().default('~/.dsh/zones/quick-qa'),
       secureDir: z.string().default('~/.dsh/zones/secure'),
       secureAdditionalDirs: z.array(z.string()).default([]),
+      quickQaRetentionDays: z.natural().min(1).default(7),
     }).default({}),
   })
 
@@ -195,6 +197,7 @@ export class SessionController extends TypertRemoteService {
   private readonly listWorkSliceMs: number
   private readonly securePolicy: SecureZonePolicy
   private readonly zoneDirs: ZoneDirectories
+  private readonly quickQaRetention: QuickQaRetention
   private readonly promotions = new Set<Promise<void>>()
   private readonly deleting = new Set<SessionId>()
 
@@ -214,7 +217,14 @@ export class SessionController extends TypertRemoteService {
       secureAdditionalDirs: (ctx.get('fsZones')?.secureRoots ?? [])
         .filter((root) => root !== (ctx.get('fsZones')?.secureRoot ?? expandHome(resolved.zones.secureDir)))
         .map((root) => root),
+      quickQaRetentionDays: resolved.zones.quickQaRetentionDays,
     }
+    this.quickQaRetention = new QuickQaRetention(
+      ctx,
+      this.zoneDirs.quickQaDir,
+      this.zoneDirs.quickQaRetentionDays,
+      (sessionId) => this.deleteSession(sessionId),
+    )
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
     this.openPath = internals.openPath ?? openNativeAssociatedPath
@@ -244,6 +254,9 @@ export class SessionController extends TypertRemoteService {
     this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
     this.listState = new ApiSessionList(ctx, this.listWorkSliceMs)
     await this.listState.initialize()
+    // The retention sweep reads the list-metadata projection, so it starts only
+    // after that projection is registered.
+    this.quickQaRetention.start()
     ctx.plugin(SessionFileReferences)
     ctx.plugin(SessionMediaReferences)
     ctx.plugin(SessionSkillCatalog)
@@ -587,14 +600,24 @@ export class SessionController extends TypertRemoteService {
    * @returns acknowledgement after deletion and the removal notification commit.
    */
   @Remote('delete')
-  async delete(request: SessionDeleteRequest): Promise<SessionDeleteValue> {
-    this.deleting.add(request.sessionId)
+  delete(request: SessionDeleteRequest): Promise<SessionDeleteValue> {
+    return this.deleteSession(request.sessionId)
+  }
+
+  /**
+   * Delete one ordinary Session and publish its removal, guarding against the
+   * disposal notification that the deletion itself triggers.
+   * @param sessionId - Session identity to delete.
+   * @returns acknowledgement after deletion and the removal notification commit.
+   */
+  private async deleteSession(sessionId: SessionId): Promise<SessionDeleteValue> {
+    this.deleting.add(sessionId)
     try {
-      const result = await this.commands.delete(request)
-      this.ctx.emit('api-session/removed', request.sessionId)
+      const result = await this.commands.delete({ sessionId })
+      this.ctx.emit('api-session/removed', sessionId)
       return result
     } finally {
-      this.deleting.delete(request.sessionId)
+      this.deleting.delete(sessionId)
     }
   }
 

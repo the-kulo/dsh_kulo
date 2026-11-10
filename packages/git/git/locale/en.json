@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "git",
+    "description": "Git capability: workspace binding, working-tree status, and auto-generated commits"
+  }
+}

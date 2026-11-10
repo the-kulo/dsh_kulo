@@ -24,5 +24,8 @@ export const inject = ['remote', 'remote.git']
  * @param ctx - Client root Context.
  */
 export function apply(ctx: Context): void {
-  ctx.plugin(GitPanel)
+  // Construct the service on this fiber so its context inherits the plugin's
+  // `remote.git` inject; `ctx.plugin(GitPanel)` would create a sub-fiber whose
+  // empty inject cannot resolve the namespace.
+  new GitPanel(ctx)
 }

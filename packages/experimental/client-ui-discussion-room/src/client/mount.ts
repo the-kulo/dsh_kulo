@@ -8,7 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import { DiscussionHistoryView } from './DiscussionHistoryView.tsx'
-import { de, en, es, fr, ja, pt, ru, zh, NS, type DiscussionKey } from './locales.ts'
+import { en, zh, NS, type DiscussionKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -41,7 +41,7 @@ export async function mountDiscussionRoom(ctx: Context, contribution: TypertRemo
 }
 
 function registerDiscussionRoomUi(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'client-ui-discussion-room: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'client-ui-discussion-room: dictionaries')
   const t = ctx.locale.bind(NS)
   ctx.slots.inject('conversation.view', () => ctx.slots.register({
     name: 'conversation.view',

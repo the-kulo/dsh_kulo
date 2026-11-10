@@ -8,7 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-usage/remote'
 import { UsageSection } from './UsageSection.tsx'
 import type { UsageSectionInjected } from './UsageSection.tsx'
-import { en, ja, es, fr, de, ru, pt, zh, type UsageLocaleKey } from './locales.ts'
+import { en, zh, type UsageLocaleKey } from './locales.ts'
 
 export type { UsageSectionInjected, UsageSectionProps } from './UsageSection.tsx'
 export type { UsageLocaleKey } from './locales.ts'
@@ -28,7 +28,7 @@ export const inject = ['slots', 'locale', 'remote', 'remote.usageDashboard']
 
 /** Register the localized Token usage section. */
 export function apply(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-usage: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-usage: dictionaries')
   const t = ctx.locale.bind(NS)
   const injected = (): UsageSectionInjected => ({
     summary: async (request) => {

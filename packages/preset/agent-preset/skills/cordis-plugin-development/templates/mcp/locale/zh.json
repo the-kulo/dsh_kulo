@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "演示 MCP 连接",
+    "description": "连接远程 MCP 服务器，使其工具对代理可用。"
+  }
+}

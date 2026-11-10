@@ -28,7 +28,7 @@ import { SubagentLimitsCardController } from './subagent-limits-card-controller.
 import {
   SUBAGENT_MODEL_SELECTION_NS, SubagentModelSelectionCardController, shanghaiRangeDays,
 } from './subagent-model-selection-card-controller.ts'
-import { en, ja, es, fr, de, ru, pt, zh, type SubagentSettingsLocaleKey } from './locales.ts'
+import { en, zh, type SubagentSettingsLocaleKey } from './locales.ts'
 
 export type { ModelPoolSectionFace, ModelPoolSectionProps } from './ModelPoolSection.tsx'
 export type { SubagentCardProps } from './SubagentCard.tsx'
@@ -64,7 +64,7 @@ export const inject = ['slots', 'locale', 'remote', 'remote.session', 'configFor
  */
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-subagent: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-subagent: dictionaries')
   const limits = new SubagentLimitsCardController(ctx.configForms.get(SUBAGENT_NS))
   ctx.effect(() => () => { limits.dispose() }, 'ui-settings-subagent: limits form subscription')
   const models = new SubagentModelSelectionCardController(

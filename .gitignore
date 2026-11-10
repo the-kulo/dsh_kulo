@@ -15,6 +15,8 @@ examples/*/*.jsonl
 examples/*/.sessions/
 coverage/
 .coverage-times.json
+# 个人参考文档（本地生成，不入库）
+/dsh-sandbox-logic.md
 .doc-typecheck-*/
 .node-next-types-*/
 .oxlint-contract-*/

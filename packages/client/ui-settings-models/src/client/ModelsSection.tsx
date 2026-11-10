@@ -25,10 +25,14 @@ import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutlineRegular, Modal, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type { LlmNativeAuth, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  LlmDiscoveredModel, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView,
+} from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
 import type {} from './slot-contract.ts'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
+import { modelDrafts } from './DeepSeekModelsEditor.tsx'
 import { deriveKeyRef, protocolChoices, providerUsable, reasoningLevelChoices } from './store.ts'
 import type { ModelsSettingsStore, ProviderRow } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
@@ -134,6 +138,7 @@ function renderProviderEditor({ target, row, ...props }: ProviderEditorRenderPro
       {...target.nativeAuth === undefined ? {} : { nativeAuth: target.nativeAuth }}
       {...row.credential === undefined ? {} : { credential: row.credential }}
       {...row.credentialChecks === undefined ? {} : { credentialChecks: row.credentialChecks }}
+      {...row.runtimeModels === undefined ? {} : { runtimeModels: row.runtimeModels }}
       {...props}
     />
   )
@@ -167,6 +172,129 @@ export async function removeProviderProfile(
   if (written.kind !== 'written') return written.message
   await controller.load()
   return undefined
+}
+
+/** A numeric profile field, read without assuming the subtree is present. */
+function numberAt(value: unknown, key: string): number | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const field = Reflect.get(value, key)
+  return typeof field === 'number' ? field : undefined
+}
+
+/**
+ * What one route's endpoint discloses about the models it serves, by id. A
+ * gateway that publishes no capacities answers with ids alone — the same
+ * listing the runtime catalog exposes, and the reason a sync cannot invent
+ * them.
+ * @param operations - the page's Host operations.
+ * @param settingsNs - namespace whose adapter family interrogates the endpoint.
+ * @param provider - configured route to ask.
+ * @returns advertised models by id; empty when the route cannot be interrogated.
+ */
+async function advertisedModels(
+  operations: ModelsOperations,
+  settingsNs: string,
+  provider: string,
+): Promise<ReadonlyMap<string, LlmDiscoveredModel>> {
+  const answer = await operations.discoverModels(settingsNs, { provider })
+  if (answer.kind !== 'found') return new Map()
+  return new Map(answer.models.map(model => [model.id, model]))
+}
+
+/**
+ * Write the models a refresh discovered into the stored list of every route
+ * that already declares one.
+ *
+ * A refresh only fills the runtime catalog every selector reads, which no
+ * provider card draws from: the card shows the stored list, so the endpoint's
+ * new models have to be written there to appear. Only a route that already
+ * declares models is extended — a route served from the installed catalog names
+ * no list, and materializing one would replace the catalog those models
+ * describe. Additions keep the configured rows untouched; a model the endpoint
+ * dropped is left for the card's own fetch flow, which previews the whole list.
+ *
+ * Added rows carry the endpoint's own name and capacities when the listing
+ * discloses them, otherwise the capacities the profile already applies to a
+ * model it does not name — the values the runtime resolves today, written out
+ * so the card shows numbers the user can correct. A stored row that names no
+ * capacity at all is sized the same way; one that names any keeps exactly what
+ * it names, so a correction survives later refreshes.
+ * @param operations - the page's Host operations.
+ * @param controller - the page store, reloaded first so the sync sees the
+ * refreshed runtime catalog.
+ * @param schema - settings path reads over the namespace views.
+ * @returns one entry per route the settings document refused to change.
+ */
+async function syncDiscoveredModels(
+  operations: ModelsOperations,
+  controller: ModelsSettingsStore,
+  schema: SettingsSchemaOperations,
+): Promise<readonly { provider: string; reason: string }[]> {
+  await controller.load()
+  const snapshot = controller.store.getSnapshot()
+  if (!snapshot.writable) return []
+  // One write per namespace: every provider of one adapter shares it, and a
+  // write advances the revision the next one would be fenced to.
+  const pending = new Map<string, { revision: number; ops: SettingsPathOpView[]; providers: string[] }>()
+  for (const row of snapshot.rows) {
+    if (row.entry.provider === 'deepseek-account') continue
+    if (row.entry.settingsNs !== 'llm-pi-ai') continue
+    if (row.runtimeModels === undefined || row.runtimeModels.length === 0) continue
+    const namespace = snapshot.namespaces.get(row.entry.settingsNs)
+    if (namespace === undefined) continue
+    const modelsPath = [...row.entry.settingsPath, 'models']
+    const stored = modelDrafts(schema.getPath(namespace.value, modelsPath))
+    if (stored.length === 0) continue
+    const advertised = await advertisedModels(operations, row.entry.settingsNs, row.entry.provider)
+    const profile = schema.getPath(namespace.value, row.entry.settingsPath)
+    const routeContextWindow = numberAt(profile, 'defaultContextWindow')
+    const routeMaxTokens = numberAt(profile, 'defaultMaxTokens')
+    const capacities = (id: string | undefined): Record<string, number> => {
+      const found = id === undefined ? undefined : advertised.get(id)
+      const contextWindow = found?.contextWindow ?? routeContextWindow
+      const maxTokens = found?.maxTokens ?? routeMaxTokens
+      return {
+        ...contextWindow === undefined ? {} : { contextWindow },
+        ...maxTokens === undefined ? {} : { maxTokens },
+      }
+    }
+    let changed = false
+    const kept = stored.map((model) => {
+      // A row that names any capacity keeps exactly what it names. Only a row
+      // that sizes nothing is filled, where the route default is the value the
+      // runtime already resolves, so no refresh can overwrite a correction.
+      if (typeof model.contextWindow === 'number' || typeof model.maxTokens === 'number') return model
+      const additions = capacities(typeof model.id === 'string' ? model.id : undefined)
+      if (Object.keys(additions).length === 0) return model
+      changed = true
+      return { ...model, ...additions }
+    })
+    const declared = new Set(stored.flatMap(model => typeof model.id === 'string' ? [model.id] : []))
+    const added = row.runtimeModels.filter(id => !declared.has(id)).map((id) => {
+      changed = true
+      const found = advertised.get(id)
+      const name = found?.name === undefined || found.name === id ? undefined : found.name
+      return { id, ...name === undefined ? {} : { name }, ...capacities(id) }
+    })
+    if (!changed) continue
+    const value = [...kept, ...added] as JsonValue
+    const op: SettingsPathOpView = { op: 'set', path: modelsPath, value }
+    const entry = pending.get(row.entry.settingsNs)
+    if (entry === undefined) pending.set(row.entry.settingsNs, { revision: namespace.revision, ops: [op], providers: [row.entry.provider] })
+    else {
+      entry.ops.push(op)
+      entry.providers.push(row.entry.provider)
+    }
+  }
+  const synced: string[] = []
+  const failures: { provider: string; reason: string }[] = []
+  for (const [ns, { revision, ops, providers }] of pending) {
+    const written = await operations.writeSettings(ns, ops, revision)
+    if (written.kind === 'written') synced.push(...providers)
+    else { for (const provider of providers) failures.push({ provider, reason: written.message }) }
+  }
+  if (synced.length > 0) await controller.load()
+  return failures
 }
 
 /**
@@ -279,18 +407,26 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     setRefreshSuccess(undefined)
     setRefreshError(undefined)
     setRefreshFailures([])
-    void operations.refreshModels().then((outcome) => {
+    // The refresh itself only fills the runtime catalog every selector reads;
+    // the card below draws the stored list, so the same models are written into
+    // the declared list of each route that names one. That write is what makes
+    // the card — and a later restart — show what the endpoint really serves.
+    void operations.refreshModels().then(async (outcome) => {
       if (outcome.kind === 'refused') {
         setRefreshError(`${t('loadFailed')}: ${outcome.message}`)
         return
       }
-      setRefreshFailures(outcome.failures.map(failure => ({
+      const failures = outcome.failures.map(failure => ({
         provider: failure.provider,
         reason: failure.reason ?? failure.provider,
-      })))
+      }))
+      const refused = await syncDiscoveredModels(operations, controller, schema)
+      setRefreshFailures([...failures, ...refused])
       setRefreshSuccess(outcome.added > 0
         ? t('refreshAdded').replace('{count}', String(outcome.added))
         : t('refreshUpToDate'))
+    }).catch((error: unknown) => {
+      setRefreshError(`${t('loadFailed')}: ${error instanceof Error ? error.message : String(error)}`)
     }).finally(() => { setRefreshing(false) })
   }
 

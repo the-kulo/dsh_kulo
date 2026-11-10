@@ -82,6 +82,13 @@ export interface ProviderEditorProps {
   credential?: CredentialInfo
   /** Redacted checks for the profile's named reference or the provider's native variables. */
   credentialChecks?: Readonly<Record<string, CredentialInfo>>
+  /**
+   * Model ids the live route serves, runtime-discovered models included.
+   * Absent when the page read no runtime catalog; the rows the card draws come
+   * from the stored profile alone, so this is what names models a refresh
+   * discovered without writing them into the configuration.
+   */
+  runtimeModels?: readonly string[]
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -359,8 +366,21 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const customModels = schema.getPath(draft, ['models'])
     const modelsOverridden = schema.hasPath(draft, ['models'])
     const models = modelDrafts(modelsOverridden ? customModels : inheritedModels())
+    /**
+     * Models the live route serves that this stored list never names: a runtime
+     * catalog refresh merges endpoint listings into every selector without
+     * writing them here, so the card is where they become editable rows.
+     */
+    const configuredIds = new Set(models.flatMap(model =>
+      typeof model.id === 'string' && model.id.length > 0 ? [model.id] : []))
+    const runtimeOnly = family === 'pi-ai' && props.runtimeModels !== undefined
+      ? props.runtimeModels.filter(id => !configuredIds.has(id))
+      : []
     const defaultContextWindow = schema.getPath(fallback, ['defaultContextWindow'])
-    const defaultMaxTokens = schema.getPath(fallback, ['maxTokens'])
+    // The route-level output default: `llm-deepseek` names it `maxTokens`, the
+    // pi-ai route `defaultMaxTokens`. Both mean what one entry's field
+    // overrides, so the card shows one placeholder from either.
+    const defaultMaxTokens = schema.getPath(fallback, family === 'pi-ai' ? ['defaultMaxTokens'] : ['maxTokens'])
     const defaultInput = schema.getPath(fallback, ['defaultInput'])
     const baseURL = stringAt(fallback, 'baseURL') ?? props.defaultBaseURL
     const endpointEnv = props.baseURLEnv ?? []
@@ -525,16 +545,50 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 />
               )
               : (
-                <ModelListEditor
-                  {...catalogProps}
-                  catalogProvider={props.declared === true ? undefined : props.provider}
-                  reasoningLevels={reasoningLevels}
-                  defaultInput={Array.isArray(defaultInput) ? defaultInput : undefined}
-                  probe={probe}
-                  probeBlocked={keyFailure}
-                  operations={operations}
-                  onBusyChange={setListBusy}
-                />
+                <>
+                  {runtimeOnly.length === 0
+                    ? null
+                    : (
+                      <div className={styles['field']}>
+                        <p className={styles['advancedHint']}>
+                          {t('runtimeOnlyModels').replace('{models}', () => runtimeOnly.join(', '))}
+                        </p>
+                        <div>
+                          <button
+                            type="button"
+                            className={styles['secondaryButton']}
+                            disabled={disabled}
+                            onClick={() => {
+                              // The listing named these models but no
+                              // capacities, so each row starts from the
+                              // defaults this route applies to an unnamed
+                              // model — the values the runtime would resolve.
+                              setDraft(current => schema.setPath(current, ['models'], [
+                                ...models,
+                                ...runtimeOnly.map(id => ({
+                                  id,
+                                  ...typeof defaultContextWindow === 'number' ? { contextWindow: defaultContextWindow } : {},
+                                  ...typeof defaultMaxTokens === 'number' ? { maxTokens: defaultMaxTokens } : {},
+                                })),
+                              ]))
+                            }}
+                          >
+                            {t('runtimeOnlyAdd')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  <ModelListEditor
+                    {...catalogProps}
+                    catalogProvider={props.declared === true ? undefined : props.provider}
+                    reasoningLevels={reasoningLevels}
+                    defaultInput={Array.isArray(defaultInput) ? defaultInput : undefined}
+                    probe={probe}
+                    probeBlocked={keyFailure}
+                    operations={operations}
+                    onBusyChange={setListBusy}
+                  />
+                </>
               )}
           </div>
         </details>}

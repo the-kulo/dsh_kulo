@@ -98,6 +98,12 @@ export interface ProviderRow {
   derivedCredential?: CredentialInfo
   /** Redacted checks for named or native references; absent when their read failed. */
   credentialChecks?: Readonly<Record<string, CredentialInfo>>
+  /**
+   * Model ids the live route serves right now, runtime-discovered models
+   * included; empty when the page read no runtime catalog, and absent on the
+   * account row, which has no editable model list.
+   */
+  runtimeModels?: readonly string[]
 }
 
 /** Page snapshot. */
@@ -264,11 +270,17 @@ export class ModelsSettingsStore {
         credential: undefined,
       }
     })
-    if (rows.some(row => row.entry.provider === 'deepseek-account')) {
-      const catalog = await this.ctx.remote.session.modelCatalog()
+    // The runtime catalog is what a selector would offer, so it is also the only
+    // fact that names models an endpoint disclosed without any stored entry.
+    const catalog = rows.some(row => row.entry.provider === 'deepseek-account' || row.configured)
+      ? await this.ctx.remote.session.modelCatalog()
+      : undefined
+    const runtimeModels = new Map<string, readonly string[]>()
+    if (catalog !== undefined && catalog.ok) {
+      for (const group of catalog.value.groups) runtimeModels.set(group.id, group.models.map(model => model.id))
       for (const row of rows) {
-        if (row.entry.provider === 'deepseek-account') row.accountAvailable = catalog.ok
-          && catalog.value.groups.some(group => group.id === 'deepseek-account' && group.models.length > 0)
+        if (row.entry.provider === 'deepseek-account') row.accountAvailable = catalog.value.groups
+          .some(group => group.id === 'deepseek-account' && group.models.length > 0)
       }
     }
     const refs = [...new Set(rows.filter(row => row.entry.provider !== 'deepseek-account').flatMap(row =>
@@ -296,6 +308,7 @@ export class ModelsSettingsStore {
         const derived = row.apiKeyEnv !== undefined ? undefined : credentials[deriveKeyRef(row.entry.provider)]
         return {
           ...row,
+          runtimeModels: runtimeModels.get(row.entry.provider) ?? [],
           ...named === undefined ? {} : { credential: named },
           ...derived === undefined ? {} : { derivedCredential: derived },
           ...credentialError === null ? { credentialChecks: Object.fromEntries(

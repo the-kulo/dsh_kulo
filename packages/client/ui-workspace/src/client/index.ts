@@ -281,6 +281,7 @@ export function apply(ctx: Context): void {
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId, options) => { uiWorkspace.startSession(workspaceId, options) },
     startZoneSession: (zone) => { uiWorkspace.startZoneSession(zone) },
+    registerSecureDir: (path) => ctx.remote.session.registerSecureDir({ path }),
     open: openSession,
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,

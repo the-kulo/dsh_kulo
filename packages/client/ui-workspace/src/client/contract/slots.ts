@@ -264,6 +264,8 @@ export type WorkspaceBrowserInjected = {
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
   /** Create and open one dedicated-zone conversation (quick-qa or secure). */
   startZoneSession: (zone: 'quick-qa' | 'secure') => void
+  /** Register a picked directory as an additional secure-zone root for the running Host. */
+  registerSecureDir: (path: string) => Promise<unknown>
   /** Open a real Session. */
   open: (sessionId: SessionId) => void
   /**

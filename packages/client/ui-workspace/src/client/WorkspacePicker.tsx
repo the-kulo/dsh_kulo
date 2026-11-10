@@ -41,7 +41,7 @@ export interface WorkspacePickFlowProps {
   /** Render this surface's directory-flow hole with the owner conversation (the entry's narrowed renderSlot). */
   renderDirectoryFlow: (owner: DirectoryFlowOwnerProps) => ReactNode
   /** A real Workspace was picked or created. */
-  onPick: (workspaceId: WorkspaceId) => void
+  onPick: (workspaceId: WorkspaceId, path: string) => void
   /** Close the popover (outside click / Escape / post-pick). */
   onClose: () => void
   /** Report the picking interaction and adoption occupancy. */
@@ -155,7 +155,7 @@ export function WorkspacePickFlow({
   const adoptDirectory = (path: string): Promise<void> =>
     createWorkspace({ path }).then((workspace) => {
       setFlowOpen(false)
-      onPick(workspace.workspaceId)
+      onPick(workspace.workspaceId, path)
     }).catch((reason: unknown) => {
       setModalError(reason instanceof Error ? reason.message : String(reason))
       setFlowOpen(false)
@@ -206,7 +206,8 @@ export function WorkspacePickFlow({
       openDirectoryFlow()
       return
     }
-    onPick(id as WorkspaceId)
+    const selected = listed.find(row => row.id === id)
+    onPick(id as WorkspaceId, selected?.path ?? '')
   }
 
   return (

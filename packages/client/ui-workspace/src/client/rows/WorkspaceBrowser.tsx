@@ -1101,6 +1101,7 @@ export function WorkspaceBrowser({
   actions,
   startSession,
   startZoneSession,
+  registerSecureDir,
   open,
   requestSessionRename,
   notifyArchivedNotOpenable,
@@ -1916,8 +1917,14 @@ export function WorkspaceBrowser({
         addOnly
         onBusyChange={setDirectoryBusy}
         side="right"
-        onPick={(workspaceId) => {
+        onPick={(workspaceId, path) => {
           closeAddWorkspace()
+          if (addAnchor === 'secure') {
+            void registerSecureDir(path).catch((reason: unknown) => {
+              console.warn('secure-zone directory registration failed:', reason)
+            })
+            return
+          }
           startSession(workspaceId, { clearPreviousDraft: false })
         }}
         onClose={() => { closeAddWorkspace() }}
